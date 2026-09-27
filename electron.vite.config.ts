@@ -7,6 +7,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 
 import { appVersion } from "./scripts/app-version.mjs";
+import { monacoWorkersOncePlugin } from "./scripts/monaco-workers.mjs";
 import { pdfAssetsPlugin } from "./scripts/pdf-assets.mjs";
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(appRoot, "..", "..");
@@ -65,7 +66,7 @@ export default defineConfig({
     // default to leave in place.
     worker: { format: "es" },
     define: { __APP_VERSION__: JSON.stringify(appVersion()) },
-    plugins: [pdfAssetsPlugin(), drawingAssetsPlugin(), react(), tailwindcss()],
+    plugins: [monacoWorkersOncePlugin(), pdfAssetsPlugin(), drawingAssetsPlugin(), react(), tailwindcss()],
     // Off Vite's default 5173, which `npm --prefix apps/web run dev` claims
     // with strictPort — the two dev servers have to be able to run together.
     // Matches the `desktop-dev` entry in the repo's .claude/launch.json.
@@ -78,6 +79,9 @@ export default defineConfig({
       fs: { allow: [repoRoot] },
     },
     build: {
+      // Vite gzips every chunk to print its compressed size: ~900 of them here,
+      // for a number nothing reads. Off, it is a tenth of the renderer build.
+      reportCompressedSize: false,
       rollupOptions: {
         input: { index: path.join(appRoot, "src", "renderer", "index.html") },
       },
