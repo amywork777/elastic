@@ -88,5 +88,5 @@ are copied into sessions subsequently created in the same directory.
 Schema migrations are append-only. Validate changes against an existing
 database fixture as well as an empty database. The native regression suite
 `tests/e2e/session-storage.spec.ts` covers upgrade, restart, backup contents,
-ownership rejection and deletion isolation; `session-titles.spec.ts` covers
+ownership rejection and deletion isolation; `persistence.spec.ts` covers
 agent naming and persisted user overrides.

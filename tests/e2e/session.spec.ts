@@ -1,9 +1,9 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from "@playwright/test";
+import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
+import type { TextToCadApi } from "../../src/shared/ipc";
+import { launch, scratch, settledLayout } from "./launch";
 
 /**
  * The session UI against the fake agent (plan §12): new session → prompt →
@@ -32,51 +32,38 @@ declare const window: {
   innerWidth: number;
   /** What a drag actually selected. */
   getSelection(): { toString(): string; removeAllRanges(): void } | null;
-  textToCad: {
-    projects: { addPath(input: { path: string }): Promise<{ id: string }> };
-    settings: { set(patch: { theme: string }): Promise<unknown> };
-  };
+  textToCad: TextToCadApi;
 };
-
-const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const fakeAgent = path.join(appRoot, "tests", "fake-agent", "index.mjs");
 
 let app: ElectronApplication;
 let page: Page;
 let userData: string;
 let project: string;
 let signedOutProject: string;
+const extraDirs: string[] = [];
+
+test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
-  userData = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-e2e-session-"));
-  project = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-scratch-"));
+  userData = scratch("session");
+  project = scratch("scratch");
   fs.writeFileSync(path.join(project, "README.md"), "# Scratch\n\nA place to try things.\n");
-  signedOutProject = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-signed-out-"));
+  signedOutProject = scratch("signed-out");
   fs.writeFileSync(path.join(signedOutProject, ".fake-auth-required"), "");
 
-  app = await electron.launch({
-    args: [path.join(appRoot, "out", "main", "index.js"), `--user-data-dir=${userData}`],
-    env: { ...process.env, NODE_ENV: "test", TEXT_TO_CAD_FAKE_AGENT: fakeAgent },
-  });
-  page = await app.firstWindow();
-  // A renderer exception would otherwise show up as an empty page and a
-  // timeout three assertions later.
-  page.on("pageerror", (error) => {
-    console.error(`[renderer] ${error.message}\n${error.stack ?? ""}`);
-  });
+  ({ app, page } = await launch({ userData }));
   page.on("console", (message) => {
     if (message.type() === "error" || message.type() === "warning") {
       console.error(`[renderer:${message.type()}] ${message.text()}`);
     }
   });
-  await page.waitForLoadState("domcontentloaded");
   await page.evaluate((value) => window.textToCad.settings.set({ theme: value }), "dark");
   await page.evaluate((dir) => window.textToCad.projects.addPath({ path: dir }), project);
 });
 
 test.afterAll(async () => {
   await app?.close();
-  for (const dir of [userData, project, signedOutProject]) {
+  for (const dir of [userData, project, signedOutProject, ...extraDirs]) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -137,9 +124,6 @@ test("a new session runs a Codex-shaped turn through every state", async () => {
   await shoot("session-new-model-menu.png");
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
-  await setTheme("light");
-  await shoot("session-new-light.png");
-  await setTheme("dark");
 
   const composer = page.getByPlaceholder("Do anything");
   await composer.fill("showcase: write a greeting script and tidy up");
@@ -277,9 +261,14 @@ test("a new session runs a Codex-shaped turn through every state", async () => {
   await execRow.getByRole("button").first().click();
   await expect(page.locator("[data-tool-detail]").filter({ hasText: "hello from the fake agent" }).last()).toBeVisible();
   await shoot("session-expanded.png");
-  await setTheme("light");
-  await shoot("session-expanded-light.png");
-  await setTheme("dark");
+
+  // The paperclip is one picker for everything — any file, many at once — and not a menu. Not
+  // clicked: that opens the OS chooser, which nothing here can close.
+  await expect(page.locator("[data-composer]").getByRole("button", { name: "Attach files or photos" })).toBeVisible();
+  await expect(page.locator("[data-composer]").getByRole("button", { name: "Add to this prompt" })).toHaveCount(0);
+  const attach = page.locator("[data-composer] input[data-attach-input]");
+  await expect(attach).toHaveAttribute("multiple", "");
+  await expect(attach).not.toHaveAttribute("accept", /.+/);
 });
 
 /**
@@ -306,22 +295,42 @@ test("text in an agent's message can be selected with the mouse", async () => {
   }
   const prose = page.locator("[data-part=text]").first().locator("p").first();
   await expect(prose).toBeVisible();
-  // The previous test expands the tool details, which can scroll this first
-  // paragraph above the viewport. Visible means rendered, not on screen.
+  // The previous test expands the tool details, which can scroll this first paragraph above
+  // the viewport; visible means rendered, not on screen.
   await prose.scrollIntoViewIfNeeded();
   await expect(prose).toBeInViewport();
-  // Measure the first text line, not the paragraph's full-width box or its
-  // padding. This Range only measures; the mouse must still select the text.
-  const box = await prose.evaluate((node) => {
-    const range = node.ownerDocument.createRange();
-    range.selectNodeContents(node);
-    const rect = range.getClientRects()[0];
-    if (!rect) throw new Error("the agent's paragraph has no rendered text line");
-    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-  });
-  await page.mouse.move(box.x + 1, box.y + box.height / 2);
+  // The line the drag crosses: the first text line, not the paragraph's full-width box or its
+  // padding. It is measured until it holds still for two frames AND both ends of it hit the
+  // paragraph. Scrolling the paragraph into view animates, and on CI a line measured mid-scroll
+  // — the content still moving down as the view scrolled up to it — put the drag on the
+  // person's prompt above it. The Range only measures; the mouse still does the selecting.
+  let box: { x: number; y: number; width: number; height: number } | null = null;
+  await expect.poll(async () => {
+    box = await prose.evaluate((node) => new Promise<{ x: number; y: number; width: number; height: number } | null>((resolve) => {
+      const doc = node.ownerDocument;
+      const measure = () => {
+        const range = doc.createRange();
+        range.selectNodeContents(node);
+        const rect = range.getClientRects()[0];
+        return rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null;
+      };
+      const before = measure();
+      const view = doc.defaultView!;
+      view.requestAnimationFrame(() => view.requestAnimationFrame(() => {
+        const after = measure();
+        if (!before || !after || JSON.stringify(before) !== JSON.stringify(after)) return resolve(null);
+        const middle = after.y + after.height / 2;
+        const hits = [after.x + 1, after.x + after.width - 1].every((x) => node.contains(doc.elementFromPoint(x, middle)));
+        if (!hits) node.scrollIntoView({ block: "center" });
+        resolve(hits ? after : null);
+      }));
+    }));
+    return box !== null;
+  }).toBe(true);
+  const line = box!;
+  await page.mouse.move(line.x + 1, line.y + line.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width - 1, box.y + box.height / 2, { steps: 16 });
+  await page.mouse.move(line.x + line.width - 1, line.y + line.height / 2, { steps: 16 });
   await page.mouse.up();
   const selected = await page.evaluate(() => window.getSelection()?.toString() ?? "");
   expect(selected.trim().length, "nothing was selected in the agent's prose").toBeGreaterThan(0);
@@ -371,9 +380,6 @@ test("the context panel breaks the window down when the agent sends categories",
   await expect(popover.locator("[data-context-detail]")).toBeVisible();
   await settled();
   await shoot("session-context.png");
-  await setTheme("light");
-  await shoot("session-context-light.png");
-  await setTheme("dark");
   await page.keyboard.press("Escape");
   await expect(popover).toBeHidden();
 });
@@ -408,25 +414,8 @@ test("the context panel lists the account's plan limits", async () => {
   // the assertions pass catches it half-transparent and two-thirds size.
   await settled();
   await shoot("session-context-limits.png");
-  await setTheme("light");
-  await shoot("session-context-limits-light.png");
-  await setTheme("dark");
   await page.keyboard.press("Escape");
   await expect(popover).toBeHidden();
-});
-
-test("the paperclip attaches files and photos, and is not a menu", async () => {
-  const clip = page.locator("[data-composer]").getByRole("button", { name: "Attach files or photos" });
-  await expect(clip).toBeVisible();
-  await expect(page.locator("[data-composer]").getByRole("button", { name: "Add to this prompt" })).toHaveCount(0);
-  // One picker for everything: the hidden input takes any file, many at once.
-  // Not clicked — that opens the OS file chooser, which nothing here can
-  // close; the button's job is checked by what it is wired to.
-  const input = page.locator("[data-composer] input[data-attach-input]");
-  await expect(input).toHaveCount(1);
-  await expect(input).toHaveAttribute("multiple", "");
-  await expect(input).not.toHaveAttribute("accept", /.+/);
-  await expect(page.getByRole("menu")).toHaveCount(0);
 });
 
 /**
@@ -492,40 +481,6 @@ test("the composer starts at one row, grows, and caps at eight", async () => {
   expect(after.scrolls).toBe(false);
 });
 
-/**
- * The same turn again in light, for the states that only exist mid-turn:
- * streaming and the permission card. A theme switch after the fact cannot
- * show them, so the fake runs its showcase once more.
- */
-test("the streaming and permission states render in light", async () => {
-  await page.getByRole("button", { name: "New", exact: true }).click();
-  await expect(page.getByRole("heading", { name: /What should we build in/ })).toBeVisible();
-  await setTheme("light");
-  const composer = page.getByPlaceholder("Do anything");
-  await composer.fill("showcase: the same script, in light");
-  await composer.press("Enter");
-
-  await expect(page.locator("[data-activity-row], [data-activity-group]").first()).toBeVisible();
-  await expect(page.locator("[data-status-line]")).toBeVisible();
-  await shoot("session-streaming-light.png");
-
-  const permission = page.locator("[data-permission][data-outcome=pending]");
-  await expect(permission).toBeVisible();
-  await shoot("session-permission-light.png");
-  await permission.getByRole("button", { name: "Yes", exact: true }).click();
-  await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 20_000 });
-  await shoot("session-completed-light.png");
-  await setTheme("dark");
-  // Back to the first session, which the rest of the file drives — and this
-  // one deleted, so the sidebar holds exactly the row those tests expect.
-  const light = page.locator("[data-session-row]").filter({ hasText: "in light" });
-  await light.getByRole("button", { name: /actions$/ }).click();
-  await page.getByRole("menuitem", { name: "Delete" }).click();
-  await expect(page.locator("[data-session-row]")).toHaveCount(1);
-  await page.locator("[data-session-row]").click();
-  await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle");
-});
-
 test("stop cancels the running turn", async () => {
   const composer = page.getByPlaceholder("Do anything");
   await composer.fill("slow");
@@ -569,7 +524,7 @@ test("a crashed agent is an inline error with retry, and reconnecting resumes th
   // A reconnect never replaces the transcript with a loading screen: what
   // is on screen is still worth reading, and the agent coming back is a line
   // in the composer's row (README, "Opening a session";
-  // `tests/e2e/reconnect.spec.ts` is that mechanism on its own).
+  // `tests/e2e/persistence.spec.ts` is that mechanism across a relaunch).
   await expect(page.locator("[data-connecting]")).toHaveCount(0);
   // The fake's `session/load` replays one earlier exchange.
   await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle");
@@ -713,6 +668,98 @@ test("a signed-out agent asks to sign in", async () => {
   await shoot("session-auth.png");
 });
 
+/**
+ * A failed tool call is counted beside the group's summary, never by painting the summary red,
+ * and a thought is a quiet glyph rather than a sparkle.
+ */
+test("activity keeps failures separate from the summary and uses a quiet thinking icon", async () => {
+  const base = scratch("activity");
+  extraDirs.push(base);
+  fs.mkdirSync(path.join(base, "models"));
+  fs.writeFileSync(path.join(base, "README.md"), "# Preview project\n");
+  await setTheme("light");
+  const added = await page.evaluate((root) => window.textToCad.projects.addPath({ path: root }), base);
+  const session = await page.evaluate((projectId) => window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), added.id);
+  await page.locator(`[data-session-row="${session.id}"]`).getByRole("button").first().click();
+  // The read succeeds; writing to an existing directory fails safely.
+  await page.evaluate(({ id, text }) => window.textToCad.sessions.prompt({ id, content: [{ type: "text", text }] }),
+    { id: session.id, text: `thought read ${path.join(base, "README.md")} write ${path.join(base, "models")} terminal` });
+  const group = page.locator("[data-activity-group]");
+  const summary = group.getByRole("button").first();
+  await expect(summary).toContainText("1 failed");
+  await expect(summary).not.toHaveClass(/text-destructive/);
+  await expect(group.locator("[data-activity-failures]")).toHaveText("1 failed");
+  const thought = page.getByRole("button", { name: /^Thought/ });
+  await expect(thought.locator("svg.lucide-ellipsis")).toBeVisible();
+  await expect(thought.locator("svg.lucide-sparkles")).toHaveCount(0);
+  await shoot("activity-collapsed-light.png");
+  await summary.click();
+  const failedRow = page.locator('[data-activity-row][data-status="failed"]');
+  await expect(failedRow.getByRole("button")).toContainText("Failed");
+  await failedRow.getByRole("button").click();
+  await expect(failedRow.locator("[data-tool-detail]")).toContainText(/EISDIR|directory/i);
+  await shoot("activity-expanded-light.png");
+  await setTheme("dark");
+});
+
+/**
+ * References, both ways. An agent names files in prose: the ones that exist are links that
+ * open in the explorer, the rest are words — which needs main to say which exist. A person
+ * types one into the composer: it is a chip, and it goes to the agent as its plain token.
+ * (The viewer's own Add to prompt is `cad.spec.ts`.)
+ */
+test("paths an agent writes are links that open in the explorer, and a typed reference is a chip sent as its text", async () => {
+  const workspace = scratch("references");
+  extraDirs.push(workspace);
+  const STEP = "tests/fixtures/cad/import-smoke.step";
+  for (const file of ["README.md", "apps/desktop/AGENTS.md", STEP]) {
+    fs.mkdirSync(path.dirname(path.join(workspace, file)), { recursive: true });
+    fs.writeFileSync(path.join(workspace, file), `# ${path.basename(file)}\n`);
+  }
+  const added = await page.evaluate((root) => window.textToCad.projects.addPath({ path: root }), workspace);
+  const session = await page.evaluate((projectId) => window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), added.id);
+  await page.locator(`[data-session-row="${session.id}"]`).getByRole("button").first().click();
+  await expect(page.locator("[data-explorer-ready=true]")).toBeVisible();
+  const outcome = await page.evaluate(({ id, text }) => window.textToCad.sessions.prompt({ id, content: [{ type: "text", text }] }),
+    { id: session.id, text: "mention some files" });
+  expect(outcome.stopReason).toBe("end_turn");
+  // Real paths are buttons — prose, a code span, a CAD reference with its selector — and a
+  // missing path or a version number is text.
+  const readme = page.locator('[data-path-link="README.md"]');
+  await expect(readme).toBeVisible();
+  await expect(page.locator('[data-path-link="apps/desktop/AGENTS.md"]')).toBeVisible();
+  await expect(page.locator(`[data-path-link="${STEP}"]`)).toHaveAttribute("data-path-selector", "o1");
+  await expect(page.locator('[data-path-text="nope/missing.md"]')).toBeVisible();
+  await expect(page.locator('[data-path-link="0.5.0"]')).toHaveCount(0);
+  await readme.click();
+  await expect(page.getByRole("tab", { name: /README\.md/ })).toBeVisible();
+  await shoot("transcript-links.png");
+
+  const composer = page.getByPlaceholder("Do anything");
+  await composer.click();
+  await page.keyboard.type(`make ${STEP}#o1.2 thicker, and #f3 `);
+  const chips = page.locator("[data-composer] [data-reference-chip]");
+  await expect(chips).toHaveCount(2);
+  await expect(chips.nth(0)).toHaveAttribute("data-file", STEP);
+  await expect(chips.nth(0)).toHaveAttribute("data-selector", "o1.2");
+  await expect(chips.nth(0).locator("[data-selector-badge]")).toHaveText("o1.2");
+  await expect(chips.nth(1)).toHaveAttribute("data-file", "");
+  await expect(chips.nth(1)).toHaveAttribute("data-selector", "f3");
+  // Backspace after the last chip takes the chip whole, not a character.
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Backspace");
+  await expect(chips).toHaveCount(1);
+  await page.keyboard.type("#f3 please");
+  await page.keyboard.press("Enter");
+  await expect(chips).toHaveCount(0);
+  await expect.poll(async () => {
+    const state = await page.evaluate((id) => window.textToCad.sessions.state({ id }), session.id);
+    const turns = state?.state.turns.filter((turn) => turn.role === "user") ?? [];
+    return turns.at(-1)?.parts.find((part) => part.type === "text")?.text;
+  }).toBe(`make ${STEP}#o1.2 thicker, and #f3 please`);
+  await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 15_000 });
+});
+
 /** Observe this prompt's completed reply, rather than the preceding turn's idle state. */
 async function completeContextTurn(prompt: "context" | "limits") {
   if (await page.locator("[data-new-session]").count()) {
@@ -768,9 +815,16 @@ async function type(lines: number) {
   }
 }
 
-/** One popover's worth of fade and scale, before a picture is taken of it. */
+/**
+ * Radix fades and scales a popover in, and `animations: "disabled"` finishes
+ * an animation rather than skipping it: a shot taken the instant the
+ * assertions pass catches the panel half-transparent. Wait for its own
+ * animations to finish instead.
+ */
 async function settled() {
-  await page.waitForTimeout(250);
+  await page.locator("[data-context-popover]").evaluate((node) =>
+    Promise.all(node.getAnimations({ subtree: true }).map((animation: { finished: Promise<unknown> }) => animation.finished.catch(() => undefined))),
+  );
 }
 
 async function setTheme(theme: "dark" | "light") {
@@ -787,8 +841,7 @@ async function resizeWindow(width: number, height: number) {
     { width, height },
   );
   await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
-  // The panels lay out on the next frame.
-  await page.waitForTimeout(150);
+  await settledLayout(page);
 }
 
 /**

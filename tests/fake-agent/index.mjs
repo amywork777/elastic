@@ -130,7 +130,7 @@ const modeAsOption = args.includes("--mode-option");
  * is instant, which is the point of it everywhere else — but a real adapter
  * spends one to one and a half seconds replaying a transcript (README,
  * "Opening a session"), and the state a session is in for that second and a
- * half is the thing `reconnect.spec.ts` is about: its transcript painted
+ * half is one of the things `persistence.spec.ts` is about: its transcript painted
  * from the snapshot with `Reconnecting…` under it. Instant, there is nothing
  * to look at.
  */

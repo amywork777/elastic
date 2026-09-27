@@ -64,7 +64,7 @@ Three environment variables matter in development:
 | --- | --- |
 | `TEXT_TO_CAD_APTABASE_KEY` | Read at BUILD time and compiled in (see Telemetry). Unset means no network call is ever attempted. |
 | `CAD_DESKTOP_PYTHON` | An interpreter with cadgen installed, used instead of the bundled runtime (see CAD runtime below). A developer's knob; the e2e suite breaks and clears the equivalent setting on purpose. |
-| `TEXT_TO_CAD_PREWARM` | Under `NODE_ENV=test` both pre-warms are off — the project's (viewer child + cadgen daemon on project open) and the agents' (one idle adapter per agent in the index, see "Opening a session"); `1` turns them on, as `tests/e2e/prewarm.spec.ts` and `tests/e2e/reconnect.spec.ts` do. |
+| `TEXT_TO_CAD_PREWARM` | Under `NODE_ENV=test` both pre-warms are off — the project's (viewer child + cadgen daemon on project open) and the agents' (one idle adapter per agent in the index, see "Opening a session"); `1` turns them on, as `tests/e2e/cad.spec.ts` and `tests/e2e/persistence.spec.ts` do. |
 | `TEXT_TO_CAD_FAKE_AGENT` | Launch this stdio ACP agent instead of whatever the registry says, for every provider. The session and git suites point it at `tests/fake-agent/index.mjs`; a session needs an agent to exist at all, and a real one would make the suite a test of somebody's login state. |
 Two more decide whether the window is seen at all:
 
@@ -249,56 +249,40 @@ rasterising. Commit them or discard them, but do not go looking for the change
 
 The session suite (`session-*.png`) drives the session UI through each of its
 states with `tests/fake-agent` (`TEXT_TO_CAD_FAKE_AGENT` points main at it in place
-of every adapter); `codex.spec.ts` runs one real Codex session when
-`TEXT_TO_CAD_E2E_CODEX=1`. `mode-option.spec.ts` runs the same fake with
+of every adapter). `tests/unit/main/mode-option.test.ts` runs the same fake with
 `--mode-option`, which sends its modes as a `mode` config option instead of
 as `modes`: the one mode chip has to be drawn from either shape, and an
-adapter that sends only the option used to get no chip at all. `keyboard.spec.ts` presses every shortcut the
-Shortcuts page lists except back and forward, which `panes.spec.ts` covers
-along with the pane drags, the overshoot collapse and the too-narrow window; `quit.spec.ts` times `app.quit()` with a repository
-watched, a shell, a session and the CAD viewer all running, and fails above
-two seconds (see Quitting, below). `persistence.spec.ts` launches the app
-twice against one user-data directory — a project, a session with the fake
-agent, `app.quit()`, relaunch — and asserts both come back and the session's
-transcript resumes through `session/load`. `reconnect.spec.ts` is what a
-click on a session row costs (see "Opening a session", under ACP): a
-disconnected thread painted from its snapshot inside 300 ms with the
-reconnecting line under it, switching between two threads with no spinner
-either way, and — across two launches against one user-data directory, with
-`TEXT_TO_CAD_PREWARM=1` — the first load adopting the warm adapter, asserted
-from main's own timing line. Its fake agent runs with `--load-delay`, because
-an instant reconnect is a state nobody can look at.
+adapter that sends only the option used to get no chip at all. `shell.spec.ts` presses
+the shortcuts that need a real window, beside the pane drags, the overshoot collapse and
+the traffic lights' corner; `cad.spec.ts` ends by quitting with a repository
+watched, a shell, a session and the CAD viewer all running, and asserts no
+child is left behind (see Quitting, below). `persistence.spec.ts` launches the app
+twice against one user-data directory — a project, sessions with the fake
+agent, `app.quit()`, relaunch — and asserts everything comes back and the
+transcript resumes through `session/load`. It is also what a click on a
+session row costs (see "Opening a session", under ACP): a disconnected thread
+painted from its snapshot while the reconnecting line is still under it,
+switching between two threads with no spinner either way, and — with
+`TEXT_TO_CAD_PREWARM=1` on the second launch — the first load adopting the
+warm adapter, asserted from main's own timing line. Its second launch runs the
+fake agent with `--load-delay`, because an instant reconnect is a state nobody
+can look at.
 
 The CAD tests run against whatever runtime the app resolves on its own (see
 CAD runtime, below): the bundled one once `npm run bundle:runtime` has run,
-else the checkout's `.venv`. The explorer suite first breaks the runtime on
+else the checkout's `.venv`. `cad.spec.ts` first breaks the runtime on
 purpose — an override pointing nowhere — to see the failure card with the
-interpreter's words in it, then clears the override and renders the STEP.
-CAD failure, recovery, render and appearance cases use a fresh temporary
-project containing the tiny STEP fixture at its original relative path. Tree,
-watcher, terminal and strip checks retain the checkout project, so generated
-app bundles cannot turn CAD catalog reads into repository-wide scans. The
+interpreter's words in it, then clears the override and renders the STEP in
+the same tab. It uses a fresh temporary project containing the tiny STEP
+fixture, so CAD catalog reads never become repository-wide scans. The
 render is skipped only in local runs without a runtime and without
 `TEXT_TO_CAD_E2E_REQUIRE_CAD=1`. The first render compiles the STEP in cadgen's build
 pool and is the slow assertion of the suite.
 
-`tests/e2e/codex-open-file.spec.ts` runs a real Codex session in a scratch
-project and asks it to call `open_file`; it asserts the explorer opened the
-tab and that the session recorded the tool call. It is skipped unless a
-signed-in `codex` is on the machine (`codex login status`), so a runner
-without one stays green. It is the only test that talks to a model.
-
-`tests/e2e/draft-workspace.spec.ts` checks transient folder drafts, confirms
-folder choices create no sidebar groups or explorer tabs, and exercises the
-new-worktree choice through the form. `live-car-handoff.spec.ts` is opt-in:
-set `TEXT_TO_CAD_E2E_LIVE_CAD=1`, `TEXT_TO_CAD_E2E_CAD_SOURCE` to the small car
-recipe (with `BODY_LENGTH = 160.0`), and `CAD_DESKTOP_PYTHON` to the developer
-runtime. It spends provider tokens, builds a disposable worktree car, copies a
-part reference into the draft, requests an edit and reopens the session.
-`TEXT_TO_CAD_E2E_HANDOFF_DIR` optionally retains the temporary project and writes
-provider session IDs there for a separate native CLI resume check. Otherwise
-it removes the temporary project. Runtime provisioning is not covered by this
-UX test: its build instruction explicitly supplies the configured interpreter.
+`tests/e2e/git.spec.ts` checks transient folder drafts, confirms folder
+choices create no sidebar groups or explorer tabs, and exercises the
+new-worktree choice through the form. No test talks to a model: every agent
+in the suite is the fake.
 
 Nothing in `npm test` loads `better-sqlite3` or `node-pty`: both are built
 against Electron's ABI and will not load in a plain Node process. The migration
@@ -517,7 +501,7 @@ Nothing interactive may start inside that inset, in any state: the sidebar open
 or dragged to its narrowest, the sidebar hidden with the session's bar at the
 window's edge, the window at its minimum size, Settings (which replaces the
 shell and reserves the room in its own header), the palette over any of them.
-`tests/e2e/titlebar.spec.ts` walks those states and fails on a control whose box
+`tests/e2e/shell.spec.ts` walks those states and fails on a control whose box
 reaches into the corner, on a leftmost bar whose first control starts inside it,
 on a strip that is not a drag region or a control that did not opt out of it,
 and on the measurement drifting from the constant — the last one being how a
@@ -721,11 +705,6 @@ a fresh request.
 Each changed file in Review has **Request revision**. It appends the file and
 review scope to the draft, plus selected original or modified code and its line
 numbers when present, and focuses the composer for the requested change.
-
-`reference-ux.spec.ts` checks this with the toy car STEP: set
-`TEXT_TO_CAD_E2E_CAD_MODEL` and `CAD_DESKTOP_PYTHON`. It uses the fake agent to
-verify the exact outgoing token, plus the real viewer to check the label,
-reopening, absence of the retired tooltip and Escape selection behavior.
 
 The composer's paperclip opens one picker for files and photos. The viewer's
 camera button adds the current view and selected references to the draft.
@@ -1222,7 +1201,7 @@ playbook for the mode bases and camera behavior.
 
 ## Quitting
 
-`app.quit()` has a budget of two seconds (`tests/e2e/quit.spec.ts`), and the
+`app.quit()` has a budget of two seconds (`tests/e2e/cad.spec.ts` quits with everything running), and the
 teardown in `before-quit` is written for it: every owner signals what it
 owns and nothing is awaited. Electron waits for the Node side, and the Node
 side waits for every child it holds a pipe to, so `src/main/children.ts`
@@ -1558,8 +1537,8 @@ beside `sessions.ts`:
 
 - **The snapshot** (`acp/snapshots.ts`, migration 10). Every reduced state
   main sees is written to sqlite, debounced by 750 ms, and clicking a
-  disconnected row paints *that* — 30–40 ms, measured by
-  `tests/e2e/reconnect.spec.ts` — with `Reconnecting…` in the composer's row
+  disconnected row paints *that* — 30–40 ms; `tests/e2e/persistence.spec.ts`
+  asserts it lands before the load — with `Reconnecting…` in the composer's row
   while the real load runs behind it. The live state replaces the picture
   when it lands, and the replay's reducer events are dropped in the meantime
   (`reconnecting` in `state/acp.ts`) or every turn would arrive twice. The
@@ -1673,7 +1652,7 @@ worktrees.
   renderer opens the file where it is. `files.changed` names the root its
   paths are relative to.
 
-`tests/e2e/worktree.spec.ts` runs the whole path with the fake agent: a
+`tests/e2e/git.spec.ts` runs the whole path with the fake agent: a
 worktree session writes a file, calls `open_file` through the MCP server,
 and the tab, the breadcrumb, the tree and a new terminal all root at the
 worktree; starting a new session opens an independent, empty explorer.

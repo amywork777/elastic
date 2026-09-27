@@ -39,7 +39,7 @@ export const TRAFFIC_LIGHT_DIAMETER = 12;
  * rect — the point past the window controls at which content may start. The
  * buttons themselves end a little before it; the difference is the same
  * margin AppKit leaves on their left. `globals.css` carries this number as
- * the CSS fallback, and `tests/e2e/titlebar.spec.ts` fails if the two drift.
+ * the CSS fallback, and `tests/e2e/shell.spec.ts` fails if the two drift.
  */
 export const TRAFFIC_LIGHTS_INSET = 84;
 

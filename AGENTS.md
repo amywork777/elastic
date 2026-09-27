@@ -123,7 +123,7 @@ not.
   pane's strip reserves `--titlebar-inset` and no control may start inside it.
   The inset is measured from Chromium's window-controls overlay
   (`src/renderer/lib/titlebar.ts`), not typed into a stylesheet; the constant
-  in `src/shared/titlebar.ts` is the fallback, and `tests/e2e/titlebar.spec.ts`
+  in `src/shared/titlebar.ts` is the fallback, and `tests/e2e/shell.spec.ts`
   fails when the two drift or when any state puts a control in the corner. A
   new full-window route reserves the room itself, the way Settings does.
 

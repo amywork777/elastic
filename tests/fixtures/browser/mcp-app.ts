@@ -5,10 +5,14 @@ import { randomUUID } from "node:crypto";
 import { BrowserService } from "../../../src/main/browser/service";
 import { BrowserConnections } from "../../../src/main/browser/connections";
 import { McpBridge } from "../../../src/main/integrations/mcp-bridge";
+import { armQuitDeadline } from "../../../src/main/quit-deadline";
 
 app.setName("TextToCadBrowserMcpTest");
 for (const flag of ["disable-background-timer-throttling", "disable-renderer-backgrounding", "disable-backgrounding-occluded-windows"])
   app.commandLine.appendSwitch(flag);
+// The app's own quit deadline (src/main/quit-deadline.ts): once a window has held native pages,
+// Chromium's shutdown on macOS can take tens of seconds that no test is waiting on.
+app.on("will-quit", () => armQuitDeadline());
 void app.whenReady().then(async () => {
   const root = fs.realpathSync(process.env.BROWSER_FIXTURE_ROOT!);
   const origin = process.env.BROWSER_FIXTURE_ORIGIN!;

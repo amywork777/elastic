@@ -246,9 +246,9 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   /**
-   * Quitting is a budget, not a sequence (tests/e2e/quit.spec.ts: under two
-   * seconds with a repository watched, a shell, an adapter and the viewer all
-   * up). Everything here is told to stop and nothing is awaited: the viewer,
+   * Quitting is a budget, not a sequence: two seconds, with a repository
+   * watched, a shell, an adapter and the viewer all up (tests/e2e/cad.spec.ts
+   * quits in that state and asserts no child is left behind). Everything here is told to stop and nothing is awaited: the viewer,
    * the adapters and the ptys get their signals, the watcher and the bridge
    * start closing, the database closes — and then every child this process
    * still has a pipe to is detached, with the probes killed outright. Electron

@@ -109,7 +109,7 @@ download. `integrations.spec.ts` additionally creates/closes a browser tab throu
 a real ACP session and the built renderer command relay.
 
 `browser-service.spec.ts` covers native presentation, input, context capture,
-partition isolation and cleanup. `browser-app.spec.ts` checks the actual explorer
+partition isolation and cleanup. `explorer.spec.ts` checks the actual explorer
 and browser IPC share one page across tab/project switches and add context to the
 existing draft. Unit tests cover bridge authentication/cancellation, connection
 lifetimes, presentation leases and prompt delivery after chat switches.

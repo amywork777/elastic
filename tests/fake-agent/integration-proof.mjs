@@ -2,18 +2,28 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
+/**
+ * One client per server for the life of the agent process, the way a real agent keeps the MCP
+ * servers `session/new` gave it for the whole session: started on first use with exactly the
+ * command and environment the app sent, never restarted per call, and ended with the process.
+ */
+const clients = new Map();
+
 async function withServer(config, operation) {
   if (!config) throw new Error('Requested integration was not supplied on session/new.');
-  const env = { ...process.env, ...Object.fromEntries((config.env ?? []).map(entry => [entry.name, entry.value])) };
-  const transport = new StdioClientTransport({ command: config.command, args: config.args ?? [], env });
-  const client = new Client({ name: 'text-to-cad-integration-proof', version: '1.0.0' });
-  try { await client.connect(transport); return await operation(client); }
-  finally { await client.close().catch(() => {}); await transport.close().catch(() => {}); }
+  let client = clients.get(config.name);
+  if (!client) {
+    const env = { ...process.env, ...Object.fromEntries((config.env ?? []).map(entry => [entry.name, entry.value])) };
+    const transport = new StdioClientTransport({ command: config.command, args: config.args ?? [], env });
+    client = new Client({ name: 'text-to-cad-integration-proof', version: '1.0.0' });
+    await client.connect(transport);
+    clients.set(config.name, client);
+  }
+  return operation(client);
 }
 export async function integrationProof(servers, request) {
   if (request.operation === 'catalog') {
-    const catalog = [];
-    for (const config of servers) catalog.push(await withServer(config, async client => ({ name: config.name, tools: (await client.listTools()).tools.map(tool => tool.name) })));
+    const catalog = await Promise.all(servers.map(config => withServer(config, async client => ({ name: config.name, tools: (await client.listTools()).tools.map(tool => tool.name) }))));
     return { catalog };
   }
   if (request.operation === 'isolation') {
