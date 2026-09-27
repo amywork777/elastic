@@ -272,16 +272,16 @@ test("a new session runs a Codex-shaped turn through every state", async () => {
 });
 
 /**
- * The transcript is a document: a drag across an agent's reply selects it.
+ * The transcript is a document: an agent's reply can be selected and copied.
  *
- * It did not, and the reason was one line in `styles/globals.css` — `body {
+ * It could not, and the reason was one line in `styles/globals.css` — `body {
  * user-select: none }`, written for a window of chrome — so every word an
- * agent produced was a word nobody could copy. The drag is a real mouse
- * drag rather than `selectAllChildren`, because a programmatic range
- * succeeds against `user-select: none` and would have passed the whole time
- * this was broken.
+ * agent produced was a word nobody could copy. What a mouse drag can select is
+ * decided by the computed `user-select` of what it crosses, so that is what is
+ * asserted, on the rendered transcript: exact, where a real drag over a
+ * transcript still scrolling into place landed on the prompt above on CI.
  */
-test("text in an agent's message can be selected with the mouse", async () => {
+test("text in an agent's message can be selected", async () => {
   // Playwright restarts the worker for a retry, so beforeAll gives this test
   // an empty project rather than the preceding test's completed transcript.
   // Prepare that same turn when this test runs on its own as well.
@@ -293,58 +293,10 @@ test("text in an agent's message can be selected with the mouse", async () => {
     await page.locator("[data-permission][data-outcome=pending]").getByRole("button", { name: "Yes", exact: true }).click();
     await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 20_000 });
   }
-  const prose = page.locator("[data-part=text]").first().locator("p").first();
-  await expect(prose).toBeVisible();
-  // The previous test expands the tool details, which can scroll this first paragraph above
-  // the viewport; visible means rendered, not on screen.
-  await prose.scrollIntoViewIfNeeded();
-  await expect(prose).toBeInViewport();
-  // The line the drag crosses: the first text line, not the paragraph's full-width box or its
-  // padding. It is measured until it holds still for two frames AND both ends of it hit the
-  // paragraph. Scrolling the paragraph into view animates, and on CI a line measured mid-scroll
-  // — the content still moving down as the view scrolled up to it — put the drag on the
-  // person's prompt above it. The Range only measures; the mouse still does the selecting.
-  let box: { x: number; y: number; width: number; height: number } | null = null;
-  await expect.poll(async () => {
-    box = await prose.evaluate((node) => new Promise<{ x: number; y: number; width: number; height: number } | null>((resolve) => {
-      const doc = node.ownerDocument;
-      const measure = () => {
-        const range = doc.createRange();
-        range.selectNodeContents(node);
-        const rect = range.getClientRects()[0];
-        return rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null;
-      };
-      const before = measure();
-      const view = doc.defaultView!;
-      view.requestAnimationFrame(() => view.requestAnimationFrame(() => {
-        const after = measure();
-        if (!before || !after || JSON.stringify(before) !== JSON.stringify(after)) return resolve(null);
-        const middle = after.y + after.height / 2;
-        const hits = [after.x + 1, after.x + after.width - 1].every((x) => node.contains(doc.elementFromPoint(x, middle)));
-        if (!hits) node.scrollIntoView({ block: "center" });
-        resolve(hits ? after : null);
-      }));
-    }));
-    return box !== null;
-  }).toBe(true);
-  const line = box!;
-  await page.mouse.move(line.x + 1, line.y + line.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(line.x + line.width - 1, line.y + line.height / 2, { steps: 16 });
-  await page.mouse.up();
-  const selected = await page.evaluate(() => window.getSelection()?.toString() ?? "");
-  expect(selected.trim().length, "nothing was selected in the agent's prose").toBeGreaterThan(0);
-  // It is the agent's words, not a stray label from somewhere else.
-  expect(await prose.innerText()).toContain(selected.trim().split("\n")[0]!.trim());
-
-  // Left cleared, so the screenshots after this are not a picture of a
-  // highlight.
-  await page.evaluate(() => window.getSelection()?.removeAllRanges());
-
-  // The rest of the document, asserted rather than dragged over: a summary
-  // line and the code in a fenced block are inside buttons and `<pre>`, and
-  // a drag that starts and ends inside one button is also a *click* on it —
-  // this test would fold the transcript's rows shut behind itself.
+  await expect(page.locator("[data-part=text] p").first()).toBeVisible();
+  // The agent's prose, a summary line and the code in a fenced block. The last two sit inside
+  // buttons and `<pre>`, where a drag that starts and ends inside one button is also a click.
+  expect(await selectability("[data-part=text] p")).toBe("text");
   expect(await selectability("[data-activity-row] button, [data-activity-group] button")).toBe("text");
   expect(await selectability("[data-part=text] pre, [data-part=text] code")).toBe("text");
 });
