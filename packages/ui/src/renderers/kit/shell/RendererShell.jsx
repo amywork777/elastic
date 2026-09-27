@@ -42,6 +42,7 @@ const BAR_BUTTON_CLASS = "size-6 bg-transparent hover:bg-transparent dark:hover:
  *   tools: import("../tools/FloatingToolBar.js").ViewportTool[],
  *   toolPanels?: import("react").ReactNode,
  *   playback?: any,
+ *   drawingExtras?: ReactNode — drawn beside Draw's Copy Drawing action while the sketch has ink
  *   bottomAction?: { label: string, shortLabel?: string, disabled?: boolean,
  *     onInvoke?(): void, render?: (props: object) => import("react").ReactNode, children?: import("react").ReactNode } | null,
  *   contextMenuItems?: ((press: { clientX: number, clientY: number, shiftKey: boolean }) => object[] | null) | null,
@@ -79,7 +80,7 @@ const BAR_BUTTON_CLASS = "size-6 bg-transparent hover:bg-transparent dark:hover:
  *   it. The frame focuses itself on such a press whatever the renderer does; this is for a renderer
  *   that also has something to put down when the person reaches for the model.
  */
-export default function RendererShell({ shell, tools, playback = null, toolPanels = null, bottomAction = null, contextMenuItems = null,
+export default function RendererShell({ shell, tools, playback = null, toolPanels = null, bottomAction = null, drawingExtras = null, contextMenuItems = null,
   onContextMenuOpenChange = null, viewportOverlay = null,
   frameProvider = null, onCanvasPointerDown = null }) {
   const frame = shell.frame;
@@ -144,8 +145,10 @@ export default function RendererShell({ shell, tools, playback = null, toolPanel
   </>;
 
   const hasContent = Boolean(scene) && !viewerLoading;
+  // Draw's action is the shell's (the view with its ink, to the clipboard); a renderer may put
+  // its own control beside it — the STEP surface's Annotate, a note on the sketch.
   const action = bottomAction || (frame.drawToolActive && frame.drawing.hasContent
-    ? drawingCaptureAction({ disabled: viewerLoading || !hasContent, onInvoke: frame.copyDrawing })
+    ? { ...drawingCaptureAction({ disabled: viewerLoading || !hasContent, onInvoke: frame.copyDrawing }), children: drawingExtras }
     : null);
   frame.copyActionRef.current = () => {
     if (previewing) return false;

@@ -129,7 +129,7 @@ import {
 import { meshLoadErrorForViewer, shouldStartMeshLoad } from "./components/workbench/hooks/meshLoadTarget.js";
 import { useViewerHost, usePromptDestination } from "../../host/context.js";
 import { useWorkspaceDocument } from "../workspace/useWorkspaceDocument.js";
-import { createAnnotationsPromptContext, createCadPromptContext } from "./file-view/promptContext.js";
+import { createAnnotationsPromptContext, createCadPromptContext, createDrawingAnnotationPromptContext } from "./file-view/promptContext.js";
 import { modelMenuDescriptor, partMenuDescriptor, topologyMenuDescriptor } from "./file-view/stepMenus.js";
 import { nodeCopyText, selectionCopyPayload } from "./file-view/stepCopy.js";
 import { HostReferenceContext, referenceLabel, referencesFromCopyText, resolveSelectorSelection } from "./file-view/hostReference.js";
@@ -2013,6 +2013,39 @@ function StepSurfaceBody({ view, data }) {
     setAnnotations(current => current.filter(annotation => annotation.id !== id));
     host.promptContext.retract?.([id]);
   }, [host.promptContext]);
+  // A note rewritten in the chat box's own list: the destination says what each held annotation
+  // now reads, and the dot's card follows. Only the text moves this way; where the dot sits and
+  // what it is about are the model's to know.
+  const heldText = destination.heldText;
+  useEffect(() => {
+    if (!heldText) return;
+    setAnnotations(current => {
+      let changed = false;
+      const next = current.map(annotation => {
+        const text = heldText[annotation.id];
+        if (typeof text !== "string" || text === annotation.text) return annotation;
+        changed = true;
+        return { ...annotation, text };
+      });
+      return changed ? next : current;
+    });
+  }, [heldText]);
+  // A note on the sketch (the Draw tool): the view with its ink goes into the chat box as a
+  // picture, and the note beside it as an annotation on the whole model — a sketch is about the
+  // part as a whole, not a face of it. Its dot sits at the model's middle, for after the sketch
+  // is gone: Draw ends with the sketch, the annotation stays in the chat box.
+  const annotateDrawing = useCallback((note) => {
+    if (!promptAvailable || viewerLoading || !viewerRef.current?.captureScreenshotBlob) return;
+    const anchor = annotationAnchor([{ bbox: selectedMeshData?.bounds }]);
+    const annotation = createAnnotation([{ selector: "", label: "Drawing" }], note, { anchor });
+    if (!annotation) return;
+    const capture = viewerRef.current.captureScreenshotBlob();
+    void capture.catch(() => {});
+    setAnnotations(current => [...current, annotation]);
+    void deliverPrompt(createDrawingAnnotationPromptContext({ resource: promptResource, annotation, capture })).then(result => {
+      if (!annotationDelivered(result)) setAnnotations(current => current.filter(item => item.id !== annotation.id));
+    });
+  }, [promptAvailable, viewerLoading, selectedMeshData, deliverPrompt, promptResource]);
 
   const toggleStepTreeNode = useCallback((nodeId) => {
     const normalizedNodeId = String(nodeId || "").trim();
@@ -3409,20 +3442,22 @@ function StepSurfaceBody({ view, data }) {
   // ---- the bottom action ----------------------------------------------------------------------
   const selectionActionVisible = selectionCount > 0 && !stepUpdateInProgress && !referenceSelectionPending
     && !referenceSelectionUnavailable && !topologySelectionDeferred;
+  // Under Select, the action is Annotate: a note on what is picked, straight into the chat box.
+  // There is no Copy Reference button any more — the reference reaches the prompt through a
+  // pick's own menu (Add to prompt), and the copy stays on its shortcut (`onInvoke`, ⌘C).
   const bottomAction = drawModeActive
     ? (stepUpdateInProgress || referenceSelectionPending || referenceSelectionUnavailable || topologySelectionDeferred ? null : undefined)
     : selectionActionVisible ? {
       label: copyButtonLabel,
       onInvoke: copySelectedReferences,
-      children: <div className="flex items-center gap-2">
-        <AnnotateButton disabled={!annotationAvailable} onSubmit={annotateSelection} />
-        {slots?.selectionExtras && selectionCount > 0 && !viewerLoading && !stepInteractionBlocked ? <slots.selectionExtras
-          selection={Object.freeze(createSelectionPromptContext().parts.filter(part => part.kind === 'reference').map(part => part.reference))}
-          selectionKey={selectionKey}
-          disabled={viewerLoading || stepInteractionBlocked || !promptAvailable}
-          createContext={createSelectionPromptContext}
-        /> : null}
-      </div>
+      // The action's slot lets pointer events through to the model; the button itself takes them.
+      render: () => <span className="pointer-events-auto inline-flex"><AnnotateButton primary disabled={!annotationAvailable} onSubmit={annotateSelection} /></span>,
+      children: slots?.selectionExtras && selectionCount > 0 && !viewerLoading && !stepInteractionBlocked ? <slots.selectionExtras
+        selection={Object.freeze(createSelectionPromptContext().parts.filter(part => part.kind === 'reference').map(part => part.reference))}
+        selectionKey={selectionKey}
+        disabled={viewerLoading || stepInteractionBlocked || !promptAvailable}
+        createContext={createSelectionPromptContext}
+      /> : null,
     } : null;
 
   // ---- the tool stack ---------------------------------------------------------------------------
@@ -3483,6 +3518,7 @@ function StepSurfaceBody({ view, data }) {
 
   return <RendererShell shell={shell} tools={tools} playback={viewportAnimation} toolPanels={<>{stepPanels}{modelEffects.panels}</>}
     bottomAction={bottomAction}
+    drawingExtras={<AnnotateButton disabled={!promptAvailable || viewerLoading} onSubmit={annotateDrawing} placeholder="What about this sketch?" />}
     contextMenuItems={selectionToolActive
       ? press => viewportContextMenuItems(press, pickAtRef.current?.(press.clientX, press.clientY) || "") : null}
     onContextMenuOpenChange={handleViewportContextMenuOpenChange}
@@ -3496,7 +3532,7 @@ function StepSurfaceBody({ view, data }) {
       runtimeRefRef.current = viewport.runtimeRef;
       return <>
         <StepSceneLayers viewport={viewport} stepScene={stepScene} policy={viewPolicyResolved} props={layerProps} api={layersApiRef} />
-        {!presenting && !drawModeActive ? <AnnotationPins viewport={viewport} annotations={annotations}
+        {!previewing && !drawModeActive ? <AnnotationPins viewport={viewport} annotations={annotations}
           openId={openAnnotationId} onOpenChange={setOpenAnnotationId}
           onSelect={selectAnnotation} onEdit={changeAnnotation} onRemove={deleteAnnotation} /> : null}
       </>;

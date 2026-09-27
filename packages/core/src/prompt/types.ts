@@ -13,8 +13,12 @@ export type PromptPart =
   | { id: string; kind: 'text'; text: string }
   | { id: string; kind: 'reference'; reference: PromptReference }
   | { id: string; kind: 'attachment'; name: string; mimeType: string; content: Blob | Promise<Blob>; about?: readonly string[] }
-  /** A note the person pinned to geometry: what it is about, and what they want done there. */
-  | { id: string; kind: 'annotation'; references: readonly PromptReference[]; text: string };
+  /**
+   * A note the person pinned to geometry: what it is about, and what they want done there.
+   * `attachments` names attachment parts of the same context that belong to the note — a sketch
+   * over the model — so a destination keeps them with it rather than as loose files.
+   */
+  | { id: string; kind: 'annotation'; references: readonly PromptReference[]; text: string; attachments?: readonly string[] };
 export interface PromptContext { schemaVersion: 1; operationId: string; parts: readonly PromptPart[] }
 export interface PromptDestinationState {
   kind: 'composer' | 'clipboard' | 'unavailable';
@@ -26,6 +30,13 @@ export interface PromptDestinationState {
    * or removed from the draft. Absent: the destination does not say.
    */
   held?: readonly string[];
+  /**
+   * The note of each held annotation, by part id, for a destination where the note can be
+   * edited (a composer's list). A surface that shows the same annotation follows this text, so
+   * an edit made in the draft reaches the model without a delivery. Absent: the destination
+   * does not say, and the surface's own copy stands.
+   */
+  heldText?: Readonly<Record<string, string>>;
   capabilities?: {
     attachments: 'none' | 'png' | 'images-and-text';
     maxParts: number;

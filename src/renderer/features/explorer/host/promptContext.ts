@@ -46,12 +46,15 @@ export function createDesktopPromptContext(projectId: string, root: string | nul
   const getSnapshot = () => {
     const owner = useSessions.getState().sessions.find(session => session.id === sessionId);
     const available = Boolean(owner && !owner.archived && owner.projectId === projectId);
-    // The annotations this chat's draft still holds: the viewer keeps a dot only for those.
+    // The annotations this chat's draft still holds: the viewer keeps a dot only for those, and
+    // its card shows the note as the draft has it — an edit in the chat box's list reaches the
+    // model this way rather than by a delivery back.
     const annotations = useComposer.getState().annotations[sessionId] ?? NO_ANNOTATIONS;
     if (snapshot.available !== available || heldFrom !== annotations) {
       heldFrom = annotations;
       const held = annotations.map(annotation => annotation.id);
-      snapshot = { kind: "composer", capabilities, held,
+      const heldText = Object.fromEntries(annotations.map(annotation => [annotation.id, annotation.text]));
+      snapshot = { kind: "composer", capabilities, held, heldText,
         ...(available ? { available: true } : { available: false, reason: "This tab's session is no longer active." }) };
     }
     return snapshot;
@@ -72,7 +75,7 @@ export function createDesktopPromptContext(projectId: string, root: string | nul
         for (const reference of part.references) {
           if (reference.resource.kind === "workspace-file" && reference.resource.workspaceId !== workspaceId) throw new Error("This annotation belongs to another workspace.");
         }
-        parts.push({ id: part.id, kind: "annotation", text: part.text, references: [...part.references] });
+        parts.push({ id: part.id, kind: "annotation", text: part.text, references: [...part.references], ...(part.attachments ? { attachments: [...part.attachments] } : {}) });
         continue;
       }
       const resource = part.reference.resource;

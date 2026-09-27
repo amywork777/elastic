@@ -403,9 +403,10 @@ test('Select picks parts and faces, a selection lives only under Select, and the
   }
   await page.evaluate(() => document.documentElement.classList.remove('dark'));
   assert.doesNotMatch(await reference.innerText(), /Selection ·|references|Total/);
-  // The bottom action is the Select tool’s: it copies, and says what in words, never the IDs.
-  await pane.getByRole('button', { name: /^Copy References/ }).waitFor();
-  assert.equal(await pane.getByRole('button', { name: /^Copy Reference\b/ }).count(), 0, 'one action, pluralised');
+  // The bottom action is the Select tool’s: Annotate, a note on what is picked. No Copy button:
+  // the copy is its shortcut, and the prompt is reached through a pick's own menu.
+  await pane.getByRole('button', { name: 'Annotate', exact: true }).waitFor();
+  assert.equal(await pane.getByRole('button', { name: /^Copy Reference/ }).count(), 0, 'no copy button');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.cadHarness.a.controller.readState().selectedPartIds.length === 0);
 
@@ -1357,6 +1358,12 @@ test('annotations live in the chat box: making one puts it there, and its dot is
   await card.getByText(/^Annotation 1:/).click();
   await page.waitForFunction(() => window.__delivered.length === 3);
   assert.equal((await delivered())[2][0].text, 'make a 6 mm hole in it, deburred');
+
+  // A note rewritten in the chat box's own list reaches the card through what the box says it
+  // holds, with nothing delivered back.
+  await page.evaluate(id => window.cadHarness.a.setPromptDestination({heldText: {[id]: 'make it 8 mm, from the chat box'}}), first.id);
+  await card.getByText('make it 8 mm, from the chat box').waitFor();
+  assert.equal((await delivered()).length, 3, 'the chat box edit is not delivered back');
   await card.getByRole('button', {name: 'Close', exact: true}).click();
   await card.waitFor({state: 'detached'});
 

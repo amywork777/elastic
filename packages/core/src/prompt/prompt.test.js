@@ -56,4 +56,10 @@ test('an annotation carries the geometry it is about and the note, and reads as 
   assert.equal(formatPromptAnnotation(context.parts[0], { labels: true }), 'parts/bracket.step#o1.1.e3 (Edge 3): make a hole in it');
   assert.throws(() => createPromptContext([{ id: 'a', kind: 'annotation', references: [], text: 'x' }]), /at least one reference/);
   assert.throws(() => createPromptContext([{ id: 'a', kind: 'annotation', references: [edge] }]), /its note/);
+  // A sketch travels with its note: the annotation names the attachment, which has to be in the context.
+  const png = { id: 'sketch', kind: 'attachment', name: 'bracket-drawing.png', mimeType: 'image/png', content: new Blob(['x'], { type: 'image/png' }) };
+  const withSketch = createPromptContext([png, annotationPart([edge], 'round this', 'a2', ['sketch'])]);
+  assert.deepEqual([...withSketch.parts[1].attachments], ['sketch']);
+  assert.ok(Object.isFrozen(withSketch.parts[1].attachments));
+  assert.throws(() => createPromptContext([annotationPart([edge], 'round this', 'a3', ['missing'])]), /absent attachment/);
 });

@@ -41,7 +41,7 @@ import { dataUrlOf, rememberFiles } from "./composer/attachments";
 import { AttachmentImagePreview } from "./composer/AttachmentImagePreview";
 import { ComposerEditor, type ComposerEditorHandle } from "./composer/ComposerEditor";
 import { ReferenceScopeContext } from "./composer/ReferenceScope";
-import { AnnotationsChip, withAnnotations } from "./composer/AnnotationsChip";
+import { AnnotationsChip, annotationImageParts, withAnnotations } from "./composer/AnnotationsChip";
 import type { DraftAnnotation } from "@renderer/state/composer";
 
 const NO_ANNOTATIONS: DraftAnnotation[] = [];
@@ -150,6 +150,7 @@ export function Composer({
   const slash = useSlashCommands(text, commands);
   const annotations = useComposer((state) => state.annotations[draftKey] ?? NO_ANNOTATIONS);
   const removeAnnotations = useComposer((state) => state.removeAnnotations);
+  const editAnnotation = useComposer((state) => state.editAnnotation);
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
@@ -159,7 +160,8 @@ export function Composer({
       if (!trimmed && message.files.length === 0) {
         return;
       }
-      const content = await toPromptBlocks(trimmed, message.files);
+      // A note's sketch goes out with it, after the form's own attachments.
+      const content = await toPromptBlocks(trimmed, [...message.files, ...await annotationImageParts(pending)]);
       if (content.length === 0) {
         return;
       }
@@ -237,7 +239,8 @@ export function Composer({
           onSubmit={handleSubmit}
         >
           <AttachmentStrip
-            annotations={<AnnotationsChip annotations={annotations} onRemove={() => removeAnnotations(draftKey)} scope={referenceScope} />}
+            annotations={<AnnotationsChip annotations={annotations} onEdit={(id, text) => editAnnotation(draftKey, id, text)}
+              onRemove={() => removeAnnotations(draftKey)} onRemoveOne={(id) => removeAnnotations(draftKey, [id])} scope={referenceScope} />}
             hasAnnotations={annotations.length > 0}
           />
           <AttachmentSink draftKey={draftKey} />

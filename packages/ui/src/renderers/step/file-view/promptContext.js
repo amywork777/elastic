@@ -29,3 +29,17 @@ export function createAnnotationsPromptContext({ resource, annotations, operatio
     annotation.references.map(reference => cadPromptReference(resource, reference)), annotation.text, annotation.id,
   )), operationId);
 }
+
+/**
+ * A note on a sketch: the view with its ink, as a PNG, and the annotation that names it as its
+ * own, so the chat box keeps the picture with the note rather than as a loose file. No reference
+ * part, so no bare file token lands in the draft's text: the annotation names the file.
+ */
+export function createDrawingAnnotationPromptContext({ resource, annotation, capture, operationId }) {
+  const stem = resource.path.split('/').pop().replace(/\.[^.]+$/, '');
+  const sketch = `${annotation.id}-drawing`;
+  return createPromptContext([
+    { id: sketch, kind: 'attachment', name: `${stem}-drawing.png`, mimeType: 'image/png', content: capture },
+    annotationPart(annotation.references.map(reference => cadPromptReference(resource, reference)), annotation.text, annotation.id, [sketch]),
+  ], operationId);
+}

@@ -5,13 +5,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@text-to-cad/ui/primiti
 import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
 import { cn } from "@text-to-cad/ui/utils";
 
-// The Select tool's annotations (`workbench/stepAnnotations.js`): the Annotate button beside
-// Copy Reference, and the body of the card a dot opens on the model (AnnotationPins.jsx). An
-// annotation goes into the chat box as it is made, and reaches the agent only when the person
-// sends the prompt.
+// The Select tool's annotations (`workbench/stepAnnotations.js`): the Annotate button, which is
+// the viewport's action while something is selected (and sits beside Copy Drawing under Draw),
+// and the body of the card a dot opens on the model (AnnotationPins.jsx). An annotation goes into
+// the chat box as it is made, and reaches the agent only when the person sends the prompt.
 
-/** Annotate: a note on the current selection, typed in a small box above the button. */
-export function AnnotateButton({ disabled = false, onSubmit }) {
+/**
+ * Annotate: a note on the current selection (or, under Draw, on the sketch), typed in a small
+ * box above the button. `primary` is the look it has as the viewport's own action, where it
+ * stands alone; otherwise it is the outline button beside another action.
+ */
+export function AnnotateButton({ disabled = false, onSubmit, placeholder = "What should change here?", primary = false, className = "" }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const submit = () => {
@@ -24,7 +28,8 @@ export function AnnotateButton({ disabled = false, onSubmit }) {
   return (
     <Popover open={open && !disabled} onOpenChange={next => setOpen(next && !disabled)}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" disabled={disabled} className="h-11 gap-1.5 border border-border/60 bg-background/90 px-4 text-sm shadow-lg shadow-black/20 backdrop-blur hover:bg-background">
+        <Button type="button" variant={primary ? "default" : "outline"} size="sm" disabled={disabled}
+          className={cn("h-11 gap-1.5 px-4 text-sm shadow-lg shadow-black/20", primary ? "" : "border border-border/60 bg-background/90 backdrop-blur hover:bg-background", className)}>
           <MessageSquareDot className="size-4" aria-hidden="true" />
           Annotate
         </Button>
@@ -32,7 +37,7 @@ export function AnnotateButton({ disabled = false, onSubmit }) {
       <PopoverContent side="top" align="center" sideOffset={10} className="w-80 p-2" aria-label="New annotation"
         onOpenAutoFocus={event => { event.preventDefault(); event.currentTarget.querySelector("textarea")?.focus(); }}>
         <NoteInput value={note} onChange={setNote} onSubmit={submit} onCancel={() => setOpen(false)}
-          placeholder="What should change here?" />
+          placeholder={placeholder} />
         <div className="mt-1.5 flex items-center justify-between gap-2 px-0.5">
           <span className="text-[11px] text-muted-foreground">Enter to add · Shift+Enter for a new line</span>
           <Button type="button" size="sm" className="h-7 px-3 text-xs" disabled={!note.trim()} onClick={submit}>Add</Button>

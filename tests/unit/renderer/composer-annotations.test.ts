@@ -82,3 +82,42 @@ it("the chat box tells the viewer which annotations it holds, and a new answer o
   useComposer.getState().removeAnnotations(key);
   expect(port.getSnapshot().held).toEqual([]);
 });
+
+it("a note rewritten in the chat box's list changes only that annotation; an empty or unchanged note is not an edit", () => {
+  useComposer.getState().acceptContext(key, "op-1", [annotation("a1", "hole"), annotation("a2", "fillet")], { root: "/p", focus: false });
+  useComposer.getState().editAnnotation(key, "a1", "  a 6 mm hole  ");
+  expect(useComposer.getState().annotations[key]?.map(item => [item.id, item.text])).toEqual([["a1", "a 6 mm hole"], ["a2", "fillet"]]);
+  const before = useComposer.getState();
+  useComposer.getState().editAnnotation(key, "a1", "   ");
+  useComposer.getState().editAnnotation(key, "a1", "a 6 mm hole");
+  useComposer.getState().editAnnotation(key, "missing", "x");
+  useComposer.getState().editAnnotation("no-such-draft", "a1", "x");
+  expect(useComposer.getState()).toBe(before);
+});
+
+it("the chat box tells the viewer what each held annotation now says, so an edit here reaches the model", () => {
+  useSessions.setState({ sessions: [{ id: key, projectId: "p", archived: false }] as never });
+  const port = createDesktopPromptContext("p", null, "w", key);
+  useComposer.getState().acceptContext(key, "op-1", [annotation("a1", "hole")], { root: "/p", focus: false });
+  expect(port.getSnapshot().heldText).toEqual({ a1: "hole" });
+  useComposer.getState().editAnnotation(key, "a1", "a 6 mm hole");
+  expect(port.getSnapshot().heldText).toEqual({ a1: "a 6 mm hole" });
+  expect(port.getSnapshot().held).toEqual(["a1"]);
+});
+
+it("a note on a sketch keeps the sketch with it, out of the attachment strip, and names it when sent", () => {
+  const png = new File([new Uint8Array([137, 80, 78, 71])], "bracket-drawing.png", { type: "image/png" });
+  const loose = new File(["hello"], "notes.txt", { type: "text/plain" });
+  useComposer.getState().acceptContext(key, "op-1", [
+    { id: "sketch", kind: "attachment", file: png },
+    { id: "a1", kind: "annotation", text: "round this corner", attachments: ["sketch"],
+      references: [{ resource: { kind: "workspace-file", workspaceId: "w", path: "parts/bracket.step" }, target: { kind: "whole-resource" }, label: "Drawing" }] },
+    { id: "other", kind: "attachment", file: loose },
+  ], { root: "/p", focus: false });
+  const state = useComposer.getState();
+  expect(state.annotations[key]?.map(item => [item.id, item.text, item.image?.name])).toEqual([["a1", "round this corner", "bracket-drawing.png"]]);
+  expect(state.pendingFiles[key]?.map(file => file.name), "the sketch is the note's, the text file the strip's").toEqual(["notes.txt"]);
+  expect(withAnnotations("Fix it.", state.annotations[key]!)).toBe(
+    "Fix it.\n\nAnnotations:\n1. parts/bracket.step (Drawing): round this corner [sketch: bracket-drawing.png]",
+  );
+});

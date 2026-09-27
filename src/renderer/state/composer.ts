@@ -41,12 +41,14 @@ export type DraftPart =
   | { id: string; kind: "text"; text: string }
   | { id: string; kind: "reference"; text: string; label?: string; reference?: PromptReference }
   | { id: string; kind: "attachment"; file: File; about?: readonly string[] }
-  | { id: string; kind: "annotation"; references: PromptReference[]; text: string };
+  | { id: string; kind: "annotation"; references: PromptReference[]; text: string; attachments?: string[] };
 /**
  * A note the person pinned to geometry in the viewer, in this draft. Annotations ride beside the
- * text as one chip until the prompt is sent, then go out as a numbered list after it.
+ * text as one chip until the prompt is sent, then go out as a numbered list after it. A note on a
+ * sketch keeps the sketch (`image`): it is shown with the note and sent with it, not as a loose
+ * attachment in the strip.
  */
-export type DraftAnnotation = { id: string; references: PromptReference[]; text: string };
+export type DraftAnnotation = { id: string; references: PromptReference[]; text: string; image?: File };
 export type AcceptedContext = {
   key: string; partIds: string[];
   /** Snapshot identities and ordering remain available without retaining binary content. */
@@ -67,6 +69,11 @@ type ComposerState = {
   annotations: Record<string, DraftAnnotation[]>;
   /** All of a draft's annotations, or only those with the given ids. */
   removeAnnotations: (key: string, ids?: readonly string[]) => void;
+  /**
+   * A note rewritten in the chat box's own list. The viewer's copy follows through the
+   * destination's `heldText`, so nothing is delivered back. An empty note is not an edit.
+   */
+  editAnnotation: (key: string, id: string, text: string) => void;
   /** Files the explorer attached, per draft key, until the composer takes them. */
   pendingFiles: Record<string, File[]>;
   /** A new draft with a CAD reference runs in that model’s workspace. */
@@ -114,10 +121,14 @@ export const useComposer = create<ComposerState>((set, get) => ({
       const files = [...(state.pendingFiles[key] ?? [])];
       // An annotation added again (edited since) replaces its earlier copy rather than repeating it.
       let annotations = state.annotations[key];
+      // An attachment an annotation names is that annotation's (a sketch), not the strip's.
+      const claimed = new Map(parts.flatMap(part => part.kind === "annotation" ? (part.attachments ?? []).map(id => [id, part.id]) : []));
+      const attachmentsById = new Map(parts.flatMap(part => part.kind === "attachment" ? [[part.id, part.file]] : []));
       for (const part of parts) {
-        if (part.kind === "attachment") { files.push(part.file); continue; }
+        if (part.kind === "attachment") { if (!claimed.has(part.id)) files.push(part.file); continue; }
         if (part.kind === "annotation") {
-          const annotation = { id: part.id, references: structuredClone(part.references), text: part.text };
+          const image = (part.attachments ?? []).map(id => attachmentsById.get(id)).find(file => file?.type.startsWith("image/"));
+          const annotation = { id: part.id, references: structuredClone(part.references), text: part.text, ...(image ? { image } : {}) };
           annotations = [...(annotations ?? []).filter(existing => existing.id !== part.id), annotation];
           continue;
         }
@@ -166,6 +177,13 @@ export const useComposer = create<ComposerState>((set, get) => ({
   drafts: {},
   referenceLabels: {},
   annotations: {},
+  editAnnotation: (key, id, text) => set(state => {
+    const value = text.trim();
+    const current = state.annotations[key];
+    const target = current?.find(annotation => annotation.id === id);
+    if (!value || !target || target.text === value) return state;
+    return { annotations: { ...state.annotations, [key]: current!.map(annotation => annotation.id === id ? { ...annotation, text: value } : annotation) } };
+  }),
   removeAnnotations: (key, ids) => set(state => {
     const current = state.annotations[key];
     const kept = ids ? current?.filter(annotation => !ids.includes(annotation.id)) : undefined;
