@@ -189,12 +189,15 @@ function AnnotationRow({
         ) : (
           <button
             aria-label={`Edit annotation ${index + 1}`}
-            className="rounded-sm text-left break-words whitespace-pre-wrap hover:underline hover:decoration-muted-foreground/50 hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className={cn(
+              "rounded-sm text-left break-words whitespace-pre-wrap hover:underline hover:decoration-muted-foreground/50 hover:underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+              !annotation.text && "text-muted-foreground italic",
+            )}
             onClick={start}
             title="Edit"
             type="button"
           >
-            {annotation.text}
+            {annotation.text || "Add a note"}
           </button>
         )}
       </div>

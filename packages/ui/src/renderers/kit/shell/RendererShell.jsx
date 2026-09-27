@@ -42,7 +42,8 @@ const BAR_BUTTON_CLASS = "size-6 bg-transparent hover:bg-transparent dark:hover:
  *   tools: import("../tools/FloatingToolBar.js").ViewportTool[],
  *   toolPanels?: import("react").ReactNode,
  *   playback?: any,
- *   drawingExtras?: ReactNode — drawn beside Draw's Copy Drawing action while the sketch has ink
+ *   drawingAction?: ReactNode — the renderer's own control in place of Draw's Copy Drawing button
+ *     while the sketch has ink; the copy stays on its shortcut
  *   bottomAction?: { label: string, shortLabel?: string, disabled?: boolean,
  *     onInvoke?(): void, render?: (props: object) => import("react").ReactNode, children?: import("react").ReactNode } | null,
  *   contextMenuItems?: ((press: { clientX: number, clientY: number, shiftKey: boolean }) => object[] | null) | null,
@@ -80,7 +81,7 @@ const BAR_BUTTON_CLASS = "size-6 bg-transparent hover:bg-transparent dark:hover:
  *   it. The frame focuses itself on such a press whatever the renderer does; this is for a renderer
  *   that also has something to put down when the person reaches for the model.
  */
-export default function RendererShell({ shell, tools, playback = null, toolPanels = null, bottomAction = null, drawingExtras = null, contextMenuItems = null,
+export default function RendererShell({ shell, tools, playback = null, toolPanels = null, bottomAction = null, drawingAction = null, contextMenuItems = null,
   onContextMenuOpenChange = null, viewportOverlay = null,
   frameProvider = null, onCanvasPointerDown = null }) {
   const frame = shell.frame;
@@ -145,10 +146,12 @@ export default function RendererShell({ shell, tools, playback = null, toolPanel
   </>;
 
   const hasContent = Boolean(scene) && !viewerLoading;
-  // Draw's action is the shell's (the view with its ink, to the clipboard); a renderer may put
-  // its own control beside it — the STEP surface's Annotate, a note on the sketch.
+  // Draw's action: the shell's Copy Drawing (the view with its ink, to the clipboard), unless the
+  // renderer brings its own — the STEP surface's Annotate, a note on the sketch — which then
+  // stands in its place. Either way the copy stays on the shortcut (`copyActionRef`, ⌘C).
   const action = bottomAction || (frame.drawToolActive && frame.drawing.hasContent
-    ? { ...drawingCaptureAction({ disabled: viewerLoading || !hasContent, onInvoke: frame.copyDrawing }), children: drawingExtras }
+    ? { ...drawingCaptureAction({ disabled: viewerLoading || !hasContent, onInvoke: frame.copyDrawing }),
+        ...(drawingAction ? { render: () => <span className="pointer-events-auto inline-flex">{drawingAction}</span> } : {}) }
     : null);
   frame.copyActionRef.current = () => {
     if (previewing) return false;

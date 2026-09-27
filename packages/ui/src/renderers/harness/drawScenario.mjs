@@ -171,18 +171,20 @@ export async function runDrawScenario({ page, pane, errors }) {
   await fillsInside();
   assert.equal(await draw.locator('[data-drawing-tool]').getAttribute('data-drawing-tool'), 'fill');
 
-  // The bottom action copies the view with its ink to the host's clipboard, as a PNG.
+  // The copy shortcut puts the view with its ink on the host's clipboard, as a PNG. There is no
+  // Copy Drawing button under a renderer that can annotate: Annotate is the action.
   await page.evaluate(() => {
     window.__drawingCopies = [];
     window.cadHarness.a.host.clipboard.writeImage = async pending => { const blob = await pending; window.__drawingCopies.push({ size: blob.size, type: blob.type }); };
   });
-  await pane.getByRole('button', { name: /^Copy Drawing/ }).click();
+  assert.equal(await pane.getByRole('button', { name: /^Copy Drawing/ }).count(), 0, 'no copy button');
+  await pane.getByRole('button', { name: 'Annotate', exact: true }).press('Control+c');
   await page.waitForFunction(() => window.__drawingCopies.length === 1);
   const [copied] = await page.evaluate(() => window.__drawingCopies);
   assert.ok(copied.type === 'image/png' && copied.size > 100, JSON.stringify(copied));
 
-  // Annotate, beside Copy Drawing: the view with its ink goes into the chat box as a picture, and
-  // the note beside it as an annotation on the whole model.
+  // Annotate, the action under Draw: the view with its ink goes into the chat box as a picture,
+  // and the note beside it as an annotation on the whole model.
   await page.evaluate(() => {
     window.__sketchDeliveries = [];
     window.cadHarness.a.host.promptContext.deliver = async context => {
@@ -203,6 +205,12 @@ export async function runDrawScenario({ page, pane, errors }) {
   assert.match(sketchParts[0].name, /-drawing\.png$/);
   assert.deepEqual([sketchParts[1].text, sketchParts[1].targets], ['round this corner', ['whole-resource']]);
   assert.deepEqual(sketchParts[1].attachments, [sketchParts[0].id], 'the note names its sketch');
+  // The note is optional: a sketch can say it all.
+  await pane.getByRole('button', { name: 'Annotate', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Annotation', exact: true }).press('Enter');
+  await page.waitForFunction(() => window.__sketchDeliveries.length === 2);
+  const [, wordless] = await page.evaluate(() => window.__sketchDeliveries);
+  assert.deepEqual([wordless[1].kind, wordless[1].text], ['annotation', ''], JSON.stringify(wordless));
 
   // Leaving Draw ends the session and the sketch with it; the tool and colour in hand wait for the next.
   await pane.getByRole('group', { name: 'Interaction tools' }).getByRole('button', { name: 'Select', exact: true }).click();

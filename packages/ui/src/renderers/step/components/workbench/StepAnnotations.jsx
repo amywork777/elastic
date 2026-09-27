@@ -6,7 +6,7 @@ import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
 import { cn } from "@text-to-cad/ui/utils";
 
 // The Select tool's annotations (`workbench/stepAnnotations.js`): the Annotate button, which is
-// the viewport's action while something is selected (and sits beside Copy Drawing under Draw),
+// the viewport's action while something is selected and, under Draw, the action on the sketch,
 // and the body of the card a dot opens on the model (AnnotationPins.jsx). An annotation goes into
 // the chat box as it is made, and reaches the agent only when the person sends the prompt.
 
@@ -15,12 +15,13 @@ import { cn } from "@text-to-cad/ui/utils";
  * box above the button. `primary` is the look it has as the viewport's own action, where it
  * stands alone; otherwise it is the outline button beside another action.
  */
-export function AnnotateButton({ disabled = false, onSubmit, placeholder = "What should change here?", primary = false, className = "" }) {
+export function AnnotateButton({ disabled = false, onSubmit, placeholder = "What should change here?", primary = false, optional = false, className = "" }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
+  // `optional`: the note may be empty — a sketch can say it all — and Add is always live.
   const submit = () => {
     const value = note.trim();
-    if (!value) return;
+    if (!value && !optional) return;
     onSubmit(value);
     setNote("");
     setOpen(false);
@@ -40,7 +41,7 @@ export function AnnotateButton({ disabled = false, onSubmit, placeholder = "What
           placeholder={placeholder} />
         <div className="mt-1.5 flex items-center justify-between gap-2 px-0.5">
           <span className="text-[11px] text-muted-foreground">Enter to add · Shift+Enter for a new line</span>
-          <Button type="button" size="sm" className="h-7 px-3 text-xs" disabled={!note.trim()} onClick={submit}>Add</Button>
+          <Button type="button" size="sm" className="h-7 px-3 text-xs" disabled={!optional && !note.trim()} onClick={submit}>Add</Button>
         </div>
       </PopoverContent>
     </Popover>

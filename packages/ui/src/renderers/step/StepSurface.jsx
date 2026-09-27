@@ -2032,8 +2032,9 @@ function StepSurfaceBody({ view, data }) {
   }, [heldText]);
   // A note on the sketch (the Draw tool): the view with its ink goes into the chat box as a
   // picture, and the note beside it as an annotation on the whole model — a sketch is about the
-  // part as a whole, not a face of it. Its dot sits at the model's middle, for after the sketch
-  // is gone: Draw ends with the sketch, the annotation stays in the chat box.
+  // part as a whole, not a face of it. The note may be empty: a sketch can say it all. Its dot
+  // sits at the model's middle, for after the sketch is gone: Draw ends with the sketch, the
+  // annotation stays in the chat box.
   const annotateDrawing = useCallback((note) => {
     if (!promptAvailable || viewerLoading || !viewerRef.current?.captureScreenshotBlob) return;
     const anchor = annotationAnchor([{ bbox: selectedMeshData?.bounds }]);
@@ -3518,7 +3519,7 @@ function StepSurfaceBody({ view, data }) {
 
   return <RendererShell shell={shell} tools={tools} playback={viewportAnimation} toolPanels={<>{stepPanels}{modelEffects.panels}</>}
     bottomAction={bottomAction}
-    drawingExtras={<AnnotateButton disabled={!promptAvailable || viewerLoading} onSubmit={annotateDrawing} placeholder="What about this sketch?" />}
+    drawingAction={<AnnotateButton primary optional disabled={!promptAvailable || viewerLoading} onSubmit={annotateDrawing} placeholder="What about this sketch? (optional)" />}
     contextMenuItems={selectionToolActive
       ? press => viewportContextMenuItems(press, pickAtRef.current?.(press.clientX, press.clientY) || "") : null}
     onContextMenuOpenChange={handleViewportContextMenuOpenChange}
