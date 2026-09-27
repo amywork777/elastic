@@ -83,7 +83,8 @@ export function AnnotationsChip({
           </button>
         </span>
         <PopoverContent align="start" className="w-96 p-2" side="top">
-          <ol aria-label="Annotations in this draft" className="flex flex-col gap-1 text-[12px] leading-5">
+          {/* Scrolls past a few rows: a long list must not climb over the transcript. */}
+          <ol aria-label="Annotations in this draft" className="flex max-h-[min(50vh,22rem)] flex-col gap-1 overflow-y-auto text-[12px] leading-5">
             {annotations.map((annotation, index) => (
               <AnnotationRow
                 annotation={annotation}
@@ -157,8 +158,8 @@ function AnnotationRow({
   return (
     <li className="group flex items-start gap-1.5 rounded-md px-1 py-0.5 hover:bg-muted/60" data-annotation-row={annotation.id}>
       <span className="w-4 shrink-0 pt-px text-right text-muted-foreground tabular-nums">{index + 1}.</span>
+      {annotation.image ? <SketchThumbnail image={annotation.image} index={index} /> : null}
       <div className="min-w-0 flex-1">
-        {annotation.image ? <SketchThumbnail image={annotation.image} index={index} /> : null}
         {annotation.references.map((reference, position) => (
           <span className={cn(REFERENCE_CHIP_CLASS, "mr-1 align-middle")} key={position}>
             <ReferenceChipContent file={referencePath(reference)} label={reference.label} selector={referenceSelector(reference)} />
@@ -221,7 +222,7 @@ function AnnotationRow({
   );
 }
 
-/** The sketch a note was made over, shown with it: what the words are about. */
+/** The sketch a note was made over, beside it as a small square: enough to tell which sketch. */
 function SketchThumbnail({ image, index }: { image: File; index: number }) {
   // One object URL per image, released when the image changes or the row goes.
   const url = useMemo(() => URL.createObjectURL(image), [image]);
@@ -229,9 +230,10 @@ function SketchThumbnail({ image, index }: { image: File; index: number }) {
   return url ? (
     <img
       alt={`Sketch for annotation ${index + 1}`}
-      className="mb-1 block max-h-40 w-full rounded-md border object-contain"
+      className="mt-0.5 size-12 shrink-0 rounded-md border bg-muted/40 object-cover"
       data-annotation-sketch
       src={url}
+      title={image.name}
     />
   ) : null;
 }
