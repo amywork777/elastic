@@ -638,15 +638,19 @@ test("renders a STEP file through the bundled runtime's viewer", async () => {
   await resizeWindow(1440, 900);
 
   // No tab of any name in the viewer: the retired View, Model, Inspector, Settings and Display
-  // panels included. Display is the toolbar's last tool; while it is the tool its panel leads
-  // the stack in place of the Features, and it keeps its settings across a close.
+  // panels included. Display is not a tool: its settings button sits in the viewport's top-right
+  // bar, beside Preview, and opens a popover that leaves Select and its Features in place, and
+  // keeps its settings across a close.
   await expect(page.locator("[data-cad-surface]").getByRole("tab")).toHaveCount(0);
-  const display = page.locator("[data-cad-toolbar]").getByRole("button", { name: "Display", exact: true });
-  const viewPanel = page.locator('[data-cad-tool-stack] [data-tool-panel][aria-label="Display settings"]');
+  await expect(page.locator("[data-cad-toolbar]").getByRole("button", { name: /^Display/ })).toHaveCount(0);
+  const display = page.locator("[data-viewport-actions]").getByRole("button", { name: "Display settings", exact: true });
+  const viewPanel = page.locator("[data-display-popover]");
   const mode = viewPanel.getByRole("combobox", { name: "Mode", exact: true });
   await display.click();
   await expect(viewPanel).toBeVisible();
-  await expect(tree).toBeHidden();
+  await expect(display).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("[data-cad-tool-stack] [data-display-popover]")).toHaveCount(0);
+  await expect(tree).toBeVisible();
   await mode.click();
   await page.getByRole("option", { name: "Wireframe", exact: true }).click();
   await expect(viewPanel).toBeVisible();
@@ -713,7 +717,7 @@ test("renders a STEP file through the bundled runtime's viewer", async () => {
   const panelDark = await paint();
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
   await expect.poll(sceneBackdrop).toBe("51,51,51");
-  await expect(page.locator("[data-cad-toolbar]").getByRole("button", { name: "Display", exact: true })).toBeVisible();
+  await expect(page.locator("[data-viewport-actions]").getByRole("button", { name: "Display settings", exact: true })).toBeVisible();
 
   await page.evaluate(() => window.textToCad.settings.set({ theme: "light" }));
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);

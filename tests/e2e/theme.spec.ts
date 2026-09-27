@@ -266,9 +266,10 @@ test("stays dark through display mode and render settings edits", async () => {
   await expect(page.getByRole("button", { name: "Theme settings", exact: true })).toHaveCount(0);
   await expect(page.locator("[data-file-panel='cad-theme'], [data-file-sheet]")).toHaveCount(0);
 
-  // Display is a tool, the toolbar's last button; its panel leads the stack while it is up.
-  await page.locator("[data-cad-toolbar]").getByRole("button", { name: "Display", exact: true }).click();
-  const display = stack.locator('[data-tool-panel][aria-label="Display settings"]');
+  // Display is not a tool: its settings button in the viewport's top-right bar, beside Preview,
+  // opens a popover.
+  await page.locator("[data-viewport-actions]").getByRole("button", { name: "Display settings", exact: true }).click();
+  const display = page.locator("[data-display-popover]");
   const displayMode = display.getByRole("combobox", { name: "Mode", exact: true });
   await displayMode.click();
   await page.getByRole("option", { name: "Render", exact: true }).click();
@@ -291,7 +292,7 @@ test("stays dark through display mode and render settings edits", async () => {
   await displayMode.click();
   await page.getByRole("option", { name: "Solid", exact: true }).click();
   await expect(displayMode).toContainText("Solid");
-  // Escape puts Display down and Select, with its Features tree as it was, is back.
+  // Escape closes the popover; Select, with its Features tree as it was, never left.
   await page.keyboard.press("Escape");
   await expect(display).toHaveCount(0);
   await expect(stack.getByRole("list", { name: "Model", exact: true })).toBeVisible();

@@ -170,19 +170,22 @@ function stackPanels() {
   return stack().locator("[data-tool-panel]:visible").evaluateAll(panels => panels.map(panel => panel.getAttribute("aria-label")));
 }
 
-/** Display is a tool, the toolbar's last button; while it is the tool its panel leads the stack. */
+/**
+ * Display is not a tool: its settings button sits in the viewport's top-right bar, beside
+ * Preview, and opens a popover (portaled out of the viewer). The tool in hand stays as it is.
+ */
 function displayTool() {
-  return page.locator("[data-cad-toolbar]").getByRole("button", { name: "Display", exact: true });
+  return page.locator("[data-viewport-actions]").getByRole("button", { name: "Display settings", exact: true });
 }
 function displayPanel() {
-  return stack().locator('[data-tool-panel][aria-label="Display settings"]');
+  return page.locator("[data-display-popover]");
 }
 async function openDisplay() {
   if (!(await displayPanel().isVisible())) await displayTool().click();
   await expect(displayPanel()).toBeVisible();
   return displayPanel();
 }
-/** Escape puts Display down and hands the toolbar back to the default tool. */
+/** Escape closes Display's popover; the tool in hand is untouched. */
 async function closeDisplay() {
   await page.keyboard.press("Escape");
   await expect(displayPanel()).toHaveCount(0);
@@ -274,19 +277,23 @@ test("View presets preserve authored materials and independent tools without a M
   await expect(page.getByRole("button", { name: "Theme settings", exact: true })).toHaveCount(0);
   await expect(page.locator("[data-file-panel=cad-theme], [data-file-sheet]")).toHaveCount(0);
   // The nav row's only panel toggle is the files one: a STEP declares no panel of its own,
-  // Display is a toolbar tool, and no Materials or Studio editor is anywhere.
+  // Display is a settings popover from the viewport's top-right bar, not a tool, and no
+  // Materials or Studio editor is anywhere.
   expect(await page.locator("header [data-file-panel]").evaluateAll(toggles => toggles.map(toggle =>
     `${toggle.getAttribute("data-file-panel")}:${toggle.getAttribute("aria-label")}`)))
     .toEqual(["tree:Hide files"]);
   expect(await stackPanels()).toEqual(["Features"]);
   const view = await openDisplay();
   await expect(displayTool()).toHaveAttribute("aria-pressed", "true");
-  // Display's panel is the stack while it is the tool, at the toolbar's left edge, and the
-  // host's file tree stays where it was.
-  expect(await stackPanels()).toEqual(["Display settings"]);
-  const [toolbarBox, viewBox] = [(await page.locator("[data-cad-toolbar]").boundingBox())!, (await view.boundingBox())!];
-  expect(Math.abs(viewBox.x - toolbarBox.x)).toBeLessThanOrEqual(1);
-  expect(viewBox.y).toBeGreaterThanOrEqual(toolbarBox.y + toolbarBox.height);
+  // Opening Display leaves Select in hand: the stack is still its Features, and the popover
+  // hangs under its button in the top-right bar, not in the stack. The host's file tree stays
+  // where it was.
+  expect(await stackPanels()).toEqual(["Features"]);
+  await expect(stack().locator("[data-display-popover]")).toHaveCount(0);
+  const [buttonBox, viewBox] = [(await displayTool().boundingBox())!, (await view.boundingBox())!];
+  expect(viewBox.y).toBeGreaterThanOrEqual(buttonBox.y + buttonBox.height);
+  expect(viewBox.x).toBeLessThanOrEqual(buttonBox.x + buttonBox.width);
+  expect(viewBox.x + viewBox.width).toBeGreaterThanOrEqual(buttonBox.x);
   await expect(page.locator("[data-file-panel-container]")).toHaveCount(1);
   await expect(page.getByTestId("tree-toggle")).toHaveAttribute("aria-pressed", "true");
   const mode = view.getByRole("combobox", { name: "Mode", exact: true });
@@ -368,19 +375,24 @@ test("View presets preserve authored materials and independent tools without a M
   await tools.getByRole("button", { name: "Clip", exact: true }).click();
   const clip = page.getByRole("region", { name: "Clip controls", exact: true });
   await expect(clip).toBeVisible();
-  for (const axis of ["X", "Y", "Z"]) await expect(clip.getByRole("radio", { name: `Clip ${axis} axis` })).toBeVisible();
-  await expect(clip.getByLabel("Flip", { exact: true })).toBeVisible();
-  await clip.getByRole("radio", { name: "Clip X axis" }).click();
-  const clipAmount = clip.getByLabel("Clip amount value", { exact: true });
-  await clipAmount.fill("50%");
-  await clipAmount.press("Enter");
-  await expect(clip.getByRole("slider", { name: "Clip amount" })).toHaveAttribute("aria-valuenow", "50");
+  // Its body is an X / Y / Z axis dropdown and one amount slider (no typed value, no Flip).
+  const clipAxis = clip.getByRole("combobox", { name: "Clip axis", exact: true });
+  await clipAxis.click();
+  for (const axis of ["X", "Y", "Z"]) await expect(page.getByRole("option", { name: axis, exact: true })).toBeVisible();
+  await page.getByRole("option", { name: "X", exact: true }).click();
+  await expect(clipAxis).toContainText("X");
+  await expect(clip.getByLabel("Flip", { exact: true })).toHaveCount(0);
+  const clipAmount = clip.getByRole("slider", { name: "Clip amount" });
+  await expect(clipAmount).toHaveAttribute("aria-valuenow", "0");
+  // PageUp moves it ten of its 0.1% steps: 1%.
+  await clipAmount.focus();
+  for (let press = 0; press < 50; press += 1) await clipAmount.press("PageUp");
+  await expect(clipAmount).toHaveAttribute("aria-valuenow", "50");
   await openDisplay();
-  // Display leads the stack, and the kept Clip panel stays under it, the stack's one width.
-  expect(await stackPanels()).toEqual(["Display settings", "Clip controls"]);
-  const [clipBox, displayBox] = [(await clip.boundingBox())!, (await displayPanel().boundingBox())!];
-  expect(clipBox.y).toBeGreaterThanOrEqual(displayBox.y + displayBox.height);
-  expect(Math.abs(clipBox.width - displayBox.width)).toBeLessThanOrEqual(1);
+  // Opening Display keeps Clip in hand: its panel is still the stack's only one, and the
+  // Display popover is beside it, not in the stack.
+  expect(await stackPanels()).toEqual(["Clip controls"]);
+  await expect(tools.getByRole("button", { name: "Clip", exact: true })).toHaveAttribute("aria-pressed", "true");
   await mode.click();
   await page.getByRole("option", { name: "Render", exact: true }).click();
   await expect(exposure).toHaveValue("0.0 EV");

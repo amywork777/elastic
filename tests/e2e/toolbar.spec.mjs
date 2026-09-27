@@ -105,21 +105,23 @@ test('CAD tools stay within the scene, with direct snapshot and Select filters',
     const resize = async width => app.evaluate(({
       BrowserWindow
     }, w) => BrowserWindow.getAllWindows()[0].setSize(w, 800), width);
+    // The toolbar floats in the tool-groups column over the scene; the scene is the bound.
+    const compact = page.locator('[data-cad-tool-groups][data-mobile]');
     const narrowScene = async () => {
-      // Exercise a genuinely constrained CAD container. Removing the old Display
-      // and mode buttons lets the toolbar fit at our previous 960px window size.
+      // Exercise a genuinely constrained CAD container: narrow the window until the viewer
+      // takes its compact layout.
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setMinimumSize(700, 600));
       for (let width = 900; width >= 700; width -= 20) {
         await resize(width);
         await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width);
-        if (await toolbar.evaluate(el => el.parentElement.clientWidth) < 128) break;
+        if (await compact.count()) break;
       }
-      await expect.poll(() => toolbar.evaluate(el => el.parentElement.clientWidth)).toBeLessThan(128);
+      await expect(compact).toHaveCount(1);
       await expect(toolbar).toHaveAttribute('data-cad-toolbar', 'tools');
     };
     const fit = async () => {
       const metric = await toolbar.evaluate(el => {
-        const scene = el.parentElement.getBoundingClientRect();
+        const scene = el.closest('[data-cad-scene-backdrop]').getBoundingClientRect();
         return [...el.querySelectorAll('button,input')].filter(b => b.getClientRects().length).map(b => {
           const r = b.getBoundingClientRect();
           return {
@@ -135,18 +137,26 @@ test('CAD tools stay within the scene, with direct snapshot and Select filters',
     };
     await resize(1600);
     await expect(toolbar).toHaveAttribute('data-cad-toolbar', 'tools');
+    // Explode is offered until the mesh arrives and withdrawn for a model of one part, as this
+    // fixture is: take the strip's labels once the loaded model has settled them.
+    await expect(toolbar.getByRole('button', { name: 'Explode', exact: true })).toHaveCount(0);
     const fullLabels = await toolbar.getByRole('button').evaluateAll(els => els.map(el => el.getAttribute('aria-label')));
     const tools = toolbar.getByRole('group', { name: 'Interaction tools', exact: true });
+    // The viewport's top-right bar: Display settings, then Preview.
+    const viewportActions = page.locator('[data-viewport-actions]');
+    const displayButton = viewportActions.getByRole('button', { name: 'Display settings', exact: true });
     const grouping = async () => {
       await expect(page.getByRole('button', { name: 'Take snapshot', exact: true })).toBeVisible();
       await expect(toolbar.getByRole('group', { name: 'View and actions' })).toHaveCount(0);
       for (const name of ['Select', 'Measure', 'Draw']) await expect(tools.getByRole('button', { name, exact: true })).toBeVisible();
-      // Preview is the viewer's own corner button, never a tool; Display is the toolbar's
-      // last button, a popover.
+      // Preview is the viewer's own corner button, never a tool; nor is Display: the toolbar has
+      // no Display tool, and Display settings sits in the top-right bar, just before Preview.
       await expect(tools.getByRole('button', { name: 'Preview', exact: true })).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Preview', exact: true })).toHaveCount(1);
-      await expect(toolbar.getByRole('button', { name: 'Display', exact: true })).toBeVisible();
-      assert.equal((await toolbar.getByRole('button').evaluateAll(els => els.map(el => el.getAttribute('aria-label')))).at(-1), 'Display');
+      await expect(toolbar.getByRole('button', { name: /^Display/ })).toHaveCount(0);
+      await expect(displayButton).toBeVisible();
+      assert.deepEqual((await viewportActions.getByRole('button').evaluateAll(els => els.map(el => el.getAttribute('aria-label')))).slice(-2),
+        ['Display settings', 'Preview']);
       await expect(toolbar.getByRole('button', { name: /^Viewing mode:/ })).toHaveCount(0);
       // There is no zoom control anywhere: not in the toolbar, and not in the tool stack, which
       // has no header of tabs to carry one. Framing a STEP is in its viewport context menu, and
@@ -157,19 +167,23 @@ test('CAD tools stay within the scene, with direct snapshot and Select filters',
       await fit();
     };
     await grouping();
-    // Display is a tool whose panel leads the stack under the toolbar, inside the scene.
+    // Display is a popover from its button in the top-right bar, under it and inside the scene;
+    // it is not in the tool stack, and Select stays in hand.
     await expect(page.locator('header [data-file-panel=cad-display]')).toHaveCount(0);
-    await toolbar.getByRole('button', { name: 'Display', exact: true }).click();
-    const display = stack.locator('[data-tool-panel][aria-label="Display settings"]');
+    await displayButton.click();
+    const display = page.locator('[data-display-popover]');
+    await expect(stack.locator('[data-display-popover]')).toHaveCount(0);
+    await expect(tools.getByRole('button', { name: 'Select', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const displayMode = display.getByRole('combobox', { name: 'Mode', exact: true });
     await expect(displayMode).toBeVisible();
     await displayMode.click();
     await page.getByRole('option', { name: 'Render', exact: true }).click();
     await expect(displayMode).toContainText('Render');
     for (const name of ['Select', 'Measure', 'Draw']) await expect(tools.getByRole('button', { name, exact: true })).toBeVisible();
-    const [popover, scene, strip] = await Promise.all([display.boundingBox(), page.locator('[data-cad-surface]').boundingBox(), toolbar.boundingBox()]);
+    const [popover, scene, button] = await Promise.all([display.boundingBox(), page.locator('[data-cad-surface]').boundingBox(), displayButton.boundingBox()]);
     assert(popover.x >= scene.x - 1 && popover.x + popover.width <= scene.x + scene.width + 1, JSON.stringify({ popover, scene }));
-    assert(Math.abs(popover.x - strip.x) <= 1 && popover.y >= strip.y + strip.height, JSON.stringify({ popover, strip }));
+    assert(popover.y >= button.y + button.height && popover.x <= button.x + button.width && popover.x + popover.width >= button.x,
+      JSON.stringify({ popover, button }));
     await displayMode.click();
     await page.getByRole('option', { name: 'Solid', exact: true }).click();
     await page.keyboard.press('Escape');
@@ -223,13 +237,15 @@ test('CAD tools stay within the scene, with direct snapshot and Select filters',
     await expect(page.getByText('12/50', { exact: true })).toBeVisible();
     await fit();
     for (const name of ['Select', 'Measure', 'Draw']) await expect(toolbar.getByRole('button', { name, exact: true })).toBeDisabled();
-    // Display is about the view, not the model, and stays the toolbar's last button while it compiles.
-    await expect(toolbar.getByRole('button', { name: 'Display', exact: true })).toBeVisible();
+    // Display is about the view, not the model: its settings button stays in the top-right bar
+    // while it compiles, and the toolbar never grows a Display tool.
+    await expect(displayButton).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: /^Display/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Take snapshot', exact: true })).toBeDisabled();
     assert.deepEqual(errors, []);
     assert.deepEqual(sourceRequests, []);
     await expect(page.getByRole('tab', { name: 'Source features' })).toHaveCount(0);
-    console.info('PASS: tools at both widths; Display panel and Render; Select mode menu; Draw panel; focus; scene bounds; snapshot loading state; no renderer errors');
+    console.info('PASS: tools at both widths; Display popover and Render; Select mode menu; Draw panel; focus; scene bounds; snapshot loading state; no renderer errors');
   } finally {
     await page?.unrouteAll({ behavior: 'wait' });
     const runtimeLog = path.join(profile, 'cad-runtime.log');

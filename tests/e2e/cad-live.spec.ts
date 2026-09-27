@@ -68,12 +68,12 @@ test('live CAD commands observe and control the mounted tiny STEP viewport witho
   await expect(page.locator('[data-cad-surface] canvas').first()).toBeVisible({ timeout: 90_000 });
   // Opened by a command rather than picked in the tree, the STEP opens in Select with its
   // Features in the tool stack under the toolbar and the file tree closed: the nav row's only
-  // panel toggle is the file tree's, and Display is a tool whose panel is not up yet.
+  // panel toggle is the file tree's, and Display's settings popover is not up yet.
   const stack = page.locator('[data-cad-tool-stack]');
   await expect(stack.getByRole('region', { name: 'Features', exact: true })).toBeVisible({ timeout: 90_000 });
   await expect(page.locator('header [data-file-panel]')).toHaveCount(1);
   await expect(page.locator('header [data-file-panel=tree]')).toHaveCount(1);
-  await expect(stack.locator('[data-tool-panel][aria-label="Display settings"]')).toHaveCount(0);
+  await expect(page.locator('[data-display-popover]')).toHaveCount(0);
   await expect(page.getByTestId('tree-toggle')).toHaveAttribute('aria-pressed', 'false');
   let state!: CadLiveState;
   await expect.poll(async () => {
@@ -121,12 +121,12 @@ test('live CAD commands observe and control the mounted tiny STEP viewport witho
   expect(renderedState.renderMode).toBe('render');
   expect(renderedState.display.mode).toBe('render');
   expect(renderedState.camera?.projection).toBe('perspective');
-  // Display is the last tool on the strip; its panel leads the stack and its Mode follows the
-  // live command.
-  await page.locator('[data-cad-toolbar]').getByRole('button', { name: 'Display', exact: true }).click();
-  const displayPanel = stack.locator('[data-tool-panel][aria-label="Display settings"]');
+  // Display is not a tool: its settings button sits in the viewport's top-right bar, beside
+  // Preview, and opens a popover whose Mode follows the live command. Select stays in hand.
+  await page.locator('[data-viewport-actions]').getByRole('button', { name: 'Display settings', exact: true }).click();
+  const displayPanel = page.locator('[data-display-popover]');
   await expect(displayPanel).toBeVisible();
-  expect(await stack.locator('[data-tool-panel]:visible').first().getAttribute('aria-label')).toBe('Display settings');
+  await expect(stack.getByRole('region', { name: 'Features', exact: true })).toBeVisible();
   const displayMode = displayPanel.getByRole('combobox', { name: 'Mode', exact: true });
   await expect(displayMode).toContainText('Render');
   const solidState = await command('cad-render-mode', tabId, { mode: 'inspect' }) as CadLiveState;
