@@ -102,8 +102,6 @@ import path from "node:path";
 import { Readable, Writable } from "node:stream";
 
 import { AgentSideConnection, PROTOCOL_VERSION, RequestError, ndJsonStream } from "@agentclientprotocol/sdk";
-import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const args = process.argv.slice(2);
 const recordFile = process.env.FAKE_AGENT_RECORD || null;
@@ -652,6 +650,13 @@ async function callTextToCadTool(name, args) {
   for (const entry of server.env ?? []) {
     env[entry.name] = entry.value;
   }
+  // Imported here, not at the top: only the prompts that call a tool need the MCP
+  // client, and loading it is a quarter of every spawn's startup (the unit suites
+  // and the e2e spawn this agent dozens of times).
+  const [{ Client: McpClient }, { StdioClientTransport }] = await Promise.all([
+    import("@modelcontextprotocol/sdk/client/index.js"),
+    import("@modelcontextprotocol/sdk/client/stdio.js"),
+  ]);
   const transport = new StdioClientTransport({ command: server.command, args: server.args ?? [], env });
   const client = new McpClient({ name: "fake-agent", version: "0.0.0" });
   await client.connect(transport);
