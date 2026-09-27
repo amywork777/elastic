@@ -16,7 +16,9 @@ describe('offline PDF assets', () => {
     expect(files.get('pdfjs/standard_fonts/LICENSE_LIBERATION_OFL')?.toString()).toContain('SIL OPEN FONT LICENSE');
     expect(files.has('pdfjs/standard_fonts/LICENSE_LIBERATION')).toBe(false);
     const replacement = path.dirname(require.resolve('@betteroffice/fonts/package.json'));
-    for (const style of ['Regular', 'Bold', 'Italic', 'BoldItalic']) expect(files.get(`pdfjs/standard_fonts/LiberationSans-${style}.ttf`)).toEqual(fs.readFileSync(path.join(replacement, `assets/LiberationSans-${style}.ttf`)));
+    // Buffer#equals, not toEqual: a deep equality walks megabytes of font and
+    // wasm byte by byte and was most of this file's run time.
+    for (const style of ['Regular', 'Bold', 'Italic', 'BoldItalic']) expect(files.get(`pdfjs/standard_fonts/LiberationSans-${style}.ttf`)?.equals(fs.readFileSync(path.join(replacement, `assets/LiberationSans-${style}.ttf`))), style).toBe(true);
   });
   it('serves exactly the same local assets in development and production', () => {
     const plugin = pdfAssetsPlugin(); const emitted: Asset[] = [];
@@ -26,8 +28,8 @@ describe('offline PDF assets', () => {
     const configureServer = plugin.configureServer as (server: { middlewares: { use(handler: Middleware): void } }) => void;
     configureServer({ middlewares: { use: handler => { middleware = handler; } } });
     for (const file of emitted) {
-      let body: unknown; middleware!({ url: `/${file.fileName}` }, { setHeader() {}, end(value: Buffer) { body = value; } }, () => { throw new Error('asset missing'); });
-      expect(body).toEqual(file.source);
+      let body: Buffer | undefined; middleware!({ url: `/${file.fileName}` }, { setHeader() {}, end(value: Buffer) { body = value; } }, () => { throw new Error('asset missing'); });
+      expect(body?.equals(file.source), file.fileName).toBe(true);
     }
     let passed = false; middleware!({ url: '/pdfjs/../secret' }, { setHeader() {}, end() {} }, () => { passed = true; }); expect(passed).toBe(true);
   });

@@ -23,7 +23,12 @@ test('PDF.js renders the same two-page document that live read, page, selection 
       }
       if (request.url !== '/') return next();
       response.setHeader('Content-Type', 'text/html'); response.end('<div id="root"></div><script type="module" src="/tests/browser/pdf/index.tsx"></script>');
-    }); } }], esbuild: { jsx: 'automatic' } });
+    }); } }], esbuild: { jsx: 'automatic' },
+    // Scan the harness, not the app: the default entry is every index.html under
+    // the root, which here is the renderer's — a scan that fails on its aliases
+    // and leaves discovery to the page, whose late finds re-optimise and reload
+    // it mid-test.
+    optimizeDeps: { entries: ['tests/browser/pdf/index.tsx'] } });
   let browser;
   try {
     await server.listen(); browser = await chromium.launch({ headless: true });

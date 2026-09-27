@@ -1,9 +1,8 @@
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
-import { setTimeout as sleep } from "node:timers/promises";
 
 import { execa } from "execa";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { endTrackedChildren, killTrackedChildren, trackChild, trackedChildren } from "@main/children";
 
@@ -34,9 +33,8 @@ describe("tracked children", () => {
     const child = trackChild(spawn(process.execPath, ["-e", "process.exit(0)"]), "probe");
     expect(trackedChildren().map((entry) => entry.pid)).toContain(child.pid);
     await exited(child);
-    // The exit listener runs after the event; give it the tick.
-    await sleep(10);
-    expect(trackedChildren()).toHaveLength(0);
+    // The exit listener runs after the event.
+    await vi.waitFor(() => expect(trackedChildren()).toHaveLength(0));
   });
 
   it("before-quit kills probes and leaves services to their owners", async () => {
@@ -91,8 +89,7 @@ describe("tracked children", () => {
     endTrackedChildren();
     const result = await subprocess;
     expect(result.signal).toBe("SIGKILL");
-    await sleep(10);
-    expect(trackedChildren()).toHaveLength(0);
+    await vi.waitFor(() => expect(trackedChildren()).toHaveLength(0));
   });
 
   it("does not change what an execa call answers", async () => {

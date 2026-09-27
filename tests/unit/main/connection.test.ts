@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SessionConnection, type RecordedFrame } from "@main/acp/connection";
 import { spawnProcessTerminal } from "@main/acp/process-backend";
@@ -203,7 +203,8 @@ describe("SessionConnection against the fake agent", () => {
     const connection = connect({ cwd: await scratch() });
     await connection.newSession();
     const turn = connection.prompt([{ type: "text", text: "be slow" }]);
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // The fake agent says "working" and then waits: cancel once it is waiting.
+    await vi.waitFor(() => expect(lastAgentText(connection.state)).toBe("working"));
     await connection.cancel();
     expect((await turn).stopReason).toBe("cancelled");
     expect(connection.state.turns[1]?.stopReason).toBe("cancelled");
@@ -241,9 +242,8 @@ describe("SessionConnection against the fake agent", () => {
     await connection.newSession();
     await expect(connection.prompt([{ type: "text", text: "please crash" }])).rejects.toThrow();
     await connection.exited;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await vi.waitFor(() => expect(connection.state.status).toBe("error"));
     expect(connection.alive).toBe(false);
-    expect(connection.state.status).toBe("error");
     expect(events.some((event) => event.type === "status" && event.status === "error" && /code 3/.test(event.error ?? ""))).toBe(true);
     expect(events.some((event) => event.type === "prompt/error")).toBe(true);
   });

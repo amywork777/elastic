@@ -3,7 +3,7 @@ import Document from "@tiptap/extension-document";
 import HardBreak from "@tiptap/extension-hard-break";
 import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ReferenceNode } from "@renderer/features/session/composer/ReferenceNode";
 import { docFromText, parseReference, parseSegments, textFromDoc } from "@renderer/features/session/composer/references";
@@ -89,7 +89,8 @@ describe("the editor", () => {
     instance.commands.focus("end");
     instance.commands.insertContent("bracket.step#o1.2, ", { applyInputRules: true });
     // The rule runs on a timer after a simulated input.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    const nodeTypes = () => (instance.getJSON().content?.[0]?.content ?? []).map((node) => node.type);
+    await vi.waitFor(() => expect(nodeTypes()).toContain("reference"));
     const json = instance.getJSON();
     const content = (json.content?.[0]?.content ?? []) as Array<{ type: string; attrs?: unknown; text?: string }>;
     expect(content.map((node) => node.type)).toEqual(["text", "reference", "text"]);
@@ -98,8 +99,10 @@ describe("the editor", () => {
     expect(textFromDoc(json as never)).toBe("make bracket.step#o1.2, ");
 
     // A word that is not a reference is left alone.
+    // Nothing to wait on that would change: give the rule's timer its turn.
     instance.commands.insertContent("thicker ", { applyInputRules: true });
     await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(nodeTypes()).toEqual(["text", "reference", "text"]);
     expect(textFromDoc(instance.getJSON() as never)).toBe("make bracket.step#o1.2, thicker ");
   });
 
