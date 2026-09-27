@@ -130,8 +130,12 @@ test("a real ACP session starts isolated domain MCPs and operates the live app's
   const opened = json<{ tabId: string }>(await tool("workspace", "open_file", { path: "notes.txt" }));
   await expect(page.locator(".monaco-editor").first()).toContainText("disk original");
   await page.locator(".monaco-editor .view-lines").first().click();
+  // Monaco takes input through its own focused element (an EditContext, not a textarea).
+  await expect(page.locator(".monaco-editor:focus-within")).toHaveCount(1);
   await page.keyboard.press(`${mod}+A`);
-  await page.keyboard.type("human unsaved draft");
+  // One input event, as a paste is: key-by-key typing into Monaco dropped a character under
+  // CI load ("humn"), and what matters here is the draft, not the typing.
+  await page.keyboard.insertText("human unsaved draft");
   await expect(page.getByLabel("Unsaved changes")).toBeVisible();
   let live = await readBound(opened.tabId);
   expect(live).toMatchObject({ content: "human unsaved draft", dirty: true });
