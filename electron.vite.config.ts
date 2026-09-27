@@ -22,7 +22,7 @@ const alias = {
 // could be set by whoever launches the binary is a key anyone can point at
 // their own project. Absent (a checkout, a community build) it compiles to "",
 // which makes src/main/telemetry.ts inert — no init, no network call.
-const aptabaseKey = process.env.HARDCORE_APTABASE_KEY ?? "";
+const aptabaseKey = process.env.TEXT_TO_CAD_APTABASE_KEY ?? "";
 
 export default defineConfig({
   main: {

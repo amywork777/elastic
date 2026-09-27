@@ -4,7 +4,7 @@
 declare const __APP_VERSION__: string;
 
 /**
- * The Aptabase project key, from `HARDCORE_APTABASE_KEY` at build time. Empty
+ * The Aptabase project key, from `TEXT_TO_CAD_APTABASE_KEY` at build time. Empty
  * in every build that was not given one, which makes telemetry inert. Defined
  * for the main process only — telemetry never runs in the renderer.
  */

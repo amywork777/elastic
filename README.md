@@ -62,7 +62,7 @@ Three environment variables matter in development:
 
 | Variable | Effect |
 | --- | --- |
-| `HARDCORE_APTABASE_KEY` | Read at BUILD time and compiled in (see Telemetry). Unset means no network call is ever attempted. |
+| `TEXT_TO_CAD_APTABASE_KEY` | Read at BUILD time and compiled in (see Telemetry). Unset means no network call is ever attempted. |
 | `CAD_DESKTOP_PYTHON` | An interpreter with cadgen installed, used instead of the bundled runtime (see CAD runtime below). A developer's knob; the e2e suite breaks and clears the equivalent setting on purpose. |
 | `TEXT_TO_CAD_PREWARM` | Under `NODE_ENV=test` both pre-warms are off — the project's (viewer child + cadgen daemon on project open) and the agents' (one idle adapter per agent in the index, see "Opening a session"); `1` turns them on, as `tests/e2e/prewarm.spec.ts` and `tests/e2e/reconnect.spec.ts` do. |
 | `TEXT_TO_CAD_FAKE_AGENT` | Launch this stdio ACP agent instead of whatever the registry says, for every provider. The session and git suites point it at `tests/fake-agent/index.mjs`; a session needs an agent to exist at all, and a real one would make the suite a test of somebody's login state. |
@@ -76,7 +76,7 @@ Two more decide whether the window is seen at all:
 ## Telemetry
 
 Anonymous counts through Aptabase, and only when two separate things are true:
-a key was compiled in (`HARDCORE_APTABASE_KEY` at build time, baked in as
+a key was compiled in (`TEXT_TO_CAD_APTABASE_KEY` at build time, baked in as
 `__APTABASE_KEY__` by `electron.vite.config.ts` — a packaged app has no build
 environment to read, and a key settable by whoever launches the binary is a key
 anyone can point at their own project), and the user's `telemetry` setting is
@@ -313,7 +313,6 @@ The mark in `src/renderer/assets/brand` embeds the original star pixels with
 an exterior SVG clip. It is not a path-only vector.
 
 The Dock and packaged app icon use this same blue star on a dark tile.
-The legacy H export assets below remain available separately.
 
 TEXT-TO-CAD, set in JetBrains Mono ExtraBold Italic and drawn twice: a light-blue
 copy of the glyphs offset down and right, then the foreground copy on top. No
@@ -329,14 +328,12 @@ npm run icons   # build/icon.png, from src/renderer/assets/brand/text-to-cad-sta
 | --- | --- |
 | `resources/brand/text-to-cad-wordmark-dark.png`, `…-dark@2x.png` | the wordmark for dark surfaces — white ink over the blue. Transparent, cropped to the ink plus one margin: 1347×196 and 2694×392 |
 | `resources/brand/text-to-cad-wordmark-light.png`, `…-light@2x.png` | the same for light surfaces, ink `#0a0a0a` |
-| `resources/brand/text-to-cad-h.png` | the H alone, 1024×1024, transparent, dark-surface colours. Legacy export asset |
-| `resources/brand/text-to-cad-h-dark.png`, `text-to-cad-h-light.png` | the H on a solid `#0a0a0a` / `#ffffff` square, 1024×1024 |
 | `build/icon.png` | the app icon: the blue star on a dark squircle tile, on macOS's icon grid |
 
-Three numbers decide how it looks, and each is a named constant in
+Two numbers decide how the wordmark looks, and each is a named constant in
 `scripts/make-brand.mjs`:
 
-- **The blue is `#62b7ec`**, for the legacy H exports. The icon this replaced
+- **The blue is `#62b7ec`**. The icon this replaced
   (`apps/docs/public/favicon.png`, still the docs site's favicon and untouched)
   is a shaded 3D render with no single hex, so the constant is the mean of its
   opaque unambiguously-blue pixels in the light luminance band: the star's lit
@@ -345,7 +342,6 @@ Three numbers decide how it looks, and each is a named constant in
   the light reads as coming from the top left. Cap height, not font size,
   because that is what the eye measures an offset against. Much under 6% and the
   blue vanishes under the ink at this weight.
-- **The monogram's ink is 72% of its square**, on its taller axis. This applies to the legacy H exports; the star icon uses its own centered inset.
 
 `scripts/make-brand.mjs` renders every PNG in headless Chromium (the project's
 Playwright), from an SVG whose `<text>` baseline is placed off the real face's
@@ -362,7 +358,7 @@ directory and must stay there.
 ## Packaging
 
 ```sh
-npm run brand            # the wordmark and the H into resources/brand (committed)
+npm run brand            # the wordmark into resources/brand (committed)
 npm run icons            # the sidebar star onto a tile -> build/icon.png (committed)
 scripts/bundle/bundle.sh --clean  # cadgen's package runtime; ignored build output
 npm run cad:resources    # the cadgen wheel + constraints into resources/cadgen (from the .venv)
@@ -370,7 +366,7 @@ npm run bundle:runtime   # THE CAD RUNTIME into resources/runtime/<os>-<arch> (~
 npm run package:mac      # or :win, :linux -> release/
 ```
 
-`electron-builder.yml` holds the config: appId `dev.texttocad.hardcore`, and
+`electron-builder.yml` holds the config: appId `dev.texttocad.desktop`, and
 every artifact named `text-to-cad-<version>-<os>-<arch>.<ext>`. The runtime is
 the product: `scripts/package.mjs` refuses to package a target whose runtime
 is not under `resources/runtime/` at this version (`--no-runtime` to package
@@ -1497,7 +1493,7 @@ scripts/build.mjs         npm run build: build-skills.mjs + electron-vite + buil
 scripts/cad-resources.mjs the cadgen wheel and constraints into resources/cadgen, from a checkout
 scripts/bundle-runtime.mjs the CAD runtime into resources/runtime/<os>-<arch>: the pinned Python
                           (scripts/python-build.json) with cadgen's closure installed, per target
-scripts/make-brand.mjs    npm run brand: the wordmark and the H monogram into resources/brand
+scripts/make-brand.mjs    npm run brand: the wordmark into resources/brand
 scripts/make-icons.mjs    npm run icons: the sidebar star onto its tile -> build/icon.png
 resources/brand/          the committed marks, and the JetBrains Mono face they are set in
 resources/text-to-cad-mcp/   the MCP server's source (bundled into out/text-to-cad-mcp by the build)

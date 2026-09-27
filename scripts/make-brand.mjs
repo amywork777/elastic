@@ -1,7 +1,7 @@
 /**
  * Renders the text-to-cad brand marks into `resources/brand/` (committed).
  *
- * The mark is the word TEXT-TO-CAD — or the letter H alone — set in JetBrains Mono
+ * The mark is the word TEXT-TO-CAD, set in JetBrains Mono
  * ExtraBold Italic, drawn twice: a light-blue copy offset down and right, then
  * the foreground copy on top of it. No blur and no gradient; the "shadow" is a
  * second crisp copy of the same glyphs, so the mark survives being scaled,
@@ -9,15 +9,14 @@
  *
  * Everything is measured, nothing is eyeballed. The glyph ink box comes from
  * the canvas text metrics of the real face (`actualBoundingBox*`), so the
- * wordmark crops tight to the letters plus one margin, and the monogram sits
- * on the macOS icon grid rather than wherever the font's line box happened to
- * put it. The face is embedded as a data URL, so the render depends on the
+ * wordmark crops tight to the letters plus one margin rather than to the font's
+ * line box. The face is embedded as a data URL, so the render depends on the
  * committed woff2 and not on what is installed on the machine.
  *
  *   npm run brand
  *
- * Deterministic: same font, same Chromium, same bytes. These are legacy H
- * export assets; `npm run icons` independently uses the sidebar star.
+ * Deterministic: same font, same Chromium, same bytes. `npm run icons` renders the
+ * app icon from the sidebar star.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -59,18 +58,6 @@ const WORDMARK_FONT_PX = 200;
 
 /** The margin around the wordmark's ink, as a fraction of the type size. */
 const WORDMARK_MARGIN_FRACTION = 0.08;
-
-/** The monogram is a square this many pixels on a side. */
-const MONOGRAM_PX = 1024;
-
-/**
- * The monogram's ink box — both copies together — fills this much of its
- * square, on the taller of its two axes.
- *
- * The legacy monogram exports retain their original 72% ink coverage.
- * The current star app icon is sized independently by make-icons.mjs.
- */
-const MONOGRAM_INK_FRACTION = 0.72;
 
 const fontDataUrl = `data:font/woff2;base64,${fs.readFileSync(fontFile).toString("base64")}`;
 
@@ -197,53 +184,6 @@ async function main() {
         await renderSvg(target, { width, height, outFile, body: markLayers({ ...wordmark, fg }) });
         written.push([outFile, `${width * scale}x${height * scale}`]);
       }
-    }
-
-    // ---- the H monogram ----
-    // Fit the ink box of BOTH copies into MONOGRAM_INK_FRACTION of the square,
-    // then centre that box. The H is measured at a probe size and scaled, so
-    // the fit is exact rather than tuned.
-    const probePx = 1000;
-    const probe = await measureInk(page, "H", probePx);
-    const probeOffset = probePx * CAP_HEIGHT_EM * SHADOW_OFFSET_CAP_FRACTION;
-    const probeW = probe.left + probe.right + probeOffset;
-    const probeH = probe.ascent + probe.descent + probeOffset;
-    const targetInkPx = MONOGRAM_PX * MONOGRAM_INK_FRACTION;
-    const monoFontPx = (probePx * targetInkPx) / Math.max(probeW, probeH);
-    const monoOffset = monoFontPx * CAP_HEIGHT_EM * SHADOW_OFFSET_CAP_FRACTION;
-    const scaleFromProbe = monoFontPx / probePx;
-    const inkW = probeW * scaleFromProbe;
-    const inkH = probeH * scaleFromProbe;
-    const monogram = {
-      text: "H",
-      fontPx: monoFontPx,
-      x: (MONOGRAM_PX - inkW) / 2 + probe.left * scaleFromProbe,
-      baseline: (MONOGRAM_PX - inkH) / 2 + probe.ascent * scaleFromProbe,
-      offset: monoOffset,
-    };
-
-    const square = { width: MONOGRAM_PX, height: MONOGRAM_PX };
-    const transparent = path.join(brandDir, "text-to-cad-h.png");
-    await renderSvg(page, {
-      ...square,
-      outFile: transparent,
-      body: markLayers({ ...monogram, fg: PAPER }),
-    });
-    written.push([transparent, `${MONOGRAM_PX}x${MONOGRAM_PX}`]);
-
-    for (const [variant, bg, fg] of [
-      ["dark", INK, PAPER],
-      ["light", PAPER, INK],
-    ]) {
-      const outFile = path.join(brandDir, `text-to-cad-h-${variant}.png`);
-      await renderSvg(page, {
-        ...square,
-        outFile,
-        body:
-          `<rect width="${MONOGRAM_PX}" height="${MONOGRAM_PX}" fill="${bg}"/>` +
-          markLayers({ ...monogram, fg }),
-      });
-      written.push([outFile, `${MONOGRAM_PX}x${MONOGRAM_PX}`]);
     }
 
     console.log(

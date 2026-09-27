@@ -1,6 +1,6 @@
 /**
  * Anonymous usage counts, off unless two separate things are true: a build-time
- * key (`HARDCORE_APTABASE_KEY`, compiled in as `__APTABASE_KEY__` by
+ * key (`TEXT_TO_CAD_APTABASE_KEY`, compiled in as `__APTABASE_KEY__` by
  * electron.vite.config.ts) and the user's own `telemetry` setting, which is on
  * with an opt-out (plan §14) and lives in Settings › General, beside the table
  * below.
