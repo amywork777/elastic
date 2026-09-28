@@ -1,6 +1,6 @@
 {
   "name": "@text-to-cad/core",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": true,
   "type": "module",
   "description": "Reusable CAD render/viewer runtime for docs, CAD Viewer, and generated snapshot browser assets.",
@@ -36,15 +36,15 @@
   ],
   "dependencies": {
     "meshoptimizer": "^1.2.0",
-    "three": "0.186.0",
+    "three": "0.186.1",
     "three-mesh-bvh": "0.9.15"
   },
   "devDependencies": {
-    "playwright": "^1.63.0",
-    "esbuild": "0.27.7",
-    "typescript": "5.9.3",
+    "@types/node": "22.20.1",
     "@types/three": "^0.186.0",
-    "@types/node": "22.20.1"
+    "esbuild": "0.28.2",
+    "playwright": "^1.63.0",
+    "typescript": "5.9.3"
   },
   "files": [
     "dist",
