@@ -189,7 +189,7 @@ export async function runDrawScenario({ page, pane, errors }) {
     window.__sketchDeliveries = [];
     window.cadHarness.a.host.promptContext.deliver = async context => {
       window.__sketchDeliveries.push(await Promise.all(context.parts.map(async part => ({
-        kind: part.kind, name: part.name, type: part.kind === 'attachment' ? (await part.content).type : undefined,
+        id: part.id, kind: part.kind, name: part.name, type: part.kind === 'attachment' ? (await part.content).type : undefined,
         text: part.text, targets: part.references?.map(reference => reference.target.kind), attachments: part.attachments }))));
       return { status: 'added', partIds: context.parts.map(part => part.id) };
     };

@@ -42,5 +42,5 @@ test("a slice holds view state only: no selection, no routine, and ids are strin
   assert.equal("selectedReferenceIds" in slices.tree, false);
   assert.deepEqual(slices.pose, { parameterValues: {} });
   assert.equal(slices.largeFile.selectableTopologyEnabled, false);
-  assert.deepEqual(readStepView(undefined), { tree: NO_TREE, pose: null, largeFile: { selectableTopologyEnabled: false } });
+  assert.deepEqual(readStepView(undefined), { tree: NO_TREE, pose: null, largeFile: { selectableTopologyEnabled: false }, annotations: [] });
 });
