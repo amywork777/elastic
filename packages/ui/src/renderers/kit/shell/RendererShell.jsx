@@ -147,8 +147,8 @@ export default function RendererShell({ shell, tools, playback = null, toolPanel
 
   const hasContent = Boolean(scene) && !viewerLoading;
   // Draw's action: the shell's Copy Drawing (the view with its ink, to the clipboard), unless the
-  // renderer brings its own — the STEP surface's Annotate, a note on the sketch — which then
-  // stands in its place. Either way the copy stays on the shortcut (`copyActionRef`, ⌘C).
+  // renderer supplies a drawing action to take its place. Either way the copy stays on the
+  // shortcut (`copyActionRef`, ⌘C).
   const action = bottomAction || (frame.drawToolActive && frame.drawing.hasContent
     ? { ...drawingCaptureAction({ disabled: viewerLoading || !hasContent, onInvoke: frame.copyDrawing }),
         ...(drawingAction ? { render: () => <span className="pointer-events-auto inline-flex">{drawingAction}</span> } : {}) }
