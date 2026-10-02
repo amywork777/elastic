@@ -6,6 +6,7 @@
  * would be re-registered on every render of the sidebar — and it means a
  * change made from the app menu updates the same state a click would.
  */
+import { usePlugins } from "@renderer/plugins/store";
 import type { IpcEventPayload } from "@shared/ipc";
 
 import { useAcp } from "./acp";
@@ -120,6 +121,7 @@ export function subscribeToMain(): () => void {
         .catch(() => {}).finally(() => commands.delete(command.requestId));
     }),
     window.workbench.on("ui.command", (payload) => runUiCommand(payload)),
+    window.workbench.on("plugins.changed", (snapshot) => usePlugins.getState().receive(snapshot)),
   ];
   // Listening now: take what main held for this page before it was — the
   // menu's New Session or Settings… that opened this window. Run even after
@@ -234,6 +236,7 @@ export async function hydrate(): Promise<void> {
     useUpdates.getState().load(),
     useAgentOptions.getState().load(),
     useOnboarding.getState().load(),
+    usePlugins.getState().load(),
   ]);
   const state = useSessions.getState();
   const session = state.sessions.find(session => session.id === state.activeId && !session.archived);

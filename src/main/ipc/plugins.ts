@@ -12,6 +12,7 @@ import { fileExtensionsOf } from "../../shared/plugins";
 import { projects, sessions } from "../db/repositories";
 import { resolveInRoot } from "../explorer/fs";
 import { plugins } from "../integrations";
+import { releaseApp, stageApp } from "../plugins/app-protocol";
 import { rootOf } from "./explorer";
 import { IpcError, type IpcContext } from "./register";
 
@@ -97,5 +98,7 @@ export const pluginsHandlers = {
         return { arguments: args, result, absolutePath };
       } catch (error) { throw sentence(error); }
     },
+    stageApp: ({ html, csp }) => ({ url: stageApp(html, csp) }),
+    releaseApp: ({ url }) => releaseApp(url),
   },
 } satisfies IpcHandlers<typeof pluginsContract, IpcContext>;

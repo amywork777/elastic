@@ -356,8 +356,8 @@ export const TerminalTabSchema = z.object({
 });
 
 /**
- * A plugin's tool: a view an enabled plugin contributes (`ui.tools` in its
- * manifest), drawn from an MCP App UI resource (`ui://…`) in a sandboxed frame.
+ * A plugin's tool: a view an enabled plugin contributes (an MCP tool whose
+ * `_meta` names a `ui://` resource), drawn in a sandboxed frame.
  * Root-scoped like a browser tab; it outlives a relaunch as long as the plugin
  * is still installed and enabled, and shows why when it is not.
  */

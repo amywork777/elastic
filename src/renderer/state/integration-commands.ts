@@ -8,6 +8,7 @@ import { useProjects } from "./projects";
 import { useSessions } from "./sessions";
 import { hasDirtyDocument, performDocumentCommand, performPdfCommand } from "./live-documents";
 import { pluginTool } from "@renderer/plugins/store";
+import { useToolCalls } from "@renderer/plugins/calls";
 
 async function rendererIdForPath(projectId: string, root: string | null, path: string, tabId: string) {
   const composition = createDesktopRenderers(projectId, root, tabId);
@@ -98,6 +99,9 @@ export async function performIntegrationCommand(command: IntegrationCommand, sig
       if (!tool) throw new Error(`no enabled plugin contributes the tool "${pluginId}/${toolId}"`);
       const tab = await openSessionTab(command.sessionId, command.projectId, scope.root, "tool", { root: scope.root, pluginId, toolId, title: tool.title }, signal);
       if (!tab) throw new Error("the explorer could not open the tool");
+      // An agent's call to the tool, relayed by main: the tab shows that call.
+      const call = params.call as { arguments?: Record<string, unknown>; result?: unknown } | undefined;
+      if (call) useToolCalls.getState().show(tab.id, { arguments: call.arguments ?? {}, result: call.result });
       return { tabId: tab.id, title: tabTitle(tab), root: scope.root };
     }
     case "list-tabs": {

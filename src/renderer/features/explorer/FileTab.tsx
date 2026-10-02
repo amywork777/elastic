@@ -16,6 +16,9 @@ import { createDesktopPromptContext } from "./host/promptContext";
 import { createDesktopLoadFailures } from "./host/loadFailures";
 import { useDesktopViewState } from "./adapters/persistence";
 import { createDesktopRenderers } from "./renderers";
+import { pluginRenderers } from "@renderer/plugins/file-renderers";
+import { OpenWithMenu } from "@renderer/plugins/OpenWithMenu";
+import { usePlugins } from "@renderer/plugins/store";
 import { EXPLORER_TABPANEL_ID, focusTabBody } from "./focus";
 
 /**
@@ -33,7 +36,11 @@ export function FileTab({ sessionId, tabId, project, root, path, panel }: {
 }) {
   const source = useMemo(() => createDesktopFileSource({ sessionId, projectId: project.id,
     projectName: () => useProjects.getState().projects.find(entry => entry.id === project.id)?.name ?? "Project", root }), [sessionId, project.id, root]);
-  const composition = useMemo(() => createDesktopRenderers(project.id, root, tabId), [project.id, root, tabId, pluginsRevision]);
+  // Composed again when a plugin is installed, toggled or chosen for an extension.
+  const pluginsRevision = usePlugins((state) => state.revision);
+  const composition = useMemo(() => createDesktopRenderers(project.id, root, tabId, pluginRenderers({ projectId: project.id, root, tabId, sessionId })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pluginRenderers reads the store pluginsRevision tracks
+    [project.id, root, tabId, sessionId, pluginsRevision]);
   useEffect(() => () => composition.dispose(), [composition]);
   const { state, onStateChange } = useDesktopViewState(source.id, tabId, root, panel);
   const reveal = useExplorer((state) => state.reveal);
@@ -71,6 +78,7 @@ export function FileTab({ sessionId, tabId, project, root, path, panel }: {
   return <FileViewer file={path} host={host} renderers={composition.renderers} state={state} onStateChange={onStateChange}
     reveal={reveal?.root === root ? reveal : null}
     onError={(error) => toast.error(error.message)}
+    navigationActions={<OpenWithMenu path={path} />}
     leading={worktree ? <>
       <TooltipHint content={worktree.path}>
         <span className="flex shrink items-center gap-1 truncate rounded-sm px-0.5 text-muted-foreground" data-crumb="worktree">

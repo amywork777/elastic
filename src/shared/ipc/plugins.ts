@@ -70,6 +70,9 @@ export const pluginsContract = {
       z.object({ pluginId: z.string().min(1), toolId: z.string().min(1), path: z.string().min(1), scope: ScopeSchema.extend({ projectId: z.string().min(1) }) }),
       z.object({ arguments: z.record(z.string(), z.unknown()), result: z.unknown(), absolutePath: z.string() }),
     ),
+    /** Serve an MCP App's HTML from its own `mcp-app://` URL, under the policy its `_meta.ui.csp` asks for. */
+    stageApp: invoke(z.object({ html: z.string().max(16 * 1024 * 1024), csp: z.unknown().optional() }), z.object({ url: z.string() })),
+    releaseApp: invoke(z.object({ url: z.string() }), z.void()),
   },
 } as const;
 
