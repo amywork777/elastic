@@ -1,0 +1,19 @@
+{
+  "name": "filesystem",
+  "version": "2026.8.31",
+  "description": "Read, search and edit files in the session's folder.",
+  "author": { "name": "Model Context Protocol", "url": "https://github.com/modelcontextprotocol/servers" },
+  "homepage": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+  "license": "MIT",
+  "mcpServers": {
+    "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem@2026.8.31"], "startup_timeout_sec": 120 }
+  },
+  "interface": {
+    "displayName": "Filesystem",
+    "shortDescription": "The reference MCP filesystem server, limited to the session's folder.",
+    "longDescription": "Given no directories on its command line, the server asks the app for its roots: the session's folder for an agent, the selected project for the app.",
+    "developerName": "Model Context Protocol",
+    "category": "Developer tools",
+    "defaultPrompt": ["List the five largest files in this project"]
+  }
+}

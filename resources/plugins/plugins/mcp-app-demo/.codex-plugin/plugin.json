@@ -1,0 +1,18 @@
+{
+  "name": "mcp-app-demo",
+  "version": "2.0.3",
+  "description": "The MCP Apps reference example: get-time, whose result is a small app.",
+  "author": { "name": "Model Context Protocol", "url": "https://github.com/modelcontextprotocol/ext-apps" },
+  "homepage": "https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/basic-server-vanillajs",
+  "license": "MIT",
+  "mcpServers": {
+    "basic": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-basic-vanillajs@2.0.3", "--stdio"], "startup_timeout_sec": 120 }
+  },
+  "interface": {
+    "displayName": "MCP App demo",
+    "shortDescription": "A tool with its own UI, from the MCP Apps examples. Open it from a session's + menu.",
+    "developerName": "Model Context Protocol",
+    "category": "Developer tools",
+    "defaultPrompt": ["What time is it on the server? Use get-time."]
+  }
+}

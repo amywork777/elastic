@@ -26,6 +26,10 @@ extraResources:
     to: notices/browser-use-browser-harness-js-LICENSE
   - from: resources/skills
     to: skills
+  # The example plugins' marketplace, listed on the Plugins page
+  # (src/main/integrations/index.ts, builtinMarketplace).
+  - from: resources/plugins
+    to: plugins
 
 # One icon source, build/icon.png (scripts/make-icons.mjs renders it; committed). electron-builder derives the macOS .icns and Windows .ico from it.
 

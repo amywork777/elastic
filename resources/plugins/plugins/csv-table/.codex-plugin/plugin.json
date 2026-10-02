@@ -1,0 +1,30 @@
+{
+  "name": "csv-table",
+  "version": "0.1.0",
+  "description": "Opens .csv and .tsv files as a sortable table, and adds a Tables page to the rail.",
+  "author": {
+    "name": "elastic"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": {
+    "tables": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/server.mjs"
+      ]
+    }
+  },
+  "interface": {
+    "displayName": "Tables",
+    "shortDescription": "CSV and TSV files as a sortable table.",
+    "longDescription": "An example plugin with no dependencies: one MCP server, written against the protocol directly, whose tool has a UI (an MCP App) that opens .csv and .tsv files, shows up as a page on the rail, and renders tables agents make.",
+    "developerName": "elastic",
+    "category": "Productivity",
+    "logo": "./assets/logo.svg",
+    "brandColor": "#0E9F6E",
+    "defaultPrompt": [
+      "Make a CSV of this project's ten largest files and show it as a table"
+    ]
+  }
+}

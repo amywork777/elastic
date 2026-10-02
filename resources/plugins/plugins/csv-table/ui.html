@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Table</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: var(--color-background-primary, Canvas);
+    --bg2: var(--color-background-secondary, color-mix(in srgb, CanvasText 5%, Canvas));
+    --fg: var(--color-text-primary, CanvasText);
+    --fg2: var(--color-text-secondary, color-mix(in srgb, CanvasText 60%, Canvas));
+    --line: var(--color-border-primary, color-mix(in srgb, CanvasText 12%, Canvas));
+    --radius: var(--border-radius-md, 8px);
+    font-family: var(--font-sans, system-ui, sans-serif);
+    font-size: 13px;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 13px; font-weight: 600; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  header .meta { color: var(--fg2); font-size: 12px; white-space: nowrap; }
+  input[type=search], textarea, button {
+    font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  input[type=search] { padding: 4px 8px; width: 180px; }
+  button { padding: 5px 10px; cursor: pointer; background: var(--bg2); }
+  main { flex: 1; min-height: 0; overflow: auto; }
+  table { border-collapse: collapse; width: max-content; min-width: 100%; }
+  th, td { padding: 5px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+  th { position: sticky; top: 0; background: var(--bg2); font-weight: 600; cursor: pointer; user-select: none; }
+  th[aria-sort=ascending]::after { content: " ↑"; color: var(--fg2); }
+  th[aria-sort=descending]::after { content: " ↓"; color: var(--fg2); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .home { max-width: 560px; margin: 48px auto; padding: 0 24px; display: flex; flex-direction: column; gap: 12px; }
+  .home h2 { margin: 0; font-size: 18px; }
+  .home p { margin: 0; color: var(--fg2); }
+  textarea { min-height: 180px; padding: 8px; resize: vertical; }
+  .status { color: var(--fg2); padding: 24px; text-align: center; }
+  .error { color: var(--color-text-danger, #c0392b); }
+</style>
+</head>
+<body>
+<div class="status" id="status">Loading…</div>
+<script>
+// The view side of MCP Apps, by hand: JSON-RPC over postMessage to the host
+// (the window that framed us). ui/initialize, then ui/notifications/initialized;
+// the host answers with the tool's input and result as notifications, and the
+// view can call its own server's tools with tools/call.
+const PROTOCOL = "2026-01-26";
+let nextId = 1;
+const pending = new Map();
+const send = (message) => window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+const request = (method, params) => new Promise((resolve, reject) => {
+  const id = nextId++;
+  pending.set(id, { resolve, reject });
+  send({ id, method, params });
+});
+
+function applyContext(context) {
+  const variables = context?.styles?.variables ?? {};
+  for (const [name, value] of Object.entries(variables)) if (value) document.documentElement.style.setProperty(name, value);
+  if (context?.theme) document.documentElement.style.colorScheme = context.theme;
+}
+
+window.addEventListener("message", (event) => {
+  if (event.source !== window.parent) return;
+  const message = event.data;
+  if (!message || message.jsonrpc !== "2.0") return;
+  if (message.id !== undefined && message.method === undefined) {
+    const entry = pending.get(message.id);
+    pending.delete(message.id);
+    if (message.error) entry?.reject(new Error(message.error.message));
+    else entry?.resolve(message.result);
+    return;
+  }
+  if (message.method === "ui/notifications/tool-result") show(message.params);
+  else if (message.method === "ui/notifications/host-context-changed") applyContext(message.params);
+  else if (message.method === "ui/resource-teardown" && message.id !== undefined) send({ id: message.id, result: {} });
+  else if (message.id !== undefined) send({ id: message.id, error: { code: -32601, message: "not supported" } });
+});
+
+const status = document.getElementById("status");
+const escape = (text) => String(text).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
+const numeric = (value) => value.trim() !== "" && !Number.isNaN(Number(value));
+
+function show(result) {
+  if (result?.isError) {
+    document.body.innerHTML = `<div class="status error">${escape(result.content?.map((part) => part.text).join("\n") ?? "Failed")}</div>`;
+    return;
+  }
+  const data = result?.structuredContent;
+  if (!data || data.home) return home();
+  render(data);
+}
+
+function home() {
+  document.body.innerHTML = `<div class="home"><h2>Tables</h2>
+    <p>Open a .csv or .tsv file from a session's files, or paste CSV here.</p>
+    <textarea id="paste" placeholder="name,size\nREADME.md,4096"></textarea>
+    <div><button id="go">Show table</button></div><div id="err" class="error"></div></div>`;
+  document.getElementById("go").onclick = async () => {
+    try {
+      const result = await request("tools/call", { name: "show_table", arguments: { csv: document.getElementById("paste").value, title: "Pasted table" } });
+      show(result);
+    } catch (error) { document.getElementById("err").textContent = error.message; }
+  };
+}
+
+function render(data) {
+  let sort = { column: -1, direction: 1 };
+  let filter = "";
+  document.body.innerHTML = `<header><h1>${escape(data.name)}</h1>
+    <span class="meta">${data.total} row${data.total === 1 ? "" : "s"}${data.truncated ? `, first ${data.rows.length} shown` : ""}</span>
+    <input type="search" placeholder="Filter" aria-label="Filter rows"></header><main><table><thead></thead><tbody></tbody></table></main>`;
+  const head = document.querySelector("thead"), body = document.querySelector("tbody");
+  const draw = () => {
+    head.innerHTML = `<tr>${data.columns.map((column, index) => `<th data-index="${index}" aria-sort="${sort.column === index ? (sort.direction > 0 ? "ascending" : "descending") : "none"}">${escape(column)}</th>`).join("")}</tr>`;
+    let rows = data.rows;
+    if (filter) rows = rows.filter((row) => row.some((cell) => cell.toLowerCase().includes(filter)));
+    if (sort.column >= 0) {
+      const index = sort.column;
+      rows = [...rows].sort((a, b) => {
+        const x = a[index] ?? "", y = b[index] ?? "";
+        return (numeric(x) && numeric(y) ? Number(x) - Number(y) : x.localeCompare(y)) * sort.direction;
+      });
+    }
+    body.innerHTML = rows.map((row) => `<tr>${data.columns.map((_, index) => {
+      const cell = row[index] ?? "";
+      return `<td class="${numeric(cell) ? "num" : ""}" title="${escape(cell)}">${escape(cell)}</td>`;
+    }).join("")}</tr>`).join("");
+  };
+  head.onclick = (event) => {
+    const index = Number(event.target.closest("th")?.dataset.index);
+    if (Number.isNaN(index)) return;
+    sort = { column: index, direction: sort.column === index ? -sort.direction : 1 };
+    draw();
+  };
+  document.querySelector("input").oninput = (event) => { filter = event.target.value.toLowerCase(); draw(); };
+  draw();
+}
+
+request("ui/initialize", { appInfo: { name: "tables", version: "0.1.0" }, appCapabilities: {}, protocolVersion: PROTOCOL })
+  .then((answer) => {
+    applyContext(answer.hostContext);
+    status.textContent = "Waiting for a table…";
+    send({ method: "ui/notifications/initialized", params: {} });
+  })
+  .catch((error) => { status.textContent = `Could not connect to the app: ${error.message}`; status.className = "status error"; });
+</script>
+</body>
+</html>

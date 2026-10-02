@@ -1,0 +1,10 @@
+{
+  "name": "elastic-examples",
+  "interface": { "displayName": "Examples" },
+  "plugins": [
+    { "name": "csv-table", "description": "Opens .csv and .tsv files as a sortable table, and adds a Tables page to the rail.", "category": "Productivity", "source": { "source": "local", "path": "./plugins/csv-table" } },
+    { "name": "filesystem", "description": "The reference MCP filesystem server: read, search and edit files in the session's folder.", "category": "Developer tools", "source": { "source": "local", "path": "./plugins/filesystem" } },
+    { "name": "memory", "description": "The reference MCP memory server: a knowledge graph agents can remember things in.", "category": "Productivity", "source": { "source": "local", "path": "./plugins/memory" } },
+    { "name": "mcp-app-demo", "description": "The MCP Apps reference example: a tool whose result is its own small app.", "category": "Developer tools", "source": { "source": "local", "path": "./plugins/mcp-app-demo" } }
+  ]
+}
