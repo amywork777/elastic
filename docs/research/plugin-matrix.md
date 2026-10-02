@@ -6,6 +6,20 @@ hidden windows, a throwaway profile). Re-run it with
 add `ELASTIC_MATRIX_AGENT=1` to spend one real Claude turn. Without the
 variable the file skips, so CI skips it.
 
+## What was tested for CAD
+
+Jake's current plugin, not the old 0.5.0 one in the Claude Code plugin cache:
+the repo root of text-to-cad at Release 0.7.8 (`b347a34b2`) plus PR #509
+(`a923f41c9`), installed into elastic as is: `.codex-plugin/plugin.json`
+(version 0.7.8), `skills/` (13 skills) and `codex.mcp.json`. The one change is
+the launch: instead of `uvx cadgen==0.7.8`, `codex.mcp.json` runs `cadgen mcp`
+from a venv holding the cadgen 0.7.8 wheel with PR #509's
+`packages/cadgen/src/cadgen/mcp/server.py` copied over it. PR #509 changes only
+that file (the wheel's copy matched upstream main before the swap), and the
+wheel carries the built `apps/mcp` page, which a source checkout does not have
+until it is built. Every CAD result below, the worker failure included, is
+from this 0.7.8 setup.
+
 ## Results
 
 | Plugin | Installs | Servers | Tools | Views | Agent / call | Notes |
