@@ -32,6 +32,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run build:packages
+
       - name: Package
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}

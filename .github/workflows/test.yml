@@ -32,6 +32,10 @@ jobs:
       - name: Install
         run: npm ci
 
+      # The app imports @workbench/core and @workbench/ui from their dist/.
+      - name: Build the workspace packages
+        run: npm run build:packages
+
       - name: Read the Electron version
         id: electron
         run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"

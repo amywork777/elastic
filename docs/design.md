@@ -18,7 +18,7 @@ shadcn/ui (stock neutral) · Vercel AI Elements · `@agentclientprotocol/sdk` ·
 Monaco (code) · TipTap over remark (markdown) · PDF.js.
 
 This repository is an npm workspace root (`packages/*`). Install dependencies
-in this checkout with `npm ci`, build the workspace packages (each has a `build` script), then rebuild
+in this checkout with `npm ci`, build the workspace packages (`npm run build:packages`), then rebuild
 native modules explicitly. Do not borrow another checkout's `node_modules`:
 packaged Electron dependency resolution must be verified from this tree.
 
