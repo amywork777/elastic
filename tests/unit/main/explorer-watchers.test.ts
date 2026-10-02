@@ -21,7 +21,7 @@ let recursive: { on: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }
 let direct: { on: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> };
 
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "text-to-cad-watch-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "elastic-watch-"));
   await fs.mkdir(path.join(root, "STEP"));
   await fs.mkdir(path.join(root, "node_modules", "dependency"), { recursive: true });
   await fs.mkdir(path.join(root, ".git", "info"), { recursive: true });

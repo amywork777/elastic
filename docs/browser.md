@@ -105,7 +105,7 @@ been removed. Browser navigation, native context capture and IPC remain app-owne
 Navigation permits HTTP(S) and the initial `about:blank` page. Guests have no
 Node, preload or app IPC and use sandbox/context isolation. Popups navigate their
 owning tab; permission prompts are denied until a native permission workflow is
-provided. text-to-cad owns pane size and partitions: browser resizing, installing a
+provided. elastic owns pane size and partitions: browser resizing, installing a
 browser, creating contexts and extensions are unsupported. Playwright's download artifact API is not bridged, and both
 `Browser.` and `Page.setDownloadBehavior` are refused. A download the person starts keeps the native save dialog: the page
 is shown and focused in the focused window, a real key or mouse press reached it

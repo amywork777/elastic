@@ -9,7 +9,7 @@ import type { SessionEvent } from "@shared/acp/types";
 import { cleanTempDirs, tempDir } from "./temp-dirs";
 
 function scratch() {
-  return tempDir("text-to-cad-client-");
+  return tempDir("elastic-client-");
 }
 
 afterEach(cleanTempDirs);

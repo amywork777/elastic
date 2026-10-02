@@ -18,7 +18,7 @@ import { dialogsHandlers } from "@main/ipc/dialogs";
 const ctx = { event: {}, sender: {} } as never;
 
 it("opens the directory chooser without a default path that no longer exists", async () => {
-  await dialogsHandlers.dialogs.chooseDirectory({ defaultPath: join(tmpdir(), "text-to-cad-no-such-folder") }, ctx);
+  await dialogsHandlers.dialogs.chooseDirectory({ defaultPath: join(tmpdir(), "elastic-no-such-folder") }, ctx);
   expect(showOpenDialog.mock.calls[0]?.[0]).not.toHaveProperty("defaultPath", expect.any(String));
 });
 
@@ -29,7 +29,7 @@ it("keeps a default path that exists", async () => {
 });
 
 it("leaves a default path that is now a file off the directory chooser, and keeps it for the file chooser", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "text-to-cad-dialogs-"));
+  const dir = mkdtempSync(join(tmpdir(), "elastic-dialogs-"));
   const file = join(dir, "notes.txt");
   writeFileSync(file, "x");
   try {

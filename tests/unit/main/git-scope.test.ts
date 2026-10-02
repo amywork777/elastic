@@ -267,9 +267,9 @@ describe("snapshot marks", () => {
   it("pins the tree under a ref, and dropMarks unpins it", async () => {
     const cwd = await committedRepo();
     const tree = await git.snapshotTree(cwd, "s3/turn");
-    expect(await sh(cwd, "for-each-ref", "--format=%(refname) %(objectname)", "refs/text-to-cad/")).toBe(`refs/text-to-cad/s3/turn ${tree}`);
+    expect(await sh(cwd, "for-each-ref", "--format=%(refname) %(objectname)", "refs/elastic/")).toBe(`refs/elastic/s3/turn ${tree}`);
     await git.dropMarks(cwd, "s3");
-    expect(await sh(cwd, "for-each-ref", "refs/text-to-cad/")).toBe("");
+    expect(await sh(cwd, "for-each-ref", "refs/elastic/")).toBe("");
   });
 
   it("leaves an untracked file over the size limit out of the tree, and it still reads as untracked", async () => {

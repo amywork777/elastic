@@ -81,7 +81,7 @@ export async function chooseDirectory(app: ElectronApplication, directory: strin
 
 /** A scratch directory, realpath'd: Electron resolves paths, and macOS's /var is a link. */
 export function scratch(prefix: string): string {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `text-to-cad-${prefix}-`)));
+  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `elastic-${prefix}-`)));
 }
 
 /**

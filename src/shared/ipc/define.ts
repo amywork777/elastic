@@ -11,7 +11,7 @@
  */
 import type { z } from "zod";
 
-const INVOKE = Symbol.for("text-to-cad.ipc.invoke");
+const INVOKE = Symbol.for("elastic.ipc.invoke");
 
 /** One request/response channel. */
 export type InvokeDef<Req extends z.ZodType = z.ZodType, Res extends z.ZodType = z.ZodType> = {
@@ -75,5 +75,5 @@ export type IpcHandlers<T, Ctx = unknown> =
     : { readonly [K in keyof T]: IpcHandlers<T[K], Ctx> };
 
 /** The channel prefix every IPC name shares, so nothing else can squat one. */
-export const IPC_INVOKE_PREFIX = "text-to-cad:";
-export const IPC_EVENT_PREFIX = "text-to-cad!";
+export const IPC_INVOKE_PREFIX = "elastic:";
+export const IPC_EVENT_PREFIX = "elastic!";

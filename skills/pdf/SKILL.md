@@ -72,9 +72,9 @@ pdftoppm -png $INPUT_PDF $OUTPUT_PREFIX
 - Confirm headers/footers, page numbering, and section transitions look polished.
 - Keep intermediate files organized or remove them after final approval.
 
-## text-to-cad live PDF viewer (local adaptation)
+## elastic live PDF viewer (local adaptation)
 
-Modified by text-to-cad: when reviewing a PDF already open in the app, use the
+Modified by elastic: when reviewing a PDF already open in the app, use the
 `pdf` MCP server. Resolve its `tabId` from `list_open_tabs`; the tab's renderer
 is `pdf` and its workspace must match the session. `pdf_state` returns page,
 page count, selection and resource identity. `read_pdf` reads 1–50 pages from

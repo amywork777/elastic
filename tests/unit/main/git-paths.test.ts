@@ -26,9 +26,9 @@ import { gitIpc } from "@shared/ipc/git";
 const run = promisify(execFile);
 const GIT_ENV = {
   ...process.env,
-  GIT_AUTHOR_NAME: "text-to-cad Tests",
+  GIT_AUTHOR_NAME: "elastic Tests",
   GIT_AUTHOR_EMAIL: "tests@example.invalid",
-  GIT_COMMITTER_NAME: "text-to-cad Tests",
+  GIT_COMMITTER_NAME: "elastic Tests",
   GIT_COMMITTER_EMAIL: "tests@example.invalid",
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_SYSTEM: "/dev/null",

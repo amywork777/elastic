@@ -29,27 +29,26 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { releaseVersion } from "./app-version.mjs";
-import { PYTHON_BUILD, bundledRuntime } from "./bundle-runtime.mjs";
 import { nodeTool } from "./node-bin.mjs";
+
+const APP_NAME = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).productName;
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
  * What `extraResources` copies. Recreated rather than assumed so the config
  * never depends on electron-builder's tolerance of a source directory that is
- * not there. `resources/runtime/<target>` is checked, not created: an empty
- * one would package an app that cannot render CAD.
+ * not there.
  */
-const EXTRA_RESOURCE_DIRS = ["resources/cadgen", "resources/skills", "resources/runtime"];
+const EXTRA_RESOURCE_DIRS = ["resources/skills", "resources/plugins"];
 
 /**
- * The extraResources electron-builder copies straight from the checkout (the
- * runtime is built, never committed, so it is not here). The release workflow
- * checks out without git-lfs, so an LFS-tracked file among these ships as its
- * 130-byte pointer — the onboarding sample's STEP did. `lfsPointers` finds one
- * before electron-builder copies it.
+ * The extraResources electron-builder copies straight from the checkout. A
+ * release that checks out without git-lfs would ship an LFS-tracked file among
+ * these as its 130-byte pointer; `lfsPointers` finds one before
+ * electron-builder copies it.
  */
-export const CHECKED_OUT_RESOURCES = ["src/main/browser/vendor/LICENSE", "resources/cadgen", "resources/skills", "resources/sample"];
+export const CHECKED_OUT_RESOURCES = ["src/main/browser/vendor/LICENSE", "resources/skills", "resources/plugins"];
 const LFS_POINTER = "version https://git-lfs";
 
 /** The files under `entries` (relative to `root`) that are Git LFS pointers rather than content. */
@@ -71,28 +70,15 @@ export function lfsPointers(root, entries = CHECKED_OUT_RESOURCES) {
   return found;
 }
 
-/**
- * The `<os>-<arch>` runtimes this invocation needs: one per app electron-builder
- * will produce, which is the arch flags on the command line or, without any,
- * the arch list in electron-builder.yml for that os.
- */
-const DEFAULT_ARCHES = { "--mac": ["arm64", "x64"], "--win": ["x64"], "--linux": ["x64"] };
 const OS_NAMES = { "--mac": "mac", "--win": "win", "--linux": "linux" };
 // The target names electron-builder.yml lists per os. An arch flag on the
 // command line only narrows the build when target NAMES are on it too
 // (app-builder-lib's computeArchToTargetNamesMap: with no names, every arch
 // the config lists is built regardless of --arm64), so `--mac --arm64` is
 // passed on as `--mac dmg zip --arm64`. Measured, not assumed: `--arm64`
-// alone packaged an x64 app as well — one with no runtime in it.
+// alone packaged an x64 app as well.
 const TARGET_NAMES = { "--mac": ["dmg", "zip"], "--win": ["nsis"], "--linux": ["AppImage", "deb"] };
 const ARCH_FLAGS = ["arm64", "x64", "ia32", "armv7l", "universal"];
-
-export function runtimeTargetsFor(args) {
-  const arches = ARCH_FLAGS.filter((arch) => args.includes(`--${arch}`));
-  return Object.keys(OS_NAMES)
-    .filter((flag) => args.includes(flag))
-    .flatMap((flag) => (arches.length > 0 ? arches : DEFAULT_ARCHES[flag]).map((arch) => `${OS_NAMES[flag]}-${arch}`));
-}
 
 /** The electron-builder arguments: the os flags followed by their target names when an arch flag narrows the build. */
 export function builderArgsFor(args) {
@@ -202,14 +188,10 @@ export function electronBuilder(targets, { version, notarize }) {
 }
 
 function main(argv) {
-  // `--no-runtime` is this script's, not electron-builder's: package without
-  // the CAD runtime, for a build whose purpose is not CAD (a layout check, a
-  // signing rehearsal). A release never passes it.
-  const withoutRuntime = argv.includes("--no-runtime");
-  const targets = argv.filter((arg) => arg !== "--no-runtime");
+  const targets = argv;
 
   if (targets.length === 0) {
-    console.error("usage: node scripts/package.mjs --mac | --win | --linux [--no-runtime] [electron-builder args]");
+    console.error("usage: node scripts/package.mjs --mac | --win | --linux [electron-builder args]");
     process.exit(2);
   }
 
@@ -229,30 +211,11 @@ function main(argv) {
   }
   const { env, notarize } = signing;
 
-  console.info(`packaging text-to-cad ${version} for ${targets.join(" ")}`);
+  console.info(`packaging ${APP_NAME} ${version} for ${targets.join(" ")}`);
   console.info(signingLine(targets, signing));
 
   for (const directory of EXTRA_RESOURCE_DIRS) {
     fs.mkdirSync(path.join(appRoot, directory), { recursive: true });
-  }
-
-  // The runtime is the product. A package without one is refused, not warned
-  // about, because the app it makes says "the CAD runtime did not start" on the
-  // first STEP file — which is the report this check exists to make impossible.
-  const runtimeOut = path.join(appRoot, "resources", "runtime");
-  for (const target of runtimeTargetsFor(targets)) {
-    const bundle = bundledRuntime(runtimeOut, target, version, path.join(appRoot, "resources", "cadgen"));
-    if (bundle) {
-      console.info(`runtime: ${target} (Python ${bundle.python}, cadgen ${bundle.cadgen}, built ${bundle.builtAt ?? "?"})`);
-    } else if (withoutRuntime) {
-      console.warn(`runtime: ${target} NOT BUNDLED (--no-runtime): this app will not render CAD`);
-    } else {
-      console.error(
-        `no bundled CAD runtime for ${target} under resources/runtime/ (or not cadgen ${version} on Python ${PYTHON_BUILD.version}+${PYTHON_BUILD.release}, from the wheel now in resources/cadgen).\n` +
-          `Run \`npm run bundle:runtime -- --target ${target}\` first (see resources/README.md), or pass --no-runtime to package without one.`,
-      );
-      process.exit(2);
-    }
   }
 
   const run = (command, args) => {

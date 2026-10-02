@@ -31,7 +31,7 @@ export const UPGRADE_BACKUPS_KEPT = 3;
 
 /** Absolute path of the sqlite file. */
 export function databaseFile() {
-  return path.join(app.getPath("userData"), "text-to-cad.db");
+  return path.join(app.getPath("userData"), "elastic.db");
 }
 
 /**
@@ -56,7 +56,7 @@ export function db(): Db {
     const latest = MIGRATIONS.at(-1)!.version;
     if (version > 0 && version < latest) {
       // VACUUM INTO includes committed WAL contents. A filesystem copy of just
-      // text-to-cad.db can silently miss recent sessions while WAL is in use.
+      // elastic.db can silently miss recent sessions while WAL is in use.
       const backup = `${databaseFile()}.before-v${latest}-${Date.now()}.bak`;
       opened.prepare("VACUUM INTO ?").run(backup);
       console.info(`[database] upgrade backup: ${backup}`);

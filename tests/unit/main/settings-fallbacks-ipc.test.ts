@@ -27,7 +27,7 @@ vi.mock("electron", () => ({
 import { dialogsHandlers } from "@main/ipc/dialogs";
 import { settingsFallbacks } from "@main/ipc/settings-fallbacks";
 
-const gone = join(tmpdir(), "text-to-cad-no-such-folder");
+const gone = join(tmpdir(), "elastic-no-such-folder");
 const ctx = { event: {}, sender: {} } as never;
 
 afterEach(() => {
@@ -56,7 +56,7 @@ it("a gone folder is reported and the chooser stops opening there, from the same
 });
 
 it("reports a remembered folder that is now a file as gone with the file reason, not as missing", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "text-to-cad-fallbacks-"));
+  const dir = mkdtempSync(join(tmpdir(), "elastic-fallbacks-"));
   const file = join(dir, "worktrees");
   writeFileSync(file, "");
   try {

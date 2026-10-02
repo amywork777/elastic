@@ -4,8 +4,8 @@ Read `README.md` first: dev, checks, packaging and the layout tree are there.
 
 ## The plan is not in this repository
 
-text-to-cad's design document lives outside the checkout, at
-`~/robots/text-to-cad-notes/design/desktop-app.md` (user policy: design notes
+elastic's design document lives outside the checkout, at
+`~/robots/elastic-notes/design/desktop-app.md` (user policy: design notes
 are never committed). Section numbers in the comments here — "plan §3", "plan
 §9" — point at it. If you cannot read it, ask; do not reconstruct it from the
 code and do not write a copy into this tree.
@@ -44,7 +44,7 @@ not.
   running Electron keeps the code it started with; a merge that is not
   followed by a restart is a merge they cannot see. The sequence is: stop
   the instance you launched (`pkill -TERM -f 'Electron\.app/Contents/MacOS/Electron \.$'`
-  — only the dev instance, never a packaged text-to-cad.app), `npm run build`,
+  — only the dev instance, never a packaged elastic.app), `npm run build`,
   then relaunch. Close every Playwright or debugging instance you started
   first, so the one window left is the current build.
 - **Launch in the background.** `WORKBENCH_LAUNCH_INACTIVE=1 npx electron .`
@@ -180,7 +180,7 @@ the rule is about.
   as unknown, never as absent. A screen must not say "signed out" for a
   `probing` row: the welcome, the setup cards and the drawer say "Checking…",
   and the Agents page's dot stays idle (README, "ACP").
-- **Nothing is installed into an agent's configuration.** text-to-cad's skills
+- **Nothing is installed into an agent's configuration.** elastic's skills
   and its tools are given to each session — the skills root as an additional
   directory on `session/new` and `session/load` (both spellings) plus a
   preamble for the agents that ignore it, the MCP server in `mcpServers`, the
@@ -205,7 +205,7 @@ the rule is about.
   Do not add a first-launch install, a progress state, or a Settings page for
   it back: a runtime that is not there is a failure the CAD tab reports, not a
   state the person is asked to fix. A packaged build says "This copy of
-  text-to-cad has no CAD runtime … Reinstall the app"; a checkout keeps the
+  elastic has no CAD runtime … Reinstall the app"; a checkout keeps the
   list of interpreters it looked for (`missingMessage` in
   `src/main/cad/runtime.ts`).
 - **The updater's Restart is a pushed `installing` state with a deadline.**
@@ -406,7 +406,7 @@ the rule is about.
   (what each command waits for: [Live commands](../../packages/ui/docs/cad-renderer.md#live-commands)).
   That sentence reaches the agent because main's relay waits 12 s
   (`VIEWER_REPLY_TIMEOUT_MS`) for the viewer commands, its clock starting before
-  the IPC send; "the text-to-cad window did not answer within 12 s" means no
+  the IPC send; "the elastic window did not answer within 12 s" means no
   window replied. A reply on the call returning would hand an agent a state the
   command had not produced yet.
 - **Every capture goes through `imageResult`.** It redraws an image over

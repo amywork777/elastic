@@ -447,7 +447,7 @@ describe("a create that outlasts the screen that asked for it", () => {
     render(<NewSession project={PROJECT} />);
     vi.mocked(toast.error).mockClear();
     await user.click(screen.getByRole("button", { name: "Send" }));
-    await act(async () => pending.reject(new Error("Error invoking remote method 'text-to-cad:sessions.create': Error: This session was deleted while it was starting.")));
+    await act(async () => pending.reject(new Error("Error invoking remote method 'elastic:sessions.create': Error: This session was deleted while it was starting.")));
     expect(screen.queryByText(/deleted while it was starting/)).toBeNull();
     expect(toast.error).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();

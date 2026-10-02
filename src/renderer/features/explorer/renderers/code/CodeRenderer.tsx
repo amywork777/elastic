@@ -59,7 +59,7 @@ export default function CodeRenderer({
 
   const onMount: OnMount = (instance, monaco) => {
     editorRef.current = instance;
-    instance.addAction({ id: 'text-to-cad.selection-to-prompt', label: 'Use selection in prompt', contextMenuGroupId: 'navigation', contextMenuOrder: 2,
+    instance.addAction({ id: 'elastic.selection-to-prompt', label: 'Use selection in prompt', contextMenuGroupId: 'navigation', contextMenuOrder: 2,
       precondition: 'editorHasSelection', run: () => {
         const selection = instance.getSelection(); const model = instance.getModel();
         if (!selection || !model || selection.isEmpty()) return;

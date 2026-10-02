@@ -108,13 +108,13 @@ describe("the explorer strip", () => {
     useExplorer.setState({ sessionId: null, projectId: null, collapsed: true });
     useExplorer.getState().toggleCollapsed();
     expect(useExplorer.getState().collapsed).toBe(true);
-    expect(window.localStorage.getItem("text-to-cad.explorer.session.collapsed")).toBeNull();
+    expect(window.localStorage.getItem("elastic.explorer.session.collapsed")).toBeNull();
   });
 
   it("remembers the toggle for the project it was made in", () => {
     useExplorer.getState().toggleCollapsed();
     expect(useExplorer.getState().collapsed).toBe(false);
-    expect(JSON.parse(window.localStorage.getItem("text-to-cad.explorer.session.collapsed") ?? "{}")).toEqual({
+    expect(JSON.parse(window.localStorage.getItem("elastic.explorer.session.collapsed") ?? "{}")).toEqual({
       [PROJECT]: false,
     });
   });
@@ -145,9 +145,9 @@ describe("the explorer strip", () => {
     const { open } = useExplorer.getState();
     const closing = open("file");
     const staying = open("file");
-    localStorage.setItem("text-to-cad.tabs.v1", JSON.stringify({ [closing!.id]: { a: 1 }, [staying!.id]: { b: 2 } }));
+    localStorage.setItem("elastic.tabs.v1", JSON.stringify({ [closing!.id]: { a: 1 }, [staying!.id]: { b: 2 } }));
     useExplorer.getState().close(closing!.id);
-    expect(JSON.parse(localStorage.getItem("text-to-cad.tabs.v1")!)).toEqual({ [staying!.id]: { b: 2 } });
+    expect(JSON.parse(localStorage.getItem("elastic.tabs.v1")!)).toEqual({ [staying!.id]: { b: 2 } });
   });
 
   it("renumbers order after a close so the strip stays contiguous", () => {
@@ -318,10 +318,10 @@ describe("the explorer strip", () => {
     await useExplorer.getState().bindSession(shut, PROJECT);
     // Only a person's toggle or drag writes the pair: a failure neither opens the pane nor records a choice.
     expect(useExplorer.getState()).toMatchObject({ sessionId: shut, loadError: "disk said no", ready: false, collapsed: true });
-    expect(window.localStorage.getItem("text-to-cad.explorer.session.collapsed") ?? "").not.toContain(shut);
+    expect(window.localStorage.getItem("elastic.explorer.session.collapsed") ?? "").not.toContain(shut);
 
     const open = `open-${PROJECT}`;
-    window.localStorage.setItem("text-to-cad.explorer.session.collapsed", JSON.stringify({ [open]: false }));
+    window.localStorage.setItem("elastic.explorer.session.collapsed", JSON.stringify({ [open]: false }));
     vi.mocked(window.workbench.explorer.loadTabs).mockRejectedValueOnce(new Error("again"));
     await useExplorer.getState().bindSession(open, PROJECT);
     expect(useExplorer.getState()).toMatchObject({ sessionId: open, loadError: "again", collapsed: false });
@@ -376,7 +376,7 @@ describe("the explorer strip", () => {
    * worktree — while every tab keeps the root it was opened in.
    */
   describe("roots", () => {
-    const WORKTREE = "/home/me/.text-to-cad/worktrees/proj/model-the-wrist";
+    const WORKTREE = "/home/me/.elastic/worktrees/proj/model-the-wrist";
 
     it("opens files and terminals in the active root, and remembers it on the tab", () => {
       useExplorer.getState().setRoot(WORKTREE);
@@ -457,7 +457,7 @@ describe("the explorer strip", () => {
     useExplorer.getState().openFile("src/wrist.step");
     expect(useExplorer.getState().collapsed).toBe(false);
     // The person never said anything, so nothing was remembered for them.
-    expect(window.localStorage.getItem("text-to-cad.explorer.session.collapsed")).toBeNull();
+    expect(window.localStorage.getItem("elastic.explorer.session.collapsed")).toBeNull();
   });
 
   it("remembers the pane's state for the project it was chosen in", () => {

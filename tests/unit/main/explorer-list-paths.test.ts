@@ -15,7 +15,7 @@ import { cleanTempDirs, tempDir } from "./temp-dirs";
 let root: string;
 
 beforeAll(async () => {
-  root = await tempDir("text-to-cad-list-paths-");
+  root = await tempDir("elastic-list-paths-");
   await writeProjectTree(root);
 });
 

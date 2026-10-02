@@ -9,9 +9,9 @@ copies each directory here into the packaged app's `Resources/`, and
 | `runtime/<os>-<arch>/` | `npm run bundle:runtime` (`scripts/bundle-runtime.mjs`), and the release workflow per leg | **The CAD runtime.** A pinned python-build-standalone (`scripts/python-build.json`) with cadgen and its whole dependency closure installed into its site-packages, pruned of what a runtime never reads, bytecode-compiled, and marked complete by `runtime.json`. About 1.2 GB per target; the app resolves it first after an explicit override (`src/main/cad/runtime.ts`). Packaged as `Resources/runtime/<os>-<arch>/`, the same layout as here. |
 | `cadgen/` | the release workflow, or `npm run cad:resources` (`scripts/cad-resources.mjs`) | the `cadgen` wheel for this version and `constraints.txt`, the dependency closure frozen from the development venv — what the bundler installs from (the wheel by its path, `-c` that file) |
 | `skills/` | `npm run build` (`scripts/build-skills.mjs`) | the app's skills — the repo's authoring skills plus the focused skills declared in the integration registry (including the embedded `cad-viewer` override), one directory each. `src/main/integrations/skills.ts` copies them into `<userData>/skills/<version>/` in both native layouts and hands that directory to every session; nothing is installed into an agent's own configuration |
-| `sample/` | committed | the sample project onboarding offers: `l_bracket.py` and the `l_bracket.step` it builds. Main copies it to `~/Documents/text-to-cad Sample` the first time someone asks for it (`src/main/onboarding.ts`). |
-| `app-mcp/` | committed source | the text-to-cad MCP server (`server.mjs`); NOT an extraResource — the build bundles it into `out/app-mcp/`, which ships unpacked beside the asar |
-| `brand/` | `npm run brand` (`scripts/make-brand.mjs`), committed | the TEXT-TO-CAD wordmark as PNGs, plus the JetBrains Mono ExtraBold Italic face they are set in and its OFL licence. NOT an extraResource either — `scripts/make-icons.mjs` reads `brand/text-to-cad-h.png` at development time to write `build/icon.png`, and nothing here is opened at run time. See the README's **Brand** section |
+| `sample/` | committed | the sample project onboarding offers: `l_bracket.py` and the `l_bracket.step` it builds. Main copies it to `~/Documents/elastic Sample` the first time someone asks for it (`src/main/onboarding.ts`). |
+| `app-mcp/` | committed source | the elastic MCP server (`server.mjs`); NOT an extraResource — the build bundles it into `out/app-mcp/`, which ships unpacked beside the asar |
+| `brand/` | `npm run brand` (`scripts/make-brand.mjs`), committed | the ELASTIC wordmark as PNGs, plus the JetBrains Mono ExtraBold Italic face they are set in and its OFL licence. NOT an extraResource either — `scripts/make-icons.mjs` reads `brand/elastic-h.png` at development time to write `build/icon.png`, and nothing here is opened at run time. See the README's **Brand** section |
 
 The first three are build outputs: gitignored under a committed `.gitkeep`,
 and `scripts/package.mjs` recreates the directories before every build.
@@ -31,7 +31,7 @@ npm run bundle:runtime -- --target mac-x64  # a foreign target, from this machin
 
 Targets are electron-builder's `<os>-<arch>` names: `mac-arm64`, `mac-x64`,
 `win-x64`, `linux-x64`. Per target the bundler downloads the pinned
-interpreter into `~/.cache/text-to-cad/python` (or `--cache`, or
+interpreter into `~/.cache/elastic/python` (or `--cache`, or
 `WORKBENCH_RUNTIME_CACHE`; sha256-checked), unpacks it,
 runs `pip install --only-binary=:all: --platform <tags> --target
 <site-packages> cadgen==<VERSION> -c constraints.txt`, prunes (`tests/`,

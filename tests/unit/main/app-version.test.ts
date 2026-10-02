@@ -29,7 +29,7 @@ describe("the release version", () => {
 
   it("stops `package.mjs` before it prepares anything when the checkout has no VERSION", () => {
     // A checkout without VERSION: <repo>/apps/desktop/scripts, and no <repo>/VERSION.
-    const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-package-")));
+    const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "elastic-package-")));
     temps.push(repo);
     const appRoot = path.join(repo, "apps", "desktop");
     fs.mkdirSync(path.join(appRoot, "scripts"), { recursive: true });
@@ -44,7 +44,7 @@ describe("the release version", () => {
 
     expect(run.stderr).toContain("no release version");
     expect(run.status).toBe(2);
-    expect(run.stdout).not.toContain("packaging text-to-cad 0.0.0");
+    expect(run.stdout).not.toContain("packaging elastic 0.0.0");
     // Nothing was created for a build that is not going to happen.
     expect(fs.existsSync(path.join(appRoot, "resources"))).toBe(false);
   });

@@ -29,7 +29,7 @@ import {
 import { useSettings } from "@renderer/state/settings";
 import { defaultSettings } from "@shared/types";
 
-const CACHE_KEY = "text-to-cad.theme";
+const CACHE_KEY = "elastic.theme";
 
 /** `prefers-color-scheme: dark`, and a way to move it. */
 function stubMatchMedia(prefersDark: boolean) {

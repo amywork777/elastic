@@ -221,7 +221,7 @@ export function terminalEnv(
   env.TERM = "xterm-256color";
   env.COLORTERM = "truecolor";
   // Tools that ask "am I in a terminal a person is watching?" — this one is.
-  env.TERM_PROGRAM = "text-to-cad";
+  env.TERM_PROGRAM = "elastic";
   const merged = { ...env, ...extra };
   if (pathPrefix.length > 0) {
     // The PATH key's case varies on Windows; prepend to the one that is there.

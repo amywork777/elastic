@@ -3,12 +3,11 @@
  *
  * Whether the person has finished the welcome, dismissed the checklist or
  * opened the viewer is ordinary settings (`onboarding*` fields in
- * `SettingsSchema`). These two are the parts that are not settings: whether
- * this run shows onboarding at all, and the sample project on disk.
+ * `SettingsSchema`). This is the part that is not a setting: whether
+ * this run shows onboarding at all.
  */
 import { z } from "zod";
 
-import { ProjectSchema } from "../types";
 import { invoke } from "./define";
 
 export const OnboardingStatusSchema = z.object({
@@ -24,13 +23,5 @@ export type OnboardingStatus = z.infer<typeof OnboardingStatusSchema>;
 export const onboardingContract = {
   onboarding: {
     status: invoke(z.void(), OnboardingStatusSchema),
-    /**
-     * Copies the bundled sample to `~/Documents/text-to-cad Sample` (or reuses
-     * the copy already there), makes it a folder main chose, and answers with
-     * the project. It broadcasts nothing: the welcome selects the answer
-     * itself, and not at all if the person went Back while it copied. Never a
-     * path for the renderer to hand back: no channel takes one.
-     */
-    createSample: invoke(z.void(), ProjectSchema),
   },
 } as const;

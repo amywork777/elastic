@@ -57,7 +57,7 @@ export const AgentCapabilitiesSchema = z.object({
 export type AgentCapabilities = z.infer<typeof AgentCapabilitiesSchema>;
 
 /**
- * What this agent does with the skills root text-to-cad names in every
+ * What this agent does with the skills root elastic names in every
  * `session/new` and `session/load` (plan §8, as revised).
  *
  * - `native` — the adapter reads `additionalDirectories` (or the older
@@ -66,7 +66,7 @@ export type AgentCapabilities = z.infer<typeof AgentCapabilitiesSchema>;
  *   `<root>/.agents/skills`. Nothing else is needed, and no preamble is sent.
  * - `preamble` — the adapter ignores additional directories (Gemini CLI does;
  *   assume the rest do too), so the first prompt of a session says where the
- *   root is and what is in it, and the `text-to-cad` MCP server's `list_skills`
+ *   root is and what is in it, and the `elastic` MCP server's `list_skills`
  *   and `read_skill` tools read the same files.
  *
  * The root is sent either way; this only decides whether the preamble goes

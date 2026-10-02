@@ -9,7 +9,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("@renderer/state/drawings", () => ({ deleteDrawingScene: vi.fn() }));
 
-const TABS = "text-to-cad.tabs.v1";
+const TABS = "elastic.tabs.v1";
 const stored = (key: string) => JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, unknown>;
 
 async function firstRun(sessionId: string, tabId: string) {
@@ -41,8 +41,8 @@ it("a session deleted in a run that never loaded it takes its tab records and pa
   useExplorer.getState().discardSessionResources("gone");
 
   expect(Object.keys(stored(TABS))).toEqual(["tab-kept"]);
-  expect(Object.keys(stored("text-to-cad.explorer.session.collapsed"))).toEqual(["kept"]);
-  expect(Object.keys(stored("text-to-cad.explorer.session.width"))).toEqual(["kept"]);
+  expect(Object.keys(stored("elastic.explorer.session.collapsed"))).toEqual(["kept"]);
+  expect(Object.keys(stored("elastic.explorer.session.width"))).toEqual(["kept"]);
 });
 
 it("a session list without a session prunes what that session left", async () => {
@@ -55,7 +55,7 @@ it("a session list without a session prunes what that session left", async () =>
   useSessions.getState().receive([{ id: "archived", archived: true, projectId: "/tmp/project", cwd: "/tmp/project", title: "", createdAt: 0, updatedAt: 0 } as never]);
 
   expect(Object.keys(stored(TABS))).toEqual(["tab-archived"]);
-  expect(Object.keys(stored("text-to-cad.explorer.session.width"))).toEqual(["archived"]);
+  expect(Object.keys(stored("elastic.explorer.session.width"))).toEqual(["archived"]);
 });
 
 it("a session made before the list has loaded prunes nothing: the others are not missing, only not here yet", async () => {
@@ -71,7 +71,7 @@ it("a session made before the list has loaded prunes nothing: the others are not
   await useAcp.getState().create({ projectId: "project", agentId: "claude" } as never);
 
   expect(Object.keys(stored(TABS))).toEqual(["tab-kept"]);
-  expect(Object.keys(stored("text-to-cad.explorer.session.width"))).toEqual(["kept"]);
+  expect(Object.keys(stored("elastic.explorer.session.width"))).toEqual(["kept"]);
   expect(useSessions.getState().sessions.map((session) => session.id)).toEqual(["fresh"]);
   // Still not the list: whatever waits for it keeps waiting.
   expect(useSessions.getState().ready).toBe(false);

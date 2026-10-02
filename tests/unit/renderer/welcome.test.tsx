@@ -188,7 +188,7 @@ describe("the welcome's start step", () => {
     const user = await toStartStep();
     await user.click(screen.getByRole("button", { name: /Try the sample/ }));
     await user.click(screen.getByRole("button", { name: "Back" }));
-    await act(async () => resolveSample({ id: "/s", name: "text-to-cad Sample", path: "/s", createdAt: 0 }));
+    await act(async () => resolveSample({ id: "/s", name: "elastic Sample", path: "/s", createdAt: 0 }));
     expect(patch).not.toHaveBeenCalledWith({ onboardingCompleted: true });
     expect(useProjects.getState()).toMatchObject({ activeId: "/mine", draft: null });
     expect(useSessions.getState().activeId).toBe("s1");
@@ -197,7 +197,7 @@ describe("the welcome's start step", () => {
   it("selects the sample and finishes the welcome when it is ready and the person stayed", async () => {
     const user = await toStartStep();
     await user.click(screen.getByRole("button", { name: /Try the sample/ }));
-    await act(async () => resolveSample({ id: "/s", name: "text-to-cad Sample", path: "/s", createdAt: 0 }));
+    await act(async () => resolveSample({ id: "/s", name: "elastic Sample", path: "/s", createdAt: 0 }));
     expect(patch).toHaveBeenCalledWith({ onboardingCompleted: true });
     expect(useProjects.getState()).toMatchObject({ activeId: "/s", draft: { path: "/s" } });
     expect(useSessions.getState().activeId).toBeNull();

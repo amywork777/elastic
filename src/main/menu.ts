@@ -29,7 +29,7 @@ export function takeQueuedCommands(contents: WebContents): IpcEventPayload<"ui.c
   return commands;
 }
 
-const REPOSITORY_URL = "https://github.com/earthtojake/text-to-cad";
+const REPOSITORY_URL = "https://github.com/amywork777/elastic";
 
 export function buildMenu(
   focusedWindow: () => BrowserWindow | null,
@@ -208,7 +208,7 @@ export function buildMenu(
       role: "help",
       submenu: [
         {
-          label: "text-to-cad on GitHub",
+          label: "elastic on GitHub",
           click: () => {
             void shell.openExternal(REPOSITORY_URL);
           },

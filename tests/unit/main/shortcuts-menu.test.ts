@@ -9,7 +9,7 @@ import { expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({
   Menu: { buildFromTemplate: (template: unknown) => template, setApplicationMenu: vi.fn() },
-  app: { name: "text-to-cad", isPackaged: true, on: vi.fn() },
+  app: { name: "elastic", isPackaged: true, on: vi.fn() },
   dialog: {},
   shell: {},
 }));

@@ -30,7 +30,7 @@ beforeEach(() => {
 /* The sidebar has its own suite: tests/unit/renderer/sidebar.test.tsx. */
 
 describe("Explorer", () => {
-  const PROJECT = { id: "p1", name: "text-to-cad", path: "/repo", createdAt: 0 };
+  const PROJECT = { id: "p1", name: "elastic", path: "/repo", createdAt: 0 };
 
   // The strip belongs to the selected session, grouped under its directory.
   const withSession = () => {

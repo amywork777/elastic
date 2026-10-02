@@ -22,9 +22,9 @@ describe("createSampleProject", () => {
   let target: string;
 
   beforeEach(() => {
-    directory = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-sample-"));
+    directory = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-sample-"));
     source = path.join(directory, "bundle");
-    target = path.join(directory, "Documents", "text-to-cad Sample");
+    target = path.join(directory, "Documents", "elastic Sample");
     fs.mkdirSync(source);
     fs.writeFileSync(path.join(source, "part.py"), "print('bundled')\n");
   });

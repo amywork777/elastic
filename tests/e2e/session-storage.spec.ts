@@ -29,12 +29,12 @@ function sqlScript(database: string, body: string, args: unknown = null): unknow
 
 test("upgrade preserves sessions, snapshots and owned tabs; restart and deletion stay isolated", async () => {
   test.setTimeout(120_000);
-  const scratch = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-storage-")));
+  const scratch = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "elastic-storage-")));
   const profile = path.join(scratch, "profile");
   const directory = path.join(scratch, "project");
   const worktree = path.join(scratch, "worktree");
   for (const dir of [profile, directory, worktree]) fs.mkdirSync(dir);
-  const database = path.join(profile, "text-to-cad.db");
+  const database = path.join(profile, "elastic.db");
   // A real pre-upgrade database: shared tabs, archived and pinned sessions,
   // agent ids, worktree metadata, snapshots and unrelated settings.
   sqlScript(database, `

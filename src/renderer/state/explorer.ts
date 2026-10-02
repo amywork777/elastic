@@ -38,11 +38,11 @@ const SAVE_DEBOUNCE_MS = 400;
  * it is one column. A preference, not a per-tab property; WHICH panel is
  * open is per tab (`FileTabSchema.panel`).
  */
-const PANEL_WIDTH_KEY = "text-to-cad.explorer.panelWidth";
+const PANEL_WIDTH_KEY = "elastic.explorer.panelWidth";
 /** Whether the pane itself is closed, per session id (see `collapsed`). */
-const PANE_COLLAPSED_KEY = "text-to-cad.explorer.session.collapsed";
+const PANE_COLLAPSED_KEY = "elastic.explorer.session.collapsed";
 /** How wide it is when it is open, per session id (see `width`). */
-const PANE_WIDTH_KEY = "text-to-cad.explorer.session.width";
+const PANE_WIDTH_KEY = "elastic.explorer.session.width";
 /**
  * The column's range and its default are the shared shell's
  * (`FilePanelColumn.jsx`), which is the component that draws it — so the
@@ -200,7 +200,7 @@ type ExplorerState = {
   changedEntries: FileChange[];
   changedRoot: ExplorerRoot;
   /**
-   * A path an agent asked to have revealed (`reveal` through the text-to-cad MCP
+   * A path an agent asked to have revealed (`reveal` through the elastic MCP
    * server): the tree expands to it and selects it without opening it.
    * Transient — cleared when a file is opened or the session changes.
    */

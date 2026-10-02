@@ -26,7 +26,7 @@
   }
   var preference = "system";
   try {
-    var stored = window.localStorage.getItem("text-to-cad.theme");
+    var stored = window.localStorage.getItem("elastic.theme");
     if (stored === "system" || stored === "light" || stored === "dark") {
       preference = stored;
     }

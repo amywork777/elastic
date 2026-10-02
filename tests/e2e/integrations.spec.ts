@@ -66,7 +66,7 @@ test("the skills root is in session/new in both layouts, and the preamble only f
   const info = await page.evaluate(() => window.workbench.skills.info());
   const names = info.skills.map((skill) => skill.name);
   expect(names).toEqual(expect.arrayContaining(["cad", "cad-viewer", "documents", "pdf", "drawings", "terminals", "app-browser"]));
-  expect(names).not.toContain("text-to-cad-app-use");
+  expect(names).not.toContain("elastic-app-use");
   // One directory per app version, under the app's own user-data directory.
   expect(path.dirname(info.root!)).toBe(path.join(fs.realpathSync(path.join(userData, "profile")), "skills"));
   for (const layout of [path.join(".claude", "skills"), path.join(".agents", "skills")]) {
@@ -111,8 +111,8 @@ test("a real ACP session starts isolated domain MCPs and operates the live app's
   await expect(page.locator("[data-explorer-ready=true]")).toBeVisible();
 
   const catalog = await proof({ operation: "catalog" }) as { catalog: Array<{ name: string; tools: string[] }> };
-  expect(catalog.catalog.map((entry) => entry.name).sort()).toEqual(["browser", "cad", "documents", "drawings", "pdf", "terminals", "workspace"].map((name) => `text-to-cad-${name}`).sort());
-  const tools = (name: string) => catalog.catalog.find((entry) => entry.name === `text-to-cad-${name}`)?.tools ?? [];
+  expect(catalog.catalog.map((entry) => entry.name).sort()).toEqual(["browser", "cad", "documents", "drawings", "pdf", "terminals", "workspace"].map((name) => `elastic-${name}`).sort());
+  const tools = (name: string) => catalog.catalog.find((entry) => entry.name === `elastic-${name}`)?.tools ?? [];
   expect(tools("documents")).toContain("edit_document");
   expect(tools("pdf")).not.toContain("edit_document");
   expect(tools("browser")).toContain("browser_snapshot");

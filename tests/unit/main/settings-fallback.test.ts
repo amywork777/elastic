@@ -30,7 +30,7 @@ it("reads a refused stored prefix as the default, logs it once, and keeps it unt
   rows.set("branchPrefix", JSON.stringify("a b/"));
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-  expect(settings.get().branchPrefix).toBe("text-to-cad/");
+  expect(settings.get().branchPrefix).toBe("elastic/");
   settings.get();
   expect(warn).toHaveBeenCalledTimes(1);
   expect(warn.mock.calls[0]!.join(" ")).toContain("“a b/”");

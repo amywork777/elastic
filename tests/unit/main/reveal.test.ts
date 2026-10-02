@@ -87,7 +87,7 @@ test("refuses a directory outside the project, and an unknown project", () => {
 
 test("a session's recorded worktree is handed on as the session recorded it, not as the caller spelled it", async () => {
   // A worktree an older layout made outside the worktree root, recorded
-  // through a link (a dotfile-managed ~/.text-to-cad, /tmp on macOS). The
+  // through a link (a dotfile-managed ~/.elastic, /tmp on macOS). The
   // record keeps access, and the root that leaves main is the recorded
   // spelling: watchers, `files.changed` and the CAD viewer are keyed by it,
   // and the renderer compares it with the session's worktreePath by `===`.

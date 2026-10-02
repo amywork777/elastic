@@ -130,7 +130,7 @@ test("comes up dark on an OS in dark, with no light frame and nothing set", asyn
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
   await expectNeverMoved("dark", "boot");
   // The cache that made the first frame right, written from what main stored.
-  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("text-to-cad.theme"))).toBe("system");
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("elastic.theme"))).toBe("system");
 });
 
 test("the scheme holds across Settings and a reload, follows the OS on System, and a chosen one detaches", async () => {
@@ -160,7 +160,7 @@ test("the scheme holds across Settings and a reload, follows the OS on System, a
   await setTheme("light");
   await forgetSamples();
   await expectNeverMoved("light", "Light chosen under an OS in dark");
-  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("text-to-cad.theme"))).toBe("light");
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("elastic.theme"))).toBe("light");
   await setTheme("dark");
 });
 

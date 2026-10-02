@@ -9,7 +9,7 @@ import { useSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";
 import { defaultSettings, type Session } from "@shared/types";
 
-/** The window's title says where you are: nothing set it before, so every route was "text-to-cad". */
+/** The window's title says where you are: nothing set it before, so every route was "elastic". */
 // Counts Shell's renders: App renders it unmemoised, so every App render is one of these.
 let renders = 0;
 vi.mock("@renderer/app/Shell", () => ({ Shell: () => { renders += 1; return null; } }));
@@ -22,7 +22,7 @@ vi.mock("@renderer/state/bridge", () => ({ hydrate: vi.fn(async () => undefined)
 const BRACKET = { id: "s1", projectId: "p", agentId: "codex", cwd: "/p", title: "Bracket", status: "idle", archived: false } as unknown as Session;
 
 beforeEach(() => {
-  document.title = "text-to-cad";
+  document.title = "elastic";
   useUi.setState({ route: "app" });
   useOnboarding.setState({ enabled: false });
   useSessions.setState({ sessions: [], activeId: null });
@@ -32,23 +32,23 @@ beforeEach(() => {
 it("names the settings route", () => {
   useUi.setState({ route: "settings" });
   render(<App />);
-  expect(document.title).toBe("text-to-cad — Settings");
+  expect(document.title).toBe("elastic — Settings");
 });
 
 it("names the welcome", () => {
   useOnboarding.setState({ enabled: true });
   useSettings.setState({ settings: { ...defaultSettings(), onboardingCompleted: false }, ready: true } as never);
   render(<App />);
-  expect(document.title).toBe("text-to-cad — Welcome");
+  expect(document.title).toBe("elastic — Welcome");
 });
 
 it("names the active session, and is plain with none", () => {
   render(<App />);
-  expect(document.title).toBe("text-to-cad");
+  expect(document.title).toBe("elastic");
   act(() => useSessions.setState({ sessions: [BRACKET], activeId: "s1" }));
-  expect(document.title).toBe("text-to-cad — Bracket");
+  expect(document.title).toBe("elastic — Bracket");
   act(() => useSessions.setState({ activeId: null }));
-  expect(document.title).toBe("text-to-cad");
+  expect(document.title).toBe("elastic");
 });
 
 it("does not re-render the window when the active session changes but its title does not", () => {

@@ -12,7 +12,7 @@ const reloadFocused = vi.hoisted(() => vi.fn());
 const forwardFromFocused = vi.hoisted(() => vi.fn());
 vi.mock("electron", () => ({
   Menu: { buildFromTemplate: (template: unknown) => template, setApplicationMenu: vi.fn() },
-  app: { name: "text-to-cad", isPackaged: false, on: vi.fn() },
+  app: { name: "elastic", isPackaged: false, on: vi.fn() },
   dialog: { showMessageBoxSync },
   shell: {},
 }));

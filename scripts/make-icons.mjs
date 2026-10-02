@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const source = path.join(appRoot, "src", "renderer", "assets", "brand", "text-to-cad-star.svg");
+const source = path.join(appRoot, "src", "renderer", "assets", "brand", "elastic-mark.svg");
 const target = path.join(appRoot, "build", "icon.png");
 
 const CANVAS_PX = 1024;

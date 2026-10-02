@@ -40,7 +40,7 @@ import { TextFileSchema } from "@shared/ipc/explorer";
 let root: string;
 
 beforeAll(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "text-to-cad-fs-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "elastic-fs-"));
   await fs.mkdir(path.join(root, "src", "deep"), { recursive: true });
   await fs.mkdir(path.join(root, "node_modules", "left-pad"), { recursive: true });
   await fs.mkdir(path.join(root, "dist"), { recursive: true });
@@ -74,7 +74,7 @@ afterAll(async () => {
  */
 const outsideDirectories: string[] = [];
 async function outsideDirectory(): Promise<string> {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "text-to-cad-outside-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "elastic-outside-"));
   outsideDirectories.push(directory);
   return directory;
 }
@@ -105,7 +105,7 @@ describe("listing a directory", () => {
   });
 
   it("stats a wide directory's entries concurrently, not one round trip after another", async () => {
-    const wide = await fs.mkdtemp(path.join(os.tmpdir(), "text-to-cad-wide-"));
+    const wide = await fs.mkdtemp(path.join(os.tmpdir(), "elastic-wide-"));
     outsideDirectories.push(wide);
     await Promise.all(Array.from({ length: 200 }, (_, index) => fs.writeFile(path.join(wide, `frame-${index}.png`), "x")));
     const stat = fs.stat.bind(fs);
@@ -317,7 +317,7 @@ describe("atomic text saves", () => {
     expect(rejected[0]!.reason).toBeInstanceOf(FsConflictError);
     expect(rejected[0]!.reason).toMatchObject({ code: "conflict", actualRevision: saved.revision });
     expect(await fs.readFile(path.join(root, file), "utf8")).toBe(saved.content);
-    expect((await fs.readdir(root)).filter(name => name.includes(".text-to-cad-"))).toEqual([]);
+    expect((await fs.readdir(root)).filter(name => name.includes(".elastic-"))).toEqual([]);
   });
 
   it("refuses to recreate an externally deleted file from a stale editor", async () => {
@@ -395,7 +395,7 @@ describe("creating, renaming and duplicating", () => {
     await fs.writeFile(path.join(edits, "part.step"), "ISO-10303-21;\n");
     await fs.writeFile(path.join(edits, "nested", "note.md"), "# note\n");
     // A door out of the root: a symlink to a directory outside it.
-    elsewhere = await fs.mkdtemp(path.join(os.tmpdir(), "text-to-cad-elsewhere-"));
+    elsewhere = await fs.mkdtemp(path.join(os.tmpdir(), "elastic-elsewhere-"));
     await fs.symlink(elsewhere, path.join(edits, "escape"));
   });
 
@@ -466,7 +466,7 @@ describe("symlinks as doors and as rows", () => {
 
   beforeAll(async () => {
     links = path.join(root, "links");
-    outside = await fs.mkdtemp(path.join(os.tmpdir(), "text-to-cad-outside-"));
+    outside = await fs.mkdtemp(path.join(os.tmpdir(), "elastic-outside-"));
     await fs.mkdir(path.join(links, "shared"), { recursive: true });
     await fs.writeFile(path.join(links, "v3.step"), "v3\n");
     await fs.writeFile(path.join(links, "shared", "a.txt"), "shared\n");

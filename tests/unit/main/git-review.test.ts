@@ -35,11 +35,11 @@ afterAll(cleanGitTemplates);
 describe("createPullRequest", () => {
   /** A `gh` on PATH that reports an existing pull request by `author` at `head`. */
   async function fakeGh(author: string, headOid: string) {
-    const bin = await scratchDir("text-to-cad-gh-", temporary);
+    const bin = await scratchDir("elastic-gh-", temporary);
     const script = [
       "#!/bin/sh",
       'case "$1 $2" in',
-      '  "pr create") echo \'a pull request for branch "text-to-cad/wrist" into branch "main" already exists:\' >&2;'
+      '  "pr create") echo \'a pull request for branch "elastic/wrist" into branch "main" already exists:\' >&2;'
         + ' echo "https://github.com/o/r/pull/7" >&2; exit 1 ;;',
       `  "pr view") echo '{"author":{"login":"${author}"},"headRefOid":"${headOid}"}' ;;`,
       '  "api user") echo "me" ;;',
@@ -50,7 +50,7 @@ describe("createPullRequest", () => {
   }
 
   async function pushed() {
-    const base = await scratchDir("text-to-cad-git-", temporary);
+    const base = await scratchDir("elastic-git-", temporary);
     const root = path.join(base, "project");
     const worktrees = path.join(base, "worktrees");
     await pushedRepository(root, path.join(base, "remote.git"), { readme: "one\ntwo\n" });
@@ -133,7 +133,7 @@ describe("a since-period older than the whole history", () => {
 
 describe("a repository with no commits yet", () => {
   it("counts a staged file's lines rather than +0 −0", async () => {
-    const base = await scratchDir("text-to-cad-unborn-", temporary);
+    const base = await scratchDir("elastic-unborn-", temporary);
     await git_(base, "init", "--quiet", "--initial-branch=main");
     await writeFile(path.join(base, "part.py"), "a\nb\n");
     await git_(base, "add", "part.py");

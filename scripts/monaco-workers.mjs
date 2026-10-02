@@ -25,7 +25,7 @@ const CONSTRUCTOR = /new Worker\(new URL\((['"])[\w.]+\.worker\.js\1, import\.me
 /** @returns {import('vite').Plugin} */
 export function monacoWorkersOncePlugin() {
   return {
-    name: "text-to-cad-monaco-workers-once",
+    name: "elastic-monaco-workers-once",
     enforce: "pre",
     apply: "build",
     transform: {

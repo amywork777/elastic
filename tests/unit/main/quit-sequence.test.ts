@@ -236,7 +236,7 @@ async function managerWithSlowTurn() {
     broadcast: () => undefined,
     newId: () => "session-1",
   });
-  const cwd = await tempDir("text-to-cad-quit-");
+  const cwd = await tempDir("elastic-quit-");
   const session = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });
   // "slow" holds the turn open until cancelled: a prompt in flight at quit.
   const turn = manager.prompt(session.id, [{ type: "text", text: "slow" }]);
@@ -326,7 +326,7 @@ describe("quit sequence", () => {
     await import("@main/index");
     await vi.waitFor(() => expect(h.teardown).toContain("exit"));
 
-    expect(h.electron.dialog.showErrorBox).toHaveBeenCalledWith("text-to-cad could not start", "the CAD runtime could not start");
+    expect(h.electron.dialog.showErrorBox).toHaveBeenCalledWith("elastic could not start", "the CAD runtime could not start");
     expect(h.electron.app.exit).toHaveBeenCalledWith(1);
     // app.exit skips before-quit and will-quit: their teardown ran first,
     // the database connection closed among it (the handle's own close()).

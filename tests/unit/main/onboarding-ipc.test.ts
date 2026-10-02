@@ -5,7 +5,7 @@
  */
 import { expect, it, vi } from "vitest";
 
-const sample = { id: "/docs/sample", name: "text-to-cad Sample", path: "/docs/sample", createdAt: 0 };
+const sample = { id: "/docs/sample", name: "elastic Sample", path: "/docs/sample", createdAt: 0 };
 const choose = vi.hoisted(() => vi.fn());
 const broadcast = vi.hoisted(() => vi.fn());
 vi.mock("@main/db/repositories", () => ({ projects: { choose } }));

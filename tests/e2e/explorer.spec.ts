@@ -139,11 +139,11 @@ test("runs a command in a terminal tab, and replays its scrollback exactly once 
   // twice. And the command and its output differ, or the echo alone would pass.
   await settleTerminal(page);
   await page.locator(".xterm-helper-textarea").click();
-  await page.keyboard.type("echo text-to-cad-$((6 * 7))");
+  await page.keyboard.type("echo elastic-$((6 * 7))");
   await page.keyboard.press("Enter");
-  await expect(page.locator(".xterm-rows")).toContainText("text-to-cad-42", { timeout: 20_000 });
+  await expect(page.locator(".xterm-rows")).toContainText("elastic-42", { timeout: 20_000 });
   await shoot("terminal.png");
-  const seen = occurrences(await page.locator(".xterm-rows").innerText(), "text-to-cad-42");
+  const seen = occurrences(await page.locator(".xterm-rows").innerText(), "elastic-42");
   // Switching away unmounts the xterm and the pty keeps running; coming back writes the
   // buffered scrollback and subscribes to the live stream, and `terminal.data`'s sequence
   // number is what stops the two overlapping.
@@ -152,7 +152,7 @@ test("runs a command in a terminal tab, and replays its scrollback exactly once 
   await page.getByRole("tab", { name: /Terminal/ }).click();
   await expect(page.locator(".xterm-screen")).toBeVisible();
   await settleTerminal(page);
-  expect(occurrences(await page.locator(".xterm-rows").innerText(), "text-to-cad-42")).toBe(seen);
+  expect(occurrences(await page.locator(".xterm-rows").innerText(), "elastic-42")).toBe(seen);
 });
 
 test("persists the strip across a reload", async () => {
@@ -282,7 +282,7 @@ test("a drawing attaches a PNG without sending, writes nothing, and is not resto
     await expect(addToPrompt).toBeDisabled();
     await surface.getByRole("textbox", { name: "Drawing name" }).fill("Bracket concept");
     await surface.getByRole("textbox", { name: "Drawing name" }).press("Enter");
-    const canvas = surface.locator(".text-to-cad-drawing-editor canvas.excalidraw__canvas.interactive");
+    const canvas = surface.locator(".elastic-drawing-editor canvas.excalidraw__canvas.interactive");
     await expect(canvas).toBeVisible();
     const box = (await canvas.boundingBox())!;
     const tools = surface.getByRole("group", { name: "Drawing tools" });
@@ -313,7 +313,7 @@ test("a drawing attaches a PNG without sending, writes nothing, and is not resto
     // load itself through a drop or a paste.
     await canvas.click({ position: { x: box.width * 0.8, y: box.height * 0.6 } });
     for (const keys of ["Shift+S", "O", "Shift+E"]) await page.keyboard.press(`${mod}+${keys}`);
-    await surface.locator(".text-to-cad-drawing-editor").evaluate((element) => {
+    await surface.locator(".elastic-drawing-editor").evaluate((element) => {
       const file = new File([JSON.stringify({ type: "excalidraw", version: 2, elements: [] })], "scene.excalidraw", { type: "application/json" });
       const data = new window.DataTransfer();
       data.items.add(file);

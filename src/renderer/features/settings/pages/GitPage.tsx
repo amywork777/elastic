@@ -1,6 +1,6 @@
 /**
  * Git and worktrees (plan §9): where a session's working directory comes from,
- * and what text-to-cad is allowed to create and remove around it.
+ * and what elastic is allowed to create and remove around it.
  *
  * The rows above the fold are settings — read by `projects/workspace.ts` when
  * a session is created, by the sweep after each worktree is made, and by the
@@ -85,10 +85,10 @@ export function GitPage() {
           value={settings.defaultGitMode === "worktree" ? "worktree" : "checkout"}
         />
         <TextRow
-          description="Prepended to every branch text-to-cad creates."
+          description="Prepended to every branch elastic creates."
           keywords="branch name namespace"
           onChange={(branchPrefix) => patch({ branchPrefix })}
-          placeholder="text-to-cad/"
+          placeholder="elastic/"
           // Not the muted note a description is: the stored value is wrong,
           // and it says so in the kit's warning tone (its Alert's `warning`
           // variant), boxed, beside a value typed here and refused, which is
@@ -141,7 +141,7 @@ export function GitPage() {
                 : undefined
           }
           onClear={() => patch({ worktreeRoot: null })}
-          placeholder="~/.text-to-cad/worktrees"
+          placeholder="~/.elastic/worktrees"
           title="Worktree root"
           value={settings.worktreeRoot}
         />
@@ -154,7 +154,7 @@ export function GitPage() {
         />
         <SwitchRow
           checked={settings.autoDeleteWorktrees}
-          description="After a new worktree is created, remove the oldest idle ones beyond the limit below. Only worktrees text-to-cad created, and never one that is in use, locked or holds uncommitted work."
+          description="After a new worktree is created, remove the oldest idle ones beyond the limit below. Only worktrees elastic created, and never one that is in use, locked or holds uncommitted work."
           keywords="prune clean remove old"
           onChange={(autoDeleteWorktrees) => patch({ autoDeleteWorktrees })}
           title="Auto-delete old worktrees"
@@ -214,7 +214,7 @@ export function GitPage() {
  * A card per project, listing the worktrees under this project's worktree
  * directory (Codex's Worktrees page, plan §2).
  *
- * Only text-to-cad's own: a worktree the person made themselves, somewhere else,
+ * Only elastic's own: a worktree the person made themselves, somewhere else,
  * is theirs, and a Delete button beside it would be the app offering to remove
  * something it never created. A project with none is skipped rather than shown
  * empty — a settings page that lists every project you have ever added, each

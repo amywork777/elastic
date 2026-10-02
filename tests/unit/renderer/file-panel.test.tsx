@@ -23,8 +23,8 @@ import type { Project } from "@shared/types";
  */
 const PROJECT: Project = {
   id: "p1",
-  name: "text-to-cad",
-  path: "/tmp/text-to-cad",
+  name: "elastic",
+  path: "/tmp/elastic",
   createdAt: 0,
 };
 

@@ -26,7 +26,7 @@ import { useAgents } from "@renderer/state/agents";
 import type { AgentStatus, Platform } from "@shared/agents";
 
 /**
- * The four the app is built around: two that load the skills text-to-cad hands a
+ * The four the app is built around: two that load the skills elastic hands a
  * session by themselves, and two whose ACP support is first-party. Recommending
  * is not ranking — everything else is in the same list, one group down.
  */

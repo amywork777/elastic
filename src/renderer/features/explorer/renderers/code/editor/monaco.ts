@@ -9,8 +9,8 @@
  */
 import type { editor } from "monaco-editor";
 
-export const MONACO_LIGHT = "text-to-cad-light";
-export const MONACO_DARK = "text-to-cad-dark";
+export const MONACO_LIGHT = "elastic-light";
+export const MONACO_DARK = "elastic-dark";
 
 /**
  * The transcript's variants: the same colours on a transparent background, so
@@ -18,8 +18,8 @@ export const MONACO_DARK = "text-to-cad-dark";
  * second `defineTheme` under the shell theme's name replaces it for every
  * editor in the window, which is how the review once lost its colours.
  */
-export const MONACO_TRANSCRIPT_LIGHT = "text-to-cad-transcript-light";
-export const MONACO_TRANSCRIPT_DARK = "text-to-cad-transcript-dark";
+export const MONACO_TRANSCRIPT_LIGHT = "elastic-transcript-light";
+export const MONACO_TRANSCRIPT_DARK = "elastic-transcript-dark";
 
 export function monacoTheme(resolved: "light" | "dark"): string {
   return resolved === "dark" ? MONACO_DARK : MONACO_LIGHT;
@@ -128,7 +128,7 @@ export function monacoModelUri(
   const encoded = [sourceId, filePath, documentKey, viewId].map((part) =>
     encodeURIComponent(part),
   );
-  return `text-to-cad-file://model/${encoded.join("/")}`;
+  return `elastic-file://model/${encoded.join("/")}`;
 }
 
 /** Before Settings has written `--font-mono`, and in a test with no stylesheet. */

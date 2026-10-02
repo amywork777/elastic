@@ -67,7 +67,7 @@ describe("which", () => {
 
 describe("the real executable probe", () => {
   it.skipIf(process.platform === "win32")("is a regular executable file, never a directory of that name", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-detect-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-detect-"));
     try {
       fs.mkdirSync(path.join(dir, "claude"));
       fs.writeFileSync(path.join(dir, "codex"), "#!/bin/sh\n", { mode: 0o755 });

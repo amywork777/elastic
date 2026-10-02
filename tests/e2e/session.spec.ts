@@ -511,7 +511,7 @@ test("the sidebar renames and archives a session", async () => {
  * new-session screen too: what the session will be created in.
  *
  * There used to be two levels — the agent's mode *and* an "Ask / Approve for
- * me" chip of text-to-cad's own over the top of it — which is two answers to
+ * me" chip of elastic's own over the top of it — which is two answers to
  * one question and no way to tell which one stopped a request. This is the
  * one that is left, and these are the two ends of it: Manual, where the
  * agent asks and the transcript waits, and full access, where nothing is

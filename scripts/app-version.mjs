@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Absolute path of the repository's canonical VERSION file. */
-export const versionFile = path.resolve(appRoot, "..", "..", "VERSION");
+export const versionFile = path.resolve(appRoot, "VERSION");
 
 /**
  * The canonical release version.

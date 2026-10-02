@@ -1,7 +1,7 @@
 /**
- * Renders the text-to-cad brand marks into `resources/brand/` (committed).
+ * Renders the elastic brand marks into `resources/brand/` (committed).
  *
- * The mark is the word TEXT-TO-CAD, set in JetBrains Mono
+ * The mark is the word ELASTIC, set in JetBrains Mono
  * ExtraBold Italic, drawn twice: a light-blue copy offset down and right, then
  * the foreground copy on top of it. No blur and no gradient; the "shadow" is a
  * second crisp copy of the same glyphs, so the mark survives being scaled,
@@ -70,7 +70,7 @@ const pageHtml = `<!doctype html>
 <meta charset="utf-8">
 <style>
   @font-face {
-    font-family: "TextToCadBrand";
+    font-family: "ElasticBrand";
     src: url("${fontDataUrl}") format("woff2");
     font-weight: 800;
     font-style: italic;
@@ -79,7 +79,7 @@ const pageHtml = `<!doctype html>
   html, body { margin: 0; padding: 0; background: transparent; }
   svg { display: block; }
   text {
-    font-family: "TextToCadBrand";
+    font-family: "ElasticBrand";
     font-weight: 800;
     font-style: italic;
     white-space: pre;
@@ -96,7 +96,7 @@ function measureInk(page, text, fontPx) {
   return page.evaluate(
     ({ text, fontPx }) => {
       const ctx = document.createElement("canvas").getContext("2d");
-      ctx.font = `italic 800 ${fontPx}px TextToCadBrand`;
+      ctx.font = `italic 800 ${fontPx}px ElasticBrand`;
       ctx.textBaseline = "alphabetic";
       const m = ctx.measureText(text);
       return {
@@ -149,7 +149,7 @@ async function main() {
       contexts.push(context);
       const p = await context.newPage();
       await p.setContent(pageHtml);
-      await p.evaluate(() => document.fonts.load('italic 800 100px "TextToCadBrand"'));
+      await p.evaluate(() => document.fonts.load('italic 800 100px "ElasticBrand"'));
       await p.evaluate(() => document.fonts.ready);
       return p;
     };
@@ -160,11 +160,11 @@ async function main() {
     const capPx = WORDMARK_FONT_PX * CAP_HEIGHT_EM;
     const offset = capPx * SHADOW_OFFSET_CAP_FRACTION;
     const margin = WORDMARK_MARGIN_FRACTION * WORDMARK_FONT_PX;
-    const ink = await measureInk(page, "TEXT-TO-CAD", WORDMARK_FONT_PX);
+    const ink = await measureInk(page, "ELASTIC", WORDMARK_FONT_PX);
     const width = Math.ceil(ink.left + ink.right + offset + margin * 2);
     const height = Math.ceil(ink.ascent + ink.descent + offset + margin * 2);
     const wordmark = {
-      text: "TEXT-TO-CAD",
+      text: "ELASTIC",
       fontPx: WORDMARK_FONT_PX,
       x: margin + ink.left,
       baseline: margin + ink.ascent,
@@ -180,7 +180,7 @@ async function main() {
         [2, page2x],
       ]) {
         const suffix = scale === 2 ? "@2x" : "";
-        const outFile = path.join(brandDir, `text-to-cad-wordmark-${variant}${suffix}.png`);
+        const outFile = path.join(brandDir, `elastic-wordmark-${variant}${suffix}.png`);
         await renderSvg(target, { width, height, outFile, body: markLayers({ ...wordmark, fg }) });
         written.push([outFile, `${width * scale}x${height * scale}`]);
       }

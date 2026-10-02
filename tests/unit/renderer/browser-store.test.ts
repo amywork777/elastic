@@ -103,7 +103,7 @@ describe("browser chrome cost", () => {
     expect(changes).not.toHaveBeenCalled();
   });
   it("stops polling once the workspace refuses the tab, and resumes after a navigation or wake", async () => {
-    vi.mocked(window.workbench.browser.metadata).mockRejectedValue(new Error("Error invoking remote method 'text-to-cad:browser.metadata': IpcError: This session's workspace is missing."));
+    vi.mocked(window.workbench.browser.metadata).mockRejectedValue(new Error("Error invoking remote method 'elastic:browser.metadata': IpcError: This session's workspace is missing."));
     mount(); await vi.advanceTimersByTimeAsync(3_000);
     expect(window.workbench.browser.metadata).toHaveBeenCalledTimes(1);
     expect(useBrowser.getState().errors[binding.tabId]).toContain("This session's workspace is missing.");
@@ -115,7 +115,7 @@ describe("browser chrome cost", () => {
     expect(useBrowser.getState().errors[binding.tabId]).toBeUndefined();
   });
   it.each(["This browser tab is not available in this session's workspace.", "that project is no longer open"])("stops polling a tab main refuses with %s", async (refusal) => {
-    vi.mocked(window.workbench.browser.metadata).mockRejectedValue(new Error(`Error invoking remote method 'text-to-cad:browser.metadata': IpcError: ${refusal}`));
+    vi.mocked(window.workbench.browser.metadata).mockRejectedValue(new Error(`Error invoking remote method 'elastic:browser.metadata': IpcError: ${refusal}`));
     mount(); await vi.advanceTimersByTimeAsync(3_000);
     expect(window.workbench.browser.metadata).toHaveBeenCalledTimes(1);
   });

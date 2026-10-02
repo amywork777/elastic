@@ -1145,7 +1145,7 @@ export async function head(cwd: string): Promise<string | null> {
   return sha?.trim() || null;
 }
 
-/** Where a session's marks are kept alive: `refs/text-to-cad/<session id>/<mark>`. */
+/** Where a session's marks are kept alive: `refs/elastic/<session id>/<mark>`. */
 const MARK_REF = /^[A-Za-z0-9_-]+\/[a-z]+$/;
 
 /**
@@ -1159,7 +1159,7 @@ const MARK_REF = /^[A-Za-z0-9_-]+\/[a-z]+$/;
  * the index, which leaves the person's staging untouched and, seeded from the
  * real index, only re-hashes what changed since it was last written.
  *
- * `mark` (`<session id>/turn`) pins the tree under `refs/text-to-cad/`: an
+ * `mark` (`<session id>/turn`) pins the tree under `refs/elastic/`: an
  * unreferenced object is `gc`'s to prune after two weeks, and a session can
  * be older than that. `dropMarks` unpins them when the session is deleted.
  * Null when git cannot answer — never a reason to fail a turn.
@@ -1198,7 +1198,7 @@ export async function snapshotTree(cwd: string, mark?: string): Promise<string |
     if (!OBJECT_ID.test(tree)) {
       return null;
     }
-    if (mark !== undefined && (await tryGit(root, ["update-ref", `refs/text-to-cad/${mark}`, tree])) === null) {
+    if (mark !== undefined && (await tryGit(root, ["update-ref", `refs/elastic/${mark}`, tree])) === null) {
       return null;
     }
     return tree;
@@ -1239,7 +1239,7 @@ async function withTempIndex<T>(
 
 /** A fresh scratch directory holding a copy of the `live` index (an empty one when there is none). */
 async function seedIndex(live: string | undefined): Promise<{ scratch: string; index: string }> {
-  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "text-to-cad-index-"));
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "elastic-index-"));
   const index = path.join(scratch, "index");
   if (live) {
     await fsp.copyFile(live, index).catch(() => undefined);
@@ -1428,7 +1428,7 @@ export async function dropMarks(cwd: string, sessionId: string): Promise<void> {
   if (!root) {
     return;
   }
-  const refs = ((await tryGit(root, ["for-each-ref", "--format=%(refname)", `refs/text-to-cad/${sessionId}/`])) ?? "")
+  const refs = ((await tryGit(root, ["for-each-ref", "--format=%(refname)", `refs/elastic/${sessionId}/`])) ?? "")
     .split("\n")
     .filter(Boolean);
   if (refs.length === 0) {
@@ -1711,7 +1711,7 @@ export type CreateWorktreeOptions = {
   parentDir: string;
   /** The name to slugify — a session's first prompt, usually. */
   name?: string;
-  /** From settings; `text-to-cad/` by default. */
+  /** From settings; `elastic/` by default. */
   branchPrefix?: string;
   /**
    * From settings: fetch the remote first, and branch from the current
@@ -1762,7 +1762,7 @@ export async function createWorktree(options: CreateWorktreeOptions): Promise<Cr
     }
   }
 
-  const prefix = options.branchPrefix ?? "text-to-cad/";
+  const prefix = options.branchPrefix ?? "elastic/";
   const stem = slugify(options.name ?? "") || generatedName();
   const base = options.base ?? fetched ?? "HEAD";
 
@@ -1992,7 +1992,7 @@ export type PruneOptions = {
  * Sweep the oldest worktrees past the keep limit (Settings › Git and worktrees).
  *
  * Three things are never removed, and each is a separate promise to the user:
- * a worktree text-to-cad did not create (outside `parentDir`), one a session is
+ * a worktree elastic did not create (outside `parentDir`), one a session is
  * still open on, and one with uncommitted changes or ignored files that are
  * not a disposable cache (`hasUnsavedWork`). An automatic sweep that
  * could throw work away would make the setting unusable, so it is only ever

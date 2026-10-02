@@ -14,13 +14,13 @@ afterEach(() => {
 });
 
 test("choosing a directory creates no persistent project", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-directory-")); temporary.push(dir);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-directory-")); temporary.push(dir);
   expect(projects.add(dir)).toMatchObject({ id: fs.realpathSync(dir), path: fs.realpathSync(dir) });
   expect(projects.list()).toEqual([]);
 });
 
 test("legacy directory spellings remain stable when chosen through an alias", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-directory-")); temporary.push(dir);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-directory-")); temporary.push(dir);
   const alias = path.join(dir, "alias");
   const target = path.join(dir, "target"); fs.mkdirSync(target);
   fs.symlinkSync(target, alias, "junction");
@@ -30,7 +30,7 @@ test("legacy directory spellings remain stable when chosen through an alias", ()
 });
 
 test("a missing checkout does not erase its group or surviving worktree identity", () => {
-  const missing = path.join(os.tmpdir(), "text-to-cad-missing-directory");
+  const missing = path.join(os.tmpdir(), "elastic-missing-directory");
   stored.rows = [{ directory: missing, created_at: 1 }];
   expect(projects.list()).toHaveLength(1);
   expect(projects.get(missing)).toMatchObject({ id: missing, path: missing });
@@ -39,7 +39,7 @@ test("a missing checkout does not erase its group or surviving worktree identity
 test("an id that is only a path names no project until main chose it", () => {
   // `explorer.read({ projectId: "/", path: "etc/hosts" })` resolves through here.
   expect(projects.get("/")).toBeNull();
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-directory-")); temporary.push(dir);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-directory-")); temporary.push(dir);
   expect(projects.get(fs.realpathSync(dir))).toBeNull();
   const chosen = projects.choose(dir);
   expect(projects.get(chosen.id)).toEqual(chosen);

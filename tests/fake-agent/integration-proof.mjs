@@ -15,7 +15,7 @@ async function withServer(config, operation) {
   if (!client) {
     const env = { ...process.env, ...Object.fromEntries((config.env ?? []).map(entry => [entry.name, entry.value])) };
     const transport = new StdioClientTransport({ command: config.command, args: config.args ?? [], env });
-    client = new Client({ name: 'text-to-cad-integration-proof', version: '1.0.0' });
+    client = new Client({ name: 'elastic-integration-proof', version: '1.0.0' });
     await client.connect(transport);
     clients.set(config.name, client);
   }
@@ -34,10 +34,10 @@ export async function integrationProof(servers, request) {
       body: JSON.stringify({ method: 'read_document', params: { tabId: request.tabId } }) });
     return { status: response.status, body: await response.json() };
   }
-  if (request.operation === 'batch') return withServer(servers.find(server => server.name === `text-to-cad-${request.domain}`), async client => {
+  if (request.operation === 'batch') return withServer(servers.find(server => server.name === `elastic-${request.domain}`), async client => {
     const results = [];
     for (const call of request.calls) results.push(await client.callTool({ name: call.name, arguments: call.args ?? {} }));
     return results;
   });
-  return withServer(servers.find(server => server.name === `text-to-cad-${request.domain}`), client => client.callTool({ name: request.name, arguments: request.args ?? {} }));
+  return withServer(servers.find(server => server.name === `elastic-${request.domain}`), client => client.callTool({ name: request.name, arguments: request.args ?? {} }));
 }

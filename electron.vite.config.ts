@@ -10,7 +10,6 @@ import { appVersion } from "./scripts/app-version.mjs";
 import { monacoWorkersOncePlugin } from "./scripts/monaco-workers.mjs";
 import { pdfAssetsPlugin } from "./scripts/pdf-assets.mjs";
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(appRoot, "..", "..");
 const alias = {
   "@main": path.join(appRoot, "src", "main"),
   "@preload": path.join(appRoot, "src", "preload"),
@@ -96,7 +95,7 @@ export default defineConfig({
       strictPort: true,
       // The viewer's client and @workbench/core live outside this app's root, so
       // dev has to be allowed to serve them from there.
-      fs: { allow: [repoRoot] },
+      fs: { allow: [appRoot] },
     },
     build: {
       // Vite gzips every chunk to print its compressed size: ~900 of them here,

@@ -34,18 +34,6 @@ describe("package.mjs", () => {
   });
 
   it.each([
-    [["--mac"], ["mac-arm64", "mac-x64"]],
-    [["--mac", "--arm64"], ["mac-arm64"]],
-    [["--mac", "--arm64", "--x64"], ["mac-arm64", "mac-x64"]],
-    [["--win"], ["win-x64"]],
-    [["--linux"], ["linux-x64"]],
-    [["--dir"], []],
-  ])("needs the runtimes %j -> %j", async (args, runtimes) => {
-    const { runtimeTargetsFor } = await import("../../../scripts/package.mjs");
-    expect(runtimeTargetsFor(args)).toEqual(runtimes);
-  });
-
-  it.each([
     // No arch flag: the config's own arch list, nothing to narrow.
     [["--mac"], ["--mac"]],
     [["--win"], ["--win"]],
@@ -141,24 +129,24 @@ describe("package.mjs", () => {
 
     it("finds a pointer among the checked-out resources and nothing else", async () => {
       const { lfsPointers } = await import("../../../scripts/package.mjs");
-      const root = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-lfs-"));
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-lfs-"));
       try {
         const write = (file: string, content: string) => {
           fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
           fs.writeFileSync(path.join(root, file), content);
         };
-        write("resources/sample/README.md", "# sample\n");
-        write("resources/sample/l_bracket.step", "ISO-10303-21;\nHEADER;\n");
-        write("resources/cadgen/constraints.txt", "numpy==2.3.0\n");
+        write("resources/plugins/marketplace.json", "{}\n");
+        write("resources/plugins/plugins/tables/assets/logo.png", "PNG");
+        write("resources/skills/pdf/SKILL.md", "---\nname: pdf\n---\n");
         expect(lfsPointers(root)).toEqual([]);
 
-        write("resources/sample/l_bracket.step", POINTER);
-        write("resources/skills/cad/assets/demo.gif", POINTER);
+        write("resources/plugins/plugins/tables/assets/logo.png", POINTER);
+        write("resources/skills/pdf/assets/demo.gif", POINTER);
         // Outside what ships: not this check's business.
-        write("resources/runtime/mac-arm64/pointer.bin", POINTER);
+        write("tmp/pointer.bin", POINTER);
         expect(lfsPointers(root)).toEqual([
-          path.join("resources", "skills", "cad", "assets", "demo.gif"),
-          path.join("resources", "sample", "l_bracket.step"),
+          path.join("resources", "skills", "pdf", "assets", "demo.gif"),
+          path.join("resources", "plugins", "plugins", "tables", "assets", "logo.png"),
         ]);
       } finally {
         fs.rmSync(root, { recursive: true, force: true });

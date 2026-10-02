@@ -119,7 +119,7 @@ viewer command that cannot get there says "The viewer did not finish applying
 this command." after ten seconds. The relay's tiers nest around that bound:
 `capture-view` waits for the camera to rest inside the viewer's ten seconds and
 then encodes, all inside the relay's thirty; the other viewer commands have
-twelve so the viewer's sentence arrives first. "The text-to-cad window did not
+twelve so the viewer's sentence arrives first. "The elastic window did not
 answer within 12 s" means no window replied at all. What each command waits for
 is stated once, in
 [Live commands](../../../packages/ui/docs/cad-renderer.md#live-commands).
@@ -153,7 +153,7 @@ bundles, delivery receipts and capability limits.
 ## Skills and provider tools
 
 Skills are focused instructions, composed as real files into the session's
-additional skills root. There is no required umbrella `text-to-cad-app-use` skill,
+additional skills root. There is no required umbrella `elastic-app-use` skill,
 plugin install, marketplace entry or edit to an agent's global configuration.
 The registry supplies browser, PDF, documents, terminals, drawings and the
 embedded `cad-viewer` skill. Other repository CAD authoring skills still ship;

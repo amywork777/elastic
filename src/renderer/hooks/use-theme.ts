@@ -30,7 +30,7 @@ const query = "(prefers-color-scheme: dark)";
  * before the first paint. This is a CACHE, never the source of truth; the IPC
  * read that follows corrects it, and `useApplyTheme` writes it back.
  */
-const THEME_CACHE_KEY = "text-to-cad.theme";
+const THEME_CACHE_KEY = "elastic.theme";
 
 /** The cached preference, or `system` when there is none or it is junk. */
 export function readCachedThemePreference(): ThemePreference {

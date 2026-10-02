@@ -137,7 +137,7 @@ describe("McpBridge", () => {
   });
 
   it("says a relayed edit may have been applied when the session is revoked while the window holds it", async () => {
-    const root = fs.realpathSync(tempDir("text-to-cad-proj-"));
+    const root = fs.realpathSync(tempDir("elastic-proj-"));
     let sentCommand!: () => void;
     const sent = new Promise<void>(resolve => { sentCommand = resolve; });
     const deps = { sessionRoot: () => ({ directory: root, root: null }), send: () => sentCommand(), newId: () => "r" };
@@ -299,7 +299,7 @@ describe("RendererCommands", () => {
 
 describe("the actions", () => {
   it("resolve paths against the session cwd, inside the project, and answer project-relative", async () => {
-    const root = tempDir("text-to-cad-proj-");
+    const root = tempDir("elastic-proj-");
     fs.mkdirSync(path.join(root, "STEP"));
     fs.writeFileSync(path.join(root, "STEP", "a.step"), "");
     const session: BridgeSession = { sessionId: "s", projectId: "p", cwd: path.join(root, "STEP") };
@@ -313,11 +313,11 @@ describe("the actions", () => {
 
   it("resolve a worktree session's paths against the worktree, and say which root", async () => {
     // The project and its worktree are siblings under a temp dir, the way
-    // `~/.text-to-cad/worktrees/<project>/<slug>` is a sibling of nothing in the
+    // `~/.elastic/worktrees/<project>/<slug>` is a sibling of nothing in the
     // checkout: a file in the worktree is outside the project directory and
     // must still open, and a file in the checkout must not resolve for a
     // session that cannot see it.
-    const base = tempDir("text-to-cad-wt-");
+    const base = tempDir("elastic-wt-");
     const project = path.join(base, "project");
     const worktree = path.join(base, "worktrees", "project", "model-the-wrist");
     fs.mkdirSync(path.join(project, "STEP"), { recursive: true });
@@ -347,7 +347,7 @@ describe("the actions", () => {
   });
 
   it("relay open_file and reveal with the resolved path, and answer attach_snapshot from disk", async () => {
-    const root = tempDir("text-to-cad-proj-");
+    const root = tempDir("elastic-proj-");
     fs.mkdirSync(path.join(root, "tmp"));
     fs.writeFileSync(path.join(root, "part.step"), "");
     fs.writeFileSync(path.join(root, "tmp", "review.png"), PNG_SIGNATURE);
@@ -387,7 +387,7 @@ describe("the actions", () => {
   });
 
   it("refuses an attach_snapshot whose bytes are not the image its extension claims, or that is empty or over 5 MB", async () => {
-    const root = tempDir("text-to-cad-proj-");
+    const root = tempDir("elastic-proj-");
     const png = PNG_SIGNATURE;
     fs.writeFileSync(path.join(root, "page.png"), "<html><body>not an image</body></html>");
     fs.writeFileSync(path.join(root, "empty.png"), "");
@@ -416,7 +416,7 @@ describe("the actions", () => {
     }
 
     it("refuses a file that grew past what the stat said while it was read", async () => {
-      const root = fs.realpathSync(tempDir("text-to-cad-proj-"));
+      const root = fs.realpathSync(tempDir("elastic-proj-"));
       fs.writeFileSync(path.join(root, "a.png"), Buffer.concat([png, Buffer.alloc(100)]));
       const realOpen = fsp.open.bind(fsp);
       const spy = vi.spyOn(fsp, "open").mockImplementation((async (...args: Parameters<typeof fsp.open>) => {
@@ -433,7 +433,7 @@ describe("the actions", () => {
     });
 
     it("accepts a folder whose name only starts with dots", async () => {
-      const root = fs.realpathSync(tempDir("text-to-cad-proj-"));
+      const root = fs.realpathSync(tempDir("elastic-proj-"));
       fs.mkdirSync(path.join(root, "..keep"));
       fs.writeFileSync(path.join(root, "..keep", "a.png"), png);
       const snapshot = await actionsFor(root).attach_snapshot!({ sessionId: "s", projectId: "p", cwd: root }, { path: "..keep/a.png" });
@@ -441,8 +441,8 @@ describe("the actions", () => {
     });
 
     it.skipIf(process.platform === "win32")("refuses a path swapped for a link out of the root after the check", async () => {
-      const root = fs.realpathSync(tempDir("text-to-cad-proj-"));
-      const outside = fs.realpathSync(tempDir("text-to-cad-out-"));
+      const root = fs.realpathSync(tempDir("elastic-proj-"));
+      const outside = fs.realpathSync(tempDir("elastic-out-"));
       fs.writeFileSync(path.join(root, "a.png"), png);
       // A hard link, so the handle's device and inode still match the outside
       // path: only the containment half of the re-check can refuse this.
@@ -463,8 +463,8 @@ describe("the actions", () => {
   });
 
   it.skipIf(process.platform === "win32")("names the session's recorded spelling of its directory beside the real path", async () => {
-    const real = fs.realpathSync(tempDir("text-to-cad-proj-"));
-    const link = path.join(tempDir("text-to-cad-link-"), "checkout");
+    const real = fs.realpathSync(tempDir("elastic-proj-"));
+    const link = path.join(tempDir("elastic-link-"), "checkout");
     fs.symlinkSync(real, link);
     const sent: IntegrationCommand[] = [];
     const sessionRoot = () => ({ directory: link, root: null });
@@ -478,8 +478,8 @@ describe("the actions", () => {
   });
 
   it.skipIf(process.platform === "win32")("refuses a snapshot swapped for a link out of the workspace after its path was checked", async () => {
-    const root = tempDir("text-to-cad-proj-");
-    const outside = path.join(tempDir("text-to-cad-secret-"), "id_rsa");
+    const root = tempDir("elastic-proj-");
+    const outside = path.join(tempDir("elastic-secret-"), "id_rsa");
     fs.writeFileSync(outside, "PRIVATE KEY");
     fs.writeFileSync(path.join(root, "x.png"), PNG_SIGNATURE);
     const sessionRoot = () => ({ directory: root, root: null });
@@ -495,7 +495,7 @@ describe("the actions", () => {
   });
 
   it("attaches a snapshot in a top-level folder whose name starts with two dots", async () => {
-    const root = tempDir("text-to-cad-proj-");
+    const root = tempDir("elastic-proj-");
     fs.mkdirSync(path.join(root, "..shots"));
     fs.writeFileSync(path.join(root, "..shots", "x.png"), PNG_SIGNATURE);
     const sessionRoot = () => ({ directory: root, root: null });
@@ -504,7 +504,7 @@ describe("the actions", () => {
   });
 
   it.skipIf(process.platform === "win32")("refuses a snapshot that is a FIFO rather than blocking on it", { timeout: 2000 }, async () => {
-    const root = tempDir("text-to-cad-proj-");
+    const root = tempDir("elastic-proj-");
     const fifo = path.join(root, "stuck.png");
     execFileSync("mkfifo", [fifo]);
     const sessionRoot = () => ({ directory: root, root: null });

@@ -13,7 +13,7 @@ import { defaultSettings } from "@shared/types";
  * welcome used to be landmark-free divs; leaving Settings dropped focus on the page.
  * The shell's panes are stand-ins (as in shell-landmarks.test.tsx): the routes are real.
  */
-vi.mock("@renderer/features/sidebar/Sidebar", () => ({ Sidebar: () => <header>text-to-cad</header> }));
+vi.mock("@renderer/features/sidebar/Sidebar", () => ({ Sidebar: () => <header>elastic</header> }));
 vi.mock("@renderer/features/session/SessionPane", () => ({
   SessionPane: () => <div aria-label="Prompt" contentEditable data-composer-input role="textbox" suppressContentEditableWarning tabIndex={0} />,
 }));

@@ -16,9 +16,9 @@
  *
  * The layout is the same for every agent (plan §9):
  *
- *     ~/.text-to-cad/worktrees/<project-slug>-<hash>/<slug>
+ *     ~/.elastic/worktrees/<project-slug>-<hash>/<slug>
  *
- * with the branch `text-to-cad/<slug>` (`projectWorktreeDir`). `<hash>` is
+ * with the branch `elastic/<slug>` (`projectWorktreeDir`). `<hash>` is
  * eight hex digits of the project's path: `~/work/robot-arm` and
  * `~/forks/robot-arm` are two projects and get two folders. Builds before the
  * hash used `<project-slug>` alone; those folders are still listed and
@@ -28,12 +28,12 @@
  * Both the root and the prefix are settings. The slug comes from the
  * session's first prompt when there is one, because that is what the sidebar
  * calls the thread — a person looking at
- * `~/.text-to-cad/worktrees/text-to-cad-1a2b3c4d/model-the-wrist` knows which
+ * `~/.elastic/worktrees/elastic-1a2b3c4d/model-the-wrist` knows which
  * thread it belongs to without opening anything.
  *
  * The directory is also the *identity* of the session as far as the agent's
  * own store is concerned: both `codex resume` and `claude --resume` key their
- * threads by cwd, so a worktree is what makes a text-to-cad session resumable
+ * threads by cwd, so a worktree is what makes a elastic session resumable
  * from a terminal later.
  */
 import { createHash } from "node:crypto";
@@ -61,7 +61,7 @@ export type Workspace = {
  * and so a database copied to another machine still points somewhere real.
  */
 export function worktreeRoot(settings: Pick<Settings, "worktreeRoot">): string {
-  return settings.worktreeRoot ?? path.join(os.homedir(), ".text-to-cad", "worktrees");
+  return settings.worktreeRoot ?? path.join(os.homedir(), ".elastic", "worktrees");
 }
 
 /** The readable half of a project's worktree folder name. */

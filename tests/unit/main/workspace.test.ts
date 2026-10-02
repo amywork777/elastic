@@ -45,9 +45,9 @@ afterAll(cleanGitTemplates);
  * is one commit ahead of it (see `pushedRepository`).
  */
 async function fixture(options: { repository?: boolean; commit?: boolean; remote?: boolean } = {}) {
-  const base = await realpath(await mkdtemp(path.join(os.tmpdir(), "text-to-cad-ws-")));
+  const base = await realpath(await mkdtemp(path.join(os.tmpdir(), "elastic-ws-")));
   temporary.push(base);
-  const root = path.join(base, "text-to-cad");
+  const root = path.join(base, "elastic");
 
   if (options.remote) {
     await pushedRepository(root, path.join(base, "remote.git"), { ahead: true });
@@ -62,7 +62,7 @@ async function fixture(options: { repository?: boolean; commit?: boolean; remote
 
   const project: Project = {
     id: "project-1",
-    name: "text-to-cad",
+    name: "elastic",
     path: root,
     createdAt: Date.now(),
   };
@@ -74,9 +74,9 @@ async function fixture(options: { repository?: boolean; commit?: boolean; remote
 }
 
 describe("worktreeRoot", () => {
-  it("expands the stored null to ~/.text-to-cad/worktrees", () => {
+  it("expands the stored null to ~/.elastic/worktrees", () => {
     expect(worktreeRoot({ worktreeRoot: null })).toBe(
-      path.join(os.homedir(), ".text-to-cad", "worktrees"),
+      path.join(os.homedir(), ".elastic", "worktrees"),
     );
     expect(worktreeRoot({ worktreeRoot: "/tmp/wt" })).toBe("/tmp/wt");
   });
@@ -102,7 +102,7 @@ describe("worktreeRoot", () => {
   });
 
   it("accepts a pre-hash folder's worktree only for the repository it belongs to", async () => {
-    const base = await realpath(await mkdtemp(path.join(os.tmpdir(), "text-to-cad-legacy-")));
+    const base = await realpath(await mkdtemp(path.join(os.tmpdir(), "elastic-legacy-")));
     temporary.push(base);
     const settings = { worktreeRoot: path.join(base, "worktrees") };
     const projects = [path.join(base, "work", "robot-arm"), path.join(base, "forks", "robot-arm")].map((root) => ({
@@ -114,7 +114,7 @@ describe("worktreeRoot", () => {
     }
     const [mine, theirs] = projects as [(typeof projects)[0], (typeof projects)[0]];
     const legacy = path.join(legacyProjectWorktreeDir(settings, mine), "wrist");
-    await run("git", ["worktree", "add", "--quiet", "-b", "text-to-cad/wrist", legacy], { cwd: mine.path, env: GIT_ENV });
+    await run("git", ["worktree", "add", "--quiet", "-b", "elastic/wrist", legacy], { cwd: mine.path, env: GIT_ENV });
 
     expect(rootBelongsToProject(settings, mine, legacy)).toBe(true);
     expect(rootBelongsToProject(settings, mine, path.join(legacy, "sub"))).toBe(true);
@@ -157,10 +157,10 @@ describe("resolveWorkspace", () => {
 
     // New worktrees go in the hashed folder, never the shared pre-hash one.
     const expected = path.join(projectWorktreeDir(settings, project), "model-the-wrist-path");
-    expect(path.basename(path.dirname(expected))).toMatch(/^text-to-cad-[0-9a-f]{8}$/);
+    expect(path.basename(path.dirname(expected))).toMatch(/^elastic-[0-9a-f]{8}$/);
     expect(workspace).toEqual({
       cwd: expected,
-      branch: "text-to-cad/model-the-wrist-path",
+      branch: "elastic/model-the-wrist-path",
       worktreePath: expected,
     });
     expect((await stat(expected)).isDirectory()).toBe(true);
@@ -201,7 +201,7 @@ describe("resolveWorkspace", () => {
     // Settings' `New session in this worktree`.
     expect(
       await resolveWorkspace({ project, settings, gitMode: "worktree", cwd: made.cwd }),
-    ).toEqual({ cwd: made.cwd, branch: "text-to-cad/reuse", worktreePath: made.cwd });
+    ).toEqual({ cwd: made.cwd, branch: "elastic/reuse", worktreePath: made.cwd });
 
     // The project itself is allowed, and is not a worktree.
     expect(
@@ -323,14 +323,14 @@ describe("releaseWorkspace for an abandoned create cut from a fetched tip", () =
  * worktree would be allowed to live.
  */
 describe("resolveProjectRoot", () => {
-  const settings: Pick<Settings, "worktreeRoot"> = { worktreeRoot: "/tmp/text-to-cad-worktrees" };
-  const project: Pick<Project, "name" | "path"> = { name: "text-to-cad", path: "/Users/me/text-to-cad" };
+  const settings: Pick<Settings, "worktreeRoot"> = { worktreeRoot: "/tmp/elastic-worktrees" };
+  const project: Pick<Project, "name" | "path"> = { name: "elastic", path: "/Users/me/elastic" };
 
   it("answers the project directory for no root, and for the project itself", () => {
     expect(resolveProjectRoot(settings, project, null)).toBe(project.path);
     expect(resolveProjectRoot(settings, project, undefined)).toBe(project.path);
     expect(resolveProjectRoot(settings, project, project.path)).toBe(project.path);
-    expect(resolveProjectRoot(settings, project, "/Users/me/text-to-cad/")).toBe(project.path);
+    expect(resolveProjectRoot(settings, project, "/Users/me/elastic/")).toBe(project.path);
   });
 
   it("admits a directory under the project's worktree folder, resolved", () => {
@@ -342,9 +342,9 @@ describe("resolveProjectRoot", () => {
 
   it("refuses everything else with a sentence", () => {
     expect(rootBelongsToProject(settings, project, "/etc")).toBe(false);
-    expect(rootBelongsToProject(settings, project, "/Users/me/text-to-cad-other")).toBe(false);
+    expect(rootBelongsToProject(settings, project, "/Users/me/elastic-other")).toBe(false);
     // Another project's worktrees are another project's.
-    expect(rootBelongsToProject(settings, project, "/tmp/text-to-cad-worktrees/other/slug")).toBe(false);
+    expect(rootBelongsToProject(settings, project, "/tmp/elastic-worktrees/other/slug")).toBe(false);
     // The worktree folder itself is not a worktree.
     expect(rootBelongsToProject(settings, project, projectWorktreeDir(settings, project))).toBe(false);
     // Climbing out of the worktree folder is not in it.

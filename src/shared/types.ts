@@ -1,5 +1,5 @@
 /**
- * text-to-cad's domain types.
+ * elastic's domain types.
  *
  * Every type here is inferred from a zod schema, and the schema is the only
  * definition: the same object validates an IPC payload, a row read back out of
@@ -77,7 +77,7 @@ export const SessionSchema = z.object({
   /** Set when `gitMode` is `checkout` or `worktree`. */
   branch: z.string().optional(),
   /**
-   * Set only for `worktree`: the directory text-to-cad created, which is also
+   * Set only for `worktree`: the directory elastic created, which is also
    * `cwd`. Kept as its own field because `cwd` is where the agent runs and
    * this is what may be *removed* — a session in `checkout` mode has a cwd
    * that nothing is ever allowed to delete.
@@ -168,7 +168,7 @@ const ExplorerTabBase = {
  *
  * Null is the project directory. A string is the absolute path of one of the
  * project's own worktrees (plan §9) — a session in `worktree` mode works in
- * `~/.text-to-cad/worktrees/<project-slug>-<8hex>/<slug>`, and the files it writes, the
+ * `~/.elastic/worktrees/<project-slug>-<8hex>/<slug>`, and the files it writes, the
  * tree beside them, the terminal's cwd and the CAD viewer serving them all
  * belong to that directory, not to the checkout. The explorer store carries
  * the *active* root, chosen from the active session; every tab carries the
@@ -411,7 +411,7 @@ export const CodeFontSchema = z.enum(["system", "jetbrains-mono"]);
 export type CodeFont = z.infer<typeof CodeFontSchema>;
 
 /**
- * What "open this file outside text-to-cad" means (plan §10, General). P3's
+ * What "open this file outside elastic" means (plan §10, General). P3's
  * explorer reads it; `custom` runs `fileOpenCommand` with the path
  * substituted for `{path}`.
  */
@@ -584,7 +584,7 @@ export const SettingsSchema = z.object({
   showInMenuBar: z.boolean().default(false),
   notificationsEnabled: z.boolean().default(true),
   notificationSound: z.boolean().default(true),
-  /** Absolute path to a sound file, or null for text-to-cad's own chime. */
+  /** Absolute path to a sound file, or null for elastic's own chime. */
   notificationSoundFile: z.string().nullable().default(null),
   notificationSoundTiming: NotificationSoundTimingSchema.default("unfocused"),
   /** Hand the notification to the OS as a banner as well as showing it in-app. */
@@ -614,14 +614,14 @@ export const SettingsSchema = z.object({
 
   /* Git & worktrees */
   defaultGitMode: GitModeSchema.default("checkout"),
-  /** Null means `~/.text-to-cad/worktrees` — main expands it, so the row shows the default without storing a home path. */
+  /** Null means `~/.elastic/worktrees` — main expands it, so the row shows the default without storing a home path. */
   worktreeRoot: z.string().nullable().default(null),
   /**
    * Checked against git's ref rules (`branchPrefixProblem`). A stored prefix
    * git refuses — written before the check existed — reads as the default,
    * rather than failing every worktree session at `git worktree add -b`.
    */
-  branchPrefix: BranchPrefixSchema.default("text-to-cad/").catch("text-to-cad/"),
+  branchPrefix: BranchPrefixSchema.default("elastic/").catch("elastic/"),
   fetchBeforeCreate: z.boolean().default(true),
   autoDeleteWorktrees: z.boolean().default(false),
   worktreeKeepLimit: z.number().int().min(1).default(10),

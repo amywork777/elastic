@@ -97,7 +97,7 @@ export function fastOption(
 /**
  * The mode a provider starts in unless the person has chosen one. Claude Code
  * and Codex both open in their own auto-approval preset in their own apps,
- * so text-to-cad does the same by name; any other provider gets the
+ * so elastic does the same by name; any other provider gets the
  * `auto_review` rule below, and an override that names a mode the agent did
  * not offer falls through to it.
  */

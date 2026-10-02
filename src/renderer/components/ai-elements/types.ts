@@ -2,7 +2,7 @@
  * Local stand-ins for the handful of types the vendored AI Elements borrow
  * from Vercel's `ai` package.
  *
- * text-to-cad talks to agents over the Agent Client Protocol, not the AI SDK
+ * elastic talks to agents over the Agent Client Protocol, not the AI SDK
  * (plan §4: "No AI SDK dependency"), and every `ai` import in the vendored
  * components was `import type` — nothing here ran at runtime. Declaring the
  * shapes locally keeps the components compiling and keeps a ~large model-

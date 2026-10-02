@@ -20,7 +20,7 @@ afterEach(() => {
  * with a known PATH, and prints more on the way out, as a .zlogout might.
  */
 function fakeShell(body: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-shell-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-shell-"));
   temps.push(dir);
   const file = path.join(dir, "shell");
   fs.writeFileSync(file, `#!/bin/sh\n${body}\n`, { mode: 0o755 });

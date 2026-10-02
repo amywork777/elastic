@@ -8,11 +8,11 @@ import { chooseDirectory } from "./launch";
 
 declare const window: { workbench: WorkbenchApi };
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const command = "PYTHONPATH=/Users/amy/code/text-to-cad-jake-desktop/packages/cadgen/src /Users/amy/code/text-to-cad/.venv/bin/python models/ferrari.py --preview --preserve-colors";
-const longTitle = `Check the generated preview at /Users/amy/Downloads/text-to-cad-Jake-Preview/models/${"ferrari-preview-".repeat(12)}build.log`;
+const command = "PYTHONPATH=/Users/amy/code/elastic-jake-desktop/packages/cadgen/src /Users/amy/code/elastic/.venv/bin/python models/ferrari.py --preview --preserve-colors";
+const longTitle = `Check the generated preview at /Users/amy/Downloads/elastic-Jake-Preview/models/${"ferrari-preview-".repeat(12)}build.log`;
 
 test("long activity stays inside the transcript and full details remain accessible", async () => {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-transcript-layout-")));
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "elastic-transcript-layout-")));
   const project = path.join(base, "Preview project");
   fs.mkdirSync(project);
   // Replay only: these commands and paths are displayed, never executed.

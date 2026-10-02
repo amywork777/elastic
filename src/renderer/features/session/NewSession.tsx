@@ -216,7 +216,7 @@ export function NewSession({ project }: { project: Project }) {
    */
   const start = async (text: string, content: PromptBlock[], draft: TakenDraft): Promise<boolean> => {
     if (!startingAgentId) {
-      setFailure({ message: "Install an agent first — Settings › Agents lists what text-to-cad can run.", auth: false });
+      setFailure({ message: "Install an agent first — Settings › Agents lists what elastic can run.", auth: false });
       return false;
     }
     setBusy(true);
@@ -415,7 +415,7 @@ export function NewSession({ project }: { project: Project }) {
           What should we build in {project.name}?
         </h1>
         <p className="mt-2 text-center text-[13px] text-balance text-muted-foreground">
-          text-to-cad runs the agent in this folder, with cadgen and the CAD skills already loaded.
+          elastic runs the agent in this folder, with cadgen and the CAD skills already loaded.
         </p>
 
         {failure?.auth ? (
@@ -448,7 +448,7 @@ export function NewSession({ project }: { project: Project }) {
           <div className="mt-4" key="list-error">
             <AgentSetupCard
               agents={[]}
-              message={`text-to-cad could not read which agents are on this machine: ${listError}`}
+              message={`elastic could not read which agents are on this machine: ${listError}`}
               onRetry={reloadAgents}
               title="Could not check for agents"
             />
@@ -457,7 +457,7 @@ export function NewSession({ project }: { project: Project }) {
           <div className="mt-4" key="no-agent">
             <AgentSetupCard
               agents={offered}
-              message={`Sign in to ${signInTo}, or install one. text-to-cad runs a coding agent you already use.`}
+              message={`Sign in to ${signInTo}, or install one. elastic runs a coding agent you already use.`}
               title="No agent ready"
             />
           </div>

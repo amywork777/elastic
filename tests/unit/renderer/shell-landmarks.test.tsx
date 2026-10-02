@@ -12,7 +12,7 @@ import { defaultSettings } from "@shared/types";
  * with the `<header>` the real one draws.
  */
 vi.mock("@renderer/features/sidebar/Sidebar", () => ({
-  Sidebar: () => <><header>text-to-cad</header><button aria-current="page" type="button">Bracket</button></>,
+  Sidebar: () => <><header>elastic</header><button aria-current="page" type="button">Bracket</button></>,
 }));
 vi.mock("@renderer/features/session/SessionPane", () => ({
   SessionPane: () => <><header>Bracket<button aria-label="Toggle sidebar" type="button" /></header><div aria-label="Prompt" contentEditable data-composer-input role="textbox" suppressContentEditableWarning tabIndex={0} /></>,

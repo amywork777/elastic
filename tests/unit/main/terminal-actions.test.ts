@@ -12,7 +12,7 @@ const spawn = vi.hoisted(() => vi.fn());
 vi.mock('node-pty', () => ({ spawn }));
 let directory: string;
 const relays: RendererCommands[] = [];
-beforeEach(async () => { directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'text-to-cad-terminal-actions-'))); spawn.mockReset(); });
+beforeEach(async () => { directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'elastic-terminal-actions-'))); spawn.mockReset(); });
 afterEach(async () => { for (const relay of relays.splice(0)) relay.dispose(); await fs.rm(directory, { recursive: true, force: true }); });
 function fixture() {
   const process = { write: vi.fn(), kill: vi.fn(), resize: vi.fn(), onData: vi.fn(), onExit: vi.fn() };

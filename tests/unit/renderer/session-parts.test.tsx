@@ -221,7 +221,7 @@ describe("PermissionCard", () => {
     const user = userEvent.setup();
     const respond = vi.fn(async () => {
       throw new Error(
-        "Error invoking remote method 'text-to-cad:sessions.respondPermission': IpcError: the session is not connected; load it first",
+        "Error invoking remote method 'elastic:sessions.respondPermission': IpcError: the session is not connected; load it first",
       );
     });
     (window.workbench.sessions as unknown as { respondPermission: unknown }).respondPermission = respond;

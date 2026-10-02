@@ -112,7 +112,7 @@ export function AgentRow({ agent }: { agent: AgentStatus }) {
 }
 
 /**
- * "No agent can run this": the agents text-to-cad offers first, each with
+ * "No agent can run this": the agents elastic offers first, each with
  * its Install / Sign in, and the way to the rest in Settings › Agents. The
  * new-session screen shows it before anything is typed when no agent is
  * ready; a session whose agent's CLI is gone shows it in place of a

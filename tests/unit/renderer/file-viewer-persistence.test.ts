@@ -3,7 +3,7 @@ import { createTabStore, TAB_RECORD_VERSION } from "@workbench/ui/tab-store";
 import type { JsonValue } from "@workbench/ui/file-viewer";
 import { desktopTabRecord, desktopTabStore, forgetTabStore } from "@renderer/features/explorer/adapters/tabStore";
 
-const KEY = "text-to-cad.tabs.v1";
+const KEY = "elastic.tabs.v1";
 const view = (camera: JsonValue): JsonValue => ({ version: 2, camera, display: null, renderer: {} });
 
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); for (const id of ["tab-a", "tab-b"]) forgetTabStore(id); });
@@ -53,13 +53,13 @@ describe("Desktop tab store", () => {
 
   it("neither reads nor removes what older versions stored", () => {
     const retired: [string, string][] = [["cad-viewer:orbit:v1", JSON.stringify({ speed: 2 })], ["cad-viewer:animation:v1", JSON.stringify({ autoplay: true })],
-      ["cad-viewer:tool-stack:v2", JSON.stringify({ panels: { tree: { width: 300 } }, collapsed: {} })], ["text-to-cad.fileViewer.v1", JSON.stringify({ x: 1 })]];
+      ["cad-viewer:tool-stack:v2", JSON.stringify({ panels: { tree: { width: 300 } }, collapsed: {} })], ["elastic.fileViewer.v1", JSON.stringify({ x: 1 })]];
     for (const [key, value] of retired) localStorage.setItem(key, value);
     const a = desktopTabStore("tab-a");
     expect(a.settings.getSnapshot().toolStack).toEqual({ panels: {}, collapsed: {} });
     expect("orbit" in a.settings.getSnapshot()).toBe(false);
     a.settings.update({ appearance: "dark" });
     forgetTabStore("tab-a");
-    for (const key of ["cad-viewer:orbit:v1", "cad-viewer:animation:v1", "cad-viewer:tool-stack:v2", "text-to-cad.fileViewer.v1"]) expect(localStorage.getItem(key)).not.toBeNull();
+    for (const key of ["cad-viewer:orbit:v1", "cad-viewer:animation:v1", "cad-viewer:tool-stack:v2", "elastic.fileViewer.v1"]) expect(localStorage.getItem(key)).not.toBeNull();
   });
 });

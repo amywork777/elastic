@@ -39,7 +39,7 @@ async function connect() {
     agentId: "fake",
     launch: { command: process.execPath, args: [FAKE_AGENT, "--mode-option"], env: {} },
     env: { PATH: process.env.PATH ?? "" },
-    cwd: await tempDir("text-to-cad-mode-option-"),
+    cwd: await tempDir("elastic-mode-option-"),
     skillsRoot: null,
     preamble: null,
     spawnTerminal: spawnProcessTerminal,

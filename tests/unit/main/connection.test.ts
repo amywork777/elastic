@@ -60,7 +60,7 @@ afterEach(async () => {
 });
 
 function scratch() {
-  return tempDir("text-to-cad-conn-");
+  return tempDir("elastic-conn-");
 }
 
 /**
@@ -289,7 +289,7 @@ describe("SessionConnection against the fake agent", () => {
     await connection.prompt([{ type: "text", text: `read ${inside}` }]);
     expect(allToolCalls(connection.state).at(-1)).toMatchObject({ id: "read-1", status: "completed", content: [{ type: "text", text: "hello\n" }] });
 
-    const outside = path.join(os.tmpdir(), "text-to-cad-escape.txt");
+    const outside = path.join(os.tmpdir(), "elastic-escape.txt");
     await connection.prompt([{ type: "text", text: `write ${outside}` }]);
     const failed = allToolCalls(connection.state).at(-1);
     expect(failed?.status).toBe("failed");

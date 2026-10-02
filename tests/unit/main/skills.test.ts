@@ -29,7 +29,7 @@ function temp(prefix: string): string {
 
 /** A composed `resources/skills`: one directory per skill, a SKILL.md in each. */
 function source(skills: Record<string, string>): string {
-  const dir = temp("text-to-cad-skills-source-");
+  const dir = temp("elastic-skills-source-");
   for (const [name, description] of Object.entries(skills)) {
     fs.mkdirSync(path.join(dir, name, "references"), { recursive: true });
     fs.writeFileSync(
@@ -53,7 +53,7 @@ describe("SKILL.md front matter", () => {
   });
 
   it("takes the directory as the skill's name, whatever the front matter says", () => {
-    const dir = temp("text-to-cad-skills-name-");
+    const dir = temp("elastic-skills-name-");
     fs.mkdirSync(path.join(dir, "cad"));
     fs.writeFileSync(path.join(dir, "cad", "SKILL.md"), "---\nname: something-else\ndescription: d\n---\n");
     expect(composedSkills(dir)).toEqual([{ name: "cad", description: "d" }]);
@@ -63,7 +63,7 @@ describe("SKILL.md front matter", () => {
 describe("the skills root", () => {
   it("materialises both layouts under the app's version, with the whole skill", () => {
     const from = source({ cad: "Make CAD.", "cad-viewer": "Use this app." });
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
 
     const result = materialiseSkillsRoot({ source: from, base, version: "1.2.3" });
 
@@ -91,7 +91,7 @@ describe("the skills root", () => {
 
   it("is idempotent: a second call with the same version copies nothing", () => {
     const from = source({ cad: "Make CAD." });
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
 
     const first = materialiseSkillsRoot({ source: from, base, version: "1.2.3" });
     const marker = path.join(first.root!, CLAUDE_LAYOUT, "cad", "SKILL.md");
@@ -108,7 +108,7 @@ describe("the skills root", () => {
 
   it("recopies when a skill's content changed under the same version (a dev build)", () => {
     const from = source({ cad: "Make CAD." });
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
     const first = materialiseSkillsRoot({ source: from, base, version: "0.1.0" });
 
     fs.appendFileSync(path.join(from, "cad", "references", "notes.md"), "edited\n");
@@ -124,7 +124,7 @@ describe("the skills root", () => {
 
   it("hands agents read-only copies, and restores a copy an agent unlocked and edited", () => {
     const from = source({ cad: "Make CAD." });
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
     const root = materialiseSkillsRoot({ source: from, base, version: "1.2.3" }).root!;
     const skill = path.join(root, CLAUDE_LAYOUT, "cad", "SKILL.md");
 
@@ -152,7 +152,7 @@ describe("the skills root", () => {
 
   it("removes a skill an agent planted in the root, so no later session loads it", () => {
     const from = source({ cad: "Make CAD." });
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
     const root = materialiseSkillsRoot({ source: from, base, version: "1.2.3" }).root!;
     const planted = [
       path.join(root, CLAUDE_LAYOUT, "planted"),
@@ -173,14 +173,14 @@ describe("the skills root", () => {
   });
 
   it("can be deleted with a plain recursive rm (app data removal, test cleanup)", () => {
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
     const root = materialiseSkillsRoot({ source: source({ cad: "Make CAD." }), base, version: "1.2.3" }).root!;
     fs.rmSync(root, { recursive: true });
     expect(fs.existsSync(root)).toBe(false);
   });
 
   it("removes a root an earlier build left with read-only directories", () => {
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
     const old = path.join(base, "1.0.0", CLAUDE_LAYOUT, "cad");
     fs.mkdirSync(old, { recursive: true });
     fs.writeFileSync(path.join(old, "SKILL.md"), "x", { mode: 0o444 });
@@ -192,7 +192,7 @@ describe("the skills root", () => {
   });
 
   it("rebuilds when the composed set changed, and when the root is half written", () => {
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
     const one = materialiseSkillsRoot({ source: source({ cad: "Make CAD." }), base, version: "1.2.3" });
     const stamp = path.join(one.root!, CLAUDE_LAYOUT, "cad", "SKILL.md");
     fs.chmodSync(stamp, 0o644);
@@ -216,7 +216,7 @@ describe("the skills root", () => {
   });
 
   it("removes the roots of every other version", () => {
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
     fs.mkdirSync(path.join(base, "1.0.0", CLAUDE_LAYOUT, "cad"), { recursive: true });
     fs.mkdirSync(path.join(base, "1.1.0"), { recursive: true });
 
@@ -227,7 +227,7 @@ describe("the skills root", () => {
   });
 
   it("answers no root when nothing was composed into the app", () => {
-    const base = temp("text-to-cad-userdata-");
+    const base = temp("elastic-userdata-");
     const result = materialiseSkillsRoot({ source: path.join(base, "not-built"), base, version: "1.2.3" });
     expect(result).toEqual({ root: null, skills: [] });
     expect(fs.readdirSync(base)).toEqual([]);
@@ -237,14 +237,14 @@ describe("the skills root", () => {
 describe("the preamble", () => {
   const skills = [
     { name: "cad", description: "Create, modify, inspect and validate parametric CAD parts. Use for STEP." },
-    { name: "cad-viewer", description: "How to work inside the text-to-cad desktop app." },
+    { name: "cad-viewer", description: "How to work inside the elastic desktop app." },
   ];
 
   it("names the root, lists domain skills and explains discovery without an umbrella skill", () => {
     const text = skillsPreamble("/data/skills/1.2.3", skills)!;
     expect(text).toContain(path.join("/data/skills/1.2.3", CLAUDE_LAYOUT));
     expect(text).toContain("- cad: Create, modify, inspect and validate parametric CAD parts.");
-    expect(text).toContain("- cad-viewer: How to work inside the text-to-cad desktop app.");
+    expect(text).toContain("- cad-viewer: How to work inside the elastic desktop app.");
     expect(text).toContain("domain integrations operate on their contents");
     expect(text).toContain("list_skills");
   });

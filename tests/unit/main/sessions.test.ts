@@ -140,7 +140,7 @@ async function setup(extra: Partial<SessionManagerDeps> = {}) {
     ...extra,
   });
   managers.push(manager);
-  const cwd = await tempDir("text-to-cad-mgr-");
+  const cwd = await tempDir("elastic-mgr-");
   return { repo, broadcasts, manager, cwd };
 }
 
@@ -278,7 +278,7 @@ describe("SessionManager", () => {
     });
     const request = (id: number, method: string) => ({ dir: "out", msg: { jsonrpc: "2.0", id, method, params: { sessionId: "recorded" } } });
     const response = (id: number, result: object) => ({ dir: "in", msg: { jsonrpc: "2.0", id, result } });
-    const dir = await tempDir("text-to-cad-tally-");
+    const dir = await tempDir("elastic-tally-");
     const write = async (name: string, frames: object[]) => {
       const file = path.join(dir, name);
       await writeFile(file, frames.map((frame) => JSON.stringify(frame)).join("\n"));
@@ -1048,10 +1048,10 @@ describe("SessionManager", () => {
     await snapshotted;
     // The ref exists now; the drop is a git call away. Give it ticks, bounded,
     // and let the assertion say which side it is on.
-    for (let tick = 0; tick < 300 && run("for-each-ref", "refs/text-to-cad/") !== ""; tick++) {
+    for (let tick = 0; tick < 300 && run("for-each-ref", "refs/elastic/") !== ""; tick++) {
       await new Promise((resolve) => setImmediate(resolve));
     }
-    expect(run("for-each-ref", "refs/text-to-cad/")).toBe("");
+    expect(run("for-each-ref", "refs/elastic/")).toBe("");
   });
 
   it("spawns the adapter without waiting for the creating session's snapshot", async () => {
@@ -1137,7 +1137,7 @@ describe("SessionManager", () => {
    * ones. It is closed instead, and the session spawns with the options now.
    */
   it("does not hand out a warm adapter spawned with options that have since changed", async () => {
-    const file = path.join(await tempDir("text-to-cad-record-"), "frames.jsonl");
+    const file = path.join(await tempDir("elastic-record-"), "frames.jsonl");
     let runtime = "/a";
     const { manager, cwd } = await setup({
       launchOverride: () => ({ ...fakeProvider.launch, env: { FAKE_AGENT_RECORD: file } }),
@@ -1188,7 +1188,7 @@ describe("SessionManager", () => {
         await mkdir(`${cwd}/wt`, { recursive: true });
         return {
           cwd: `${cwd}/wt`,
-          branch: `text-to-cad/${name ?? "generated"}`,
+          branch: `elastic/${name ?? "generated"}`,
           worktreePath: `${cwd}/wt`,
         };
       },
@@ -1223,7 +1223,7 @@ describe("SessionManager", () => {
     });
     expect(worktree).toMatchObject({
       cwd: `${cwd}/wt`,
-      branch: "text-to-cad/Model the wrist",
+      branch: "elastic/Model the wrist",
       worktreePath: `${cwd}/wt`,
       sessionHead: "worktree-head",
     });
@@ -1253,9 +1253,9 @@ describe("SessionManager", () => {
     const last = await status(cwd, resolveDiffScope({ kind: "turn" }, row));
     expect(last.files.map((file) => file.path)).toEqual(["b.txt"]);
 
-    expect(run("for-each-ref", "refs/text-to-cad/")).toContain(`refs/text-to-cad/${session.id}/turn`);
+    expect(run("for-each-ref", "refs/elastic/")).toContain(`refs/elastic/${session.id}/turn`);
     await manager.delete(session.id);
-    expect(run("for-each-ref", "refs/text-to-cad/")).toBe("");
+    expect(run("for-each-ref", "refs/elastic/")).toBe("");
   });
 
   it("does not leave a ref behind when the session is deleted while its turn mark is being taken", async () => {
@@ -1289,7 +1289,7 @@ describe("SessionManager", () => {
     await manager.delete(session.id);
     release();
     await expect(turn).rejects.toThrow(/no such session/);
-    expect(run("for-each-ref", "refs/text-to-cad/")).toBe("");
+    expect(run("for-each-ref", "refs/elastic/")).toBe("");
   });
 
   it("a session that opens an existing worktree starts from the tree as it is, not from a commit", async () => {
@@ -2088,7 +2088,7 @@ describe("SessionManager", () => {
 
   /** A failed load is an error the person should see, not a `closed` row. */
   it("a failed load leaves the row in error, not closed", async () => {
-    const dir = await tempDir("text-to-cad-noload-");
+    const dir = await tempDir("elastic-noload-");
     const fixture = path.join(dir, "no-load.jsonl");
     await writeFile(
       fixture,
@@ -2128,7 +2128,7 @@ describe("SessionManager", () => {
  */
 describe("what a session is given", () => {
   async function recorded(agentId: string, deps: Partial<SessionManagerDeps> = {}) {
-    const file = path.join(await tempDir("text-to-cad-record-"), "frames.jsonl");
+    const file = path.join(await tempDir("elastic-record-"), "frames.jsonl");
     const { manager, cwd } = await setup({
       launchOverride: () => ({ ...fakeProvider.launch, env: { FAKE_AGENT_RECORD: file } }),
       skills: { root: () => "/data/skills/1.2.3", preamble: () => "SKILLS: /data/skills/1.2.3" },
@@ -2177,7 +2177,7 @@ describe("what a session is given", () => {
   });
 
   it("does not send it again on the reload of an answered session whose adapter replays nothing", async () => {
-    const file = path.join(await tempDir("text-to-cad-record-"), "frames.jsonl");
+    const file = path.join(await tempDir("elastic-record-"), "frames.jsonl");
     let launchArgs = [FAKE_AGENT];
     const { manager, cwd } = await setup({
       snapshots: memorySnapshots(),

@@ -94,7 +94,7 @@ export function GeneralPage() {
           />
         ) : null}
         <SelectRow
-          description="text-to-cad follows the system language. More languages are not translated yet."
+          description="elastic follows the system language. More languages are not translated yet."
           keywords="locale translation"
           onChange={(language) => patch({ language })}
           options={[{ value: "auto", label: "Auto" }]}
@@ -107,7 +107,7 @@ export function GeneralPage() {
       <SettingCard title="App">
         <SwitchRow
           checked={settings.launchAtLogin}
-          description="Start text-to-cad when you log in."
+          description="Start elastic when you log in."
           keywords="startup boot"
           onChange={(launchAtLogin) => patch({ launchAtLogin })}
           title="Launch at login"
@@ -115,7 +115,7 @@ export function GeneralPage() {
         {isMac ? (
           <SwitchRow
             checked={settings.showInMenuBar}
-            description="Keep a text-to-cad item in the menu bar for bringing the window back."
+            description="Keep a elastic item in the menu bar for bringing the window back."
             keywords="tray status bar"
             onChange={(showInMenuBar) => patch({ showInMenuBar })}
             title="Show in menu bar"
@@ -159,7 +159,7 @@ export function GeneralPage() {
         />
         <PathRow
           chooseLabel="Choose…"
-          description="An aiff, wav, mp3, m4a or ogg file. Empty plays text-to-cad's own chime."
+          description="An aiff, wav, mp3, m4a or ogg file. Empty plays elastic's own chime."
           keywords="audio file custom"
           onChoose={() => {
             void window.workbench.dialogs
@@ -170,7 +170,7 @@ export function GeneralPage() {
               .then((chosen) => chosen && patch({ notificationSoundFile: chosen.path }));
           }}
           onClear={() => patch({ notificationSoundFile: null })}
-          placeholder="text-to-cad chime"
+          placeholder="elastic chime"
           title="Custom sound"
           value={settings.notificationSoundFile}
         />
@@ -185,7 +185,7 @@ export function GeneralPage() {
         />
         <SwitchRow
           checked={settings.notificationOsBanners}
-          description="Also show them as banners in the system's notification centre, not only inside text-to-cad."
+          description="Also show them as banners in the system's notification centre, not only inside elastic."
           keywords="os banner system notification centre center"
           onChange={(notificationOsBanners) => patch({ notificationOsBanners })}
           title="System banners"

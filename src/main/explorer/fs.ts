@@ -616,7 +616,7 @@ export async function writeTextFile(
   // Serialize this process's writers so two editors cannot both accept the same
   // revision. External writes are checked immediately before the atomic rename.
   const work = (textWrites.get(absolute)?.catch(() => undefined) ?? Promise.resolve()).then(async () => {
-    const temporary = path.join(path.dirname(absolute), `.${path.basename(absolute)}.text-to-cad-${randomUUID()}.tmp`);
+    const temporary = path.join(path.dirname(absolute), `.${path.basename(absolute)}.elastic-${randomUUID()}.tmp`);
     const buffer = Buffer.from(content, "utf8");
     let created = false;
     const checkRevision = async () => {

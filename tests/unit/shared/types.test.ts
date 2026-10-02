@@ -19,7 +19,7 @@ describe("Settings", () => {
     const settings = defaultSettings();
     expect(settings.theme).toBe("system");
     expect(settings.defaultGitMode).toBe("checkout");
-    expect(settings.branchPrefix).toBe("text-to-cad/");
+    expect(settings.branchPrefix).toBe("elastic/");
     // Pixels, and only the sidebar's pair: the session is elastic and the
     // explorer's width is per project, in the renderer.
     expect(settings.layout).toEqual({ sidebarWidth: 230, sidebarCollapsed: false });
@@ -123,13 +123,13 @@ describe("the branch prefix", () => {
     for (const prefix of ["a b/", "a..b/", "a~/", "a^/", "a:/", "a?/", "a*/", "a[/", "a\\b/", "a//b/", "a.lock/", "/a/", "-a/", ".a/", "a/.b", "a@{b/"]) {
       expect(SettingsPatchSchema.safeParse({ branchPrefix: prefix }).success, prefix).toBe(false);
     }
-    for (const prefix of ["", "text-to-cad/", "me/", "team.x/", "a.lock", "feature-"]) {
+    for (const prefix of ["", "elastic/", "me/", "team.x/", "a.lock", "feature-"]) {
       expect(SettingsPatchSchema.safeParse({ branchPrefix: prefix }).success, prefix).toBe(true);
     }
   });
 
   it("reads a refused one already stored as the default, rather than failing every read", () => {
-    expect(SettingsSchema.parse({ branchPrefix: "a b/" }).branchPrefix).toBe("text-to-cad/");
+    expect(SettingsSchema.parse({ branchPrefix: "a b/" }).branchPrefix).toBe("elastic/");
     expect(SettingsSchema.parse({ branchPrefix: "me/" }).branchPrefix).toBe("me/");
   });
 });
@@ -141,7 +141,7 @@ describe("Session", () => {
     agentId: "claude-code",
     cwd: "/tmp/project",
     gitMode: "worktree",
-    branch: "text-to-cad/wrist",
+    branch: "elastic/wrist",
     title: "Model the wrist",
     createdAt: 1,
     updatedAt: 2,
@@ -149,7 +149,7 @@ describe("Session", () => {
   };
 
   it("accepts a worktree session", () => {
-    expect(SessionSchema.parse(base).branch).toBe("text-to-cad/wrist");
+    expect(SessionSchema.parse(base).branch).toBe("elastic/wrist");
   });
 
   it("rejects a git mode that is not one of the three", () => {

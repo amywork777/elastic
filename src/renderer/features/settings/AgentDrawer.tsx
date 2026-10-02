@@ -2,7 +2,7 @@
  * Agent settings, in a right-hand drawer (Emdash's shape, plan §2).
  *
  * Everything about one agent that the app can answer without starting it: where
- * its binary is, whether the user is signed in, what it is given in a text-to-cad
+ * its binary is, whether the user is signed in, what it is given in a elastic
  * session, and what the app will type when it launches it. The two
  * long-running actions — install and sign in — are pty jobs in main whose
  * output streams into the log under the button that started them, because an
@@ -322,7 +322,7 @@ function AuthenticationSection({ agent }: { agent: AgentStatus }) {
           </summary>
           <div className="mt-2 rounded-lg border bg-muted/40 px-3 py-2.5">
             <p className="text-muted-foreground">
-              {apiKey.label}: set one of these in the shell text-to-cad launches from, then press
+              {apiKey.label}: set one of these in the shell elastic launches from, then press
               Refresh.
             </p>
             <p className="mt-1.5 font-mono text-[11px]" data-selectable>
@@ -353,13 +353,13 @@ function SkillsSection({ agent }: { agent: AgentStatus }) {
         <InlineCode
           text={
             count > 0
-              ? `Every session in text-to-cad is handed the app's CAD skills and focused workspace integration skills as an extra directory,
+              ? `Every session in elastic is handed the app's CAD skills and focused workspace integration skills as an extra directory,
              ${
                native
                  ? `which ${agent.name} loads by itself.`
                  : `and, because ${agent.name} does not load one, a line in the first prompt saying where they are. The app's MCP server can read them too.`
              } Nothing is installed into ${agent.name}'s own configuration.`
-              : "text-to-cad hands its skills to every session. This build has none composed yet — run `npm run build`."
+              : "elastic hands its skills to every session. This build has none composed yet — run `npm run build`."
           }
         />
       </p>
@@ -381,7 +381,7 @@ function McpSection({ agent }: { agent: AgentStatus }) {
   return (
     <Section title="MCP servers">
       <p className="text-xs text-muted-foreground">
-        Every text-to-cad session gets the app&apos;s own server — how an agent opens a file in the
+        Every elastic session gets the app&apos;s own server — how an agent opens a file in the
         explorer, attaches a snapshot, or reads a skill — beside whatever {agent.name} is
         configured with itself. That configuration is {agent.name}&apos;s; this app does not touch it.
       </p>
@@ -485,7 +485,7 @@ function AdvancedSection({ agent }: { agent: AgentStatus }) {
         </p>
       ) : null}
       <p className="mt-1.5 text-[11px] text-muted-foreground">
-        One per line. Merged over the launch environment when text-to-cad starts {agent.name}.
+        One per line. Merged over the launch environment when elastic starts {agent.name}.
       </p>
     </Section>
   );

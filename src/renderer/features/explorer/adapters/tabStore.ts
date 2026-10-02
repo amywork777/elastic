@@ -6,7 +6,7 @@ import { createTabStore, type TabRecord, type TabRecordStorage, type TabStore } 
 // store would grow with every file ever opened. The explorer's own chrome — the panel column's
 // width, each root's open folders, the open panel, the theme — is the window's and the
 // session's, kept where the explorer keeps it, not here.
-const KEY = "text-to-cad.tabs.v1";
+const KEY = "elastic.tabs.v1";
 
 function readAll(): Record<string, unknown> {
   try {
@@ -42,7 +42,7 @@ export function forgetTabStore(tabId: string) {
 
 // Which session each stored tab belongs to. A session deleted in a run that never loaded its
 // strip has no tabs in memory to forget one by one, and without this its records stayed forever.
-const OWNERS = "text-to-cad.tabs.owners.v1";
+const OWNERS = "elastic.tabs.owners.v1";
 function readOwners(): Record<string, string> {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(OWNERS) ?? "null");

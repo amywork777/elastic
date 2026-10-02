@@ -456,7 +456,7 @@ describe("the Agents page when the list cannot be read", () => {
   it("shows the handler's words in an alert, not Electron's invoke wrapper", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(window.workbench.agents.list).mockRejectedValue(
-      new Error("Error invoking remote method 'text-to-cad:agents.list': Error: the registry is unreadable"),
+      new Error("Error invoking remote method 'elastic:agents.list': Error: the registry is unreadable"),
     );
     useAgents.setState({ agents: [], ready: false, loadError: null });
     wrap(<AgentsPage />);

@@ -6,4 +6,4 @@ removes the surrounding app-icon tile. All of the original star facets are
 preserved; the mark is not regenerated or redrawn.
 
 This is an embedded raster with SVG presentation, not a path-only vector logo.
-It sits beside text-to-cad in the application’s regular system sans-serif type.
+It sits beside elastic in the application’s regular system sans-serif type.

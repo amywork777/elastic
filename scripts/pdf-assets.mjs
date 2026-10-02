@@ -24,7 +24,7 @@ export function pdfAssetFiles() {
 /** @returns {import('vite').Plugin} */
 export function pdfAssetsPlugin() {
   return {
-    name: 'text-to-cad-offline-pdf-assets',
+    name: 'elastic-offline-pdf-assets',
     configureServer(server) {
       const files = new Map(pdfAssetFiles().map(file => [`/${file.fileName}`, file]));
       server.middlewares.use((request, response, next) => {

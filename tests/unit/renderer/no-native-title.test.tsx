@@ -185,7 +185,7 @@ describe("Settings", () => {
     // A project with a worktree that has uncommitted work: Delete is off, and says why.
     useProjects.setState({ projects: [{ id: "p", name: "p", path: "/p", createdAt: 0 }], activeId: "p" });
     vi.mocked(window.workbench.git.worktrees).mockResolvedValue([
-      { path: "/Users/me/worktrees/p/fillet", branch: "text-to-cad/fillet", lastUsedAt: null, openSessions: 0, dirty: true, locked: false },
+      { path: "/Users/me/worktrees/p/fillet", branch: "elastic/fillet", lastUsedAt: null, openSessions: 0, dirty: true, locked: false },
     ]);
   });
 

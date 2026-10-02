@@ -7,7 +7,7 @@ import {
 } from "lucide-react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
-// shadcn ships this component reading `next-themes`. text-to-cad owns its theme
+// shadcn ships this component reading `next-themes`. elastic owns its theme
 // in the settings store (system/light/dark, applied as a `.dark` class on
 // <html>), so it reads that instead and `next-themes` is not a dependency.
 import { useResolvedTheme } from "@renderer/hooks/use-theme"

@@ -115,7 +115,7 @@ describe("the agent registry", () => {
     }
   });
 
-  it("says which agents load the skills root text-to-cad names, and which need telling", () => {
+  it("says which agents load the skills root elastic names, and which need telling", () => {
     // The two adapters that read `additionalDirectories` / `_meta.additionalRoots`
     // and load `<root>/.claude/skills` and `<root>/.agents/skills` themselves.
     expect(agentProvider("claude-code")?.skillRoots).toBe("native");

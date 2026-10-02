@@ -110,7 +110,7 @@ export const ProjectGitInfoSchema = z.object({
   hasRemote: z.boolean(),
   /** `gh` is on the PATH, so `Create pull request` can be offered. */
   hasGh: z.boolean(),
-  /** text-to-cad's worktrees for this project (never the checkout itself). */
+  /** elastic's worktrees for this project (never the checkout itself). */
   worktreeCount: z.number().int().nonnegative(),
   /** `<worktree root>/<project>`, expanded — what Settings prints. */
   worktreeDir: z.string(),
@@ -193,7 +193,7 @@ export const gitIpc = {
       z.object({ url: z.string() }),
     ),
 
-    /** text-to-cad's worktrees for a project, newest first. */
+    /** elastic's worktrees for a project, newest first. */
     worktrees: invoke(
       z.object({ projectId: z.string().min(1) }),
       z.array(WorktreeSchema),

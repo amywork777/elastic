@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Box, Check, FolderOpen, Loader2 } from "lucide-react";
+import { ArrowRight, Blocks, Check, FolderOpen, Loader2 } from "lucide-react";
 
 import { Button } from "@renderer/components/ui/button";
 import { AgentRow, isAgentReady, useOfferedAgents } from "@renderer/features/session/agent-setup";
@@ -11,7 +11,7 @@ import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import { useSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";
-import textToCadMark from "@renderer/assets/brand/text-to-cad-star.svg";
+import appMark from "@renderer/assets/brand/elastic-mark.svg";
 import { errorMessage } from "@shared/ipc/errors";
 
 /**
@@ -93,9 +93,9 @@ export function Welcome() {
 function WelcomeStep() {
   return (
     <section aria-labelledby="onboarding-title">
-      <img alt="" className="size-12 object-contain" src={textToCadMark} />
+      <img alt="" className="size-12 object-contain" src={appMark} />
       <h1 className="mt-5 text-2xl font-medium tracking-tight outline-none" id="onboarding-title" tabIndex={-1}>
-        Welcome to text-to-cad
+        Welcome to elastic
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Describe a part and an AI agent builds it as real CAD you can open, measure and export.
@@ -132,7 +132,7 @@ function AgentStep() {
         Connect an agent
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        text-to-cad runs the coding agent you already use. You need one of these, installed and signed in.
+        elastic runs the coding agent you already use. You need one of these, installed and signed in.
       </p>
       <div className="mt-6 space-y-2">
         {loadError ? (
@@ -162,11 +162,10 @@ function AgentStep() {
 
 function StartStep({ onDone }: { onDone: () => void }) {
   const openFolder = useOpenFolder();
-  const [busy, setBusy] = useState<"sample" | "folder" | null>(null);
+  const [busy, setBusy] = useState<"folder" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Back while the sample copies unmounts this step: the person has moved
-  // on, and the copy finishing must neither select the sample nor finish the
-  // welcome behind them. (The copy itself completes; it is left on disk.)
+  // Back while the folder chooser is up unmounts this step: the person has
+  // moved on, and the choice landing must not finish the welcome behind them.
   const here = useRef(true);
   useEffect(() => {
     here.current = true;
@@ -175,23 +174,10 @@ function StartStep({ onDone }: { onDone: () => void }) {
     };
   }, []);
 
-  const trySample = async () => {
-    setBusy("sample");
-    setError(null);
-    try {
-      // Main copies the sample and answers with it; selecting it here, as
-      // `ui.directorySelected` would, opens the folder's new-session screen.
-      const sample = await window.workbench.onboarding.createSample();
-      if (here.current) {
-        useProjects.getState().selectDirectory(sample);
-        useSessions.getState().setActive(null);
-        onDone();
-      }
-    } catch (reason) {
-      setError(errorMessage(reason));
-    } finally {
-      setBusy(null);
-    }
+  // Plugins are what the app does beyond sessions: the welcome can end on their page.
+  const browsePlugins = () => {
+    useUi.getState().setSurface({ kind: "plugins", view: "browse" });
+    onDone();
   };
 
   const chooseFolder = async () => {
@@ -218,20 +204,20 @@ function StartStep({ onDone }: { onDone: () => void }) {
       </p>
       <div className="mt-6 grid gap-2">
         <StartOption
-          busy={busy === "sample"}
-          description="An L-bracket to open, change and export. Copied to Documents › text-to-cad Sample."
-          disabled={busy !== null}
-          icon={<Box className="size-4" />}
-          onClick={() => void trySample()}
-          title="Try the sample"
-        />
-        <StartOption
           busy={busy === "folder"}
           description="Start in a folder of your own, empty or not."
           disabled={busy !== null}
           icon={<FolderOpen className="size-4" />}
           onClick={() => void chooseFolder()}
           title="Open a folder…"
+        />
+        <StartOption
+          busy={false}
+          description="Add tools, skills and views: a table viewer, the filesystem server, your own MCP servers."
+          disabled={busy !== null}
+          icon={<Blocks className="size-4" />}
+          onClick={browsePlugins}
+          title="Browse plugins"
         />
       </div>
       {error ? (

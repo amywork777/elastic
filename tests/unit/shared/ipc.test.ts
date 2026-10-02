@@ -168,9 +168,9 @@ describe("the contract", () => {
     expect(Object.keys(channels)).not.toContain("projects.addPath");
     // The sample answers with the project it selected, never a path to hand back.
     const sample = channels["onboarding.createSample"]!;
-    expect(sample.response.safeParse({ path: "/Users/me/Documents/text-to-cad Sample" }).success).toBe(false);
+    expect(sample.response.safeParse({ path: "/Users/me/Documents/elastic Sample" }).success).toBe(false);
     expect(
-      sample.response.safeParse({ id: "/s", name: "text-to-cad Sample", path: "/s", createdAt: 0 }).success,
+      sample.response.safeParse({ id: "/s", name: "elastic Sample", path: "/s", createdAt: 0 }).success,
     ).toBe(true);
   });
 

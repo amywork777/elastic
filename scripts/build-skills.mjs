@@ -1,26 +1,23 @@
 /**
- * Compose the app's skills into `resources/skills/` (plan §8, as revised).
+ * Compose the app's skills into `resources/skills/`.
  *
- * text-to-cad ships the repository's skills and hands them to every session
- * itself — nothing is installed into an agent's global configuration. What
- * ships is every directory under `skills/` except `cad-viewer` (the viewer is
- * beside the chat in this app, so the skill that starts one and posts links
- * would be wrong here), plus the focused skills declared in the integration
- * registry. The app-specific cad-viewer preserves CAD hand-offs. One skill per
- * directory, exactly as it is in the repository: no plugin manifest, no
- * marketplace, no version stamp — the version is the app's, and
+ * The app hands its skills to every session itself — nothing is installed into
+ * an agent's global configuration. What ships is the focused skill each
+ * integration in the registry declares (`skills/<name>`); a plugin's skills
+ * are added at run time, while it is enabled (`src/main/integrations/index.ts`).
+ * One skill per directory, exactly as it is in the repository: no manifest, no
+ * version stamp — the version is the app's, and
  * `src/main/integrations/skills.ts` records it where it materialises the root.
  *
  * Copies, never symlinks (`cpSync` with `dereference`, then a walk that fails
  * the build if a link survived): agent installers disagree about symlinks and
- * one drops them silently — repo AGENTS.md, and
- * `scripts/github-workflows/check-builds.sh`.
+ * one drops them silently.
  *
  *   node scripts/build-skills.mjs                 # -> resources/skills
- *   node scripts/build-skills.mjs --out <dir> --repo <root>
+ *   node scripts/build-skills.mjs --out <dir>
  *
  * Runs as part of `npm run build` and of packaging (scripts/build.mjs); the
- * flags exist for the unit test, which composes into a temporary directory.
+ * flag exists for the unit test, which composes into a temporary directory.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -29,8 +26,6 @@ import { integrations } from "../src/main/integrations/registry.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-/** The skill this app's viewer makes redundant. */
-export const EXCLUDED_SKILLS = ["cad-viewer"];
 /** Focused skills declared by app integrations. */
 export const APP_SKILLS = integrations.flatMap(integration => integration.skills);
 
@@ -62,27 +57,19 @@ function findSymlinks(root) {
   return links;
 }
 
-/** Which skills the app carries: every repo skill but the excluded ones, plus the app's. */
-export function planSkills(repoRoot, desktopRoot = appRoot) {
-  const repoSkills = path.join(repoRoot, "skills");
-  const names = fs
-    .readdirSync(repoSkills, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !EXCLUDED_SKILLS.includes(entry.name))
-    .filter((entry) => fs.existsSync(path.join(repoSkills, entry.name, "SKILL.md")))
-    .map((entry) => ({ name: entry.name, from: path.join(repoSkills, entry.name) }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const appSkills = APP_SKILLS.map(relative => {
+/** Which skills the app carries: the ones its integrations declare. */
+export function planSkills(desktopRoot = appRoot) {
+  const skills = APP_SKILLS.map(relative => {
     const from = path.join(desktopRoot, relative);
     if (!fs.existsSync(path.join(from, "SKILL.md"))) throw new Error(`missing ${from}/SKILL.md`);
     return { name: path.basename(from), from };
   });
-  const combined = [...names, ...appSkills];
-  if (new Set(combined.map(skill => skill.name)).size !== combined.length) throw new Error("Duplicate registered skill identity");
-  return combined;
+  if (new Set(skills.map(skill => skill.name)).size !== skills.length) throw new Error("Duplicate registered skill identity");
+  return skills.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function buildSkills({ repoRoot, out, desktopRoot = appRoot }) {
-  const skills = planSkills(repoRoot, desktopRoot);
+export function buildSkills({ out, desktopRoot = appRoot }) {
+  const skills = planSkills(desktopRoot);
 
   // A clean slate, keeping the placeholder that makes the directory exist in git.
   fs.mkdirSync(out, { recursive: true });
@@ -107,7 +94,7 @@ function parseArgs(argv) {
   const options = {};
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--out" || arg === "--repo") {
+    if (arg === "--out") {
       options[arg.slice(2)] = argv[index + 1];
       index += 1;
     } else {
@@ -119,9 +106,8 @@ function parseArgs(argv) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2));
-  const repoRoot = options.repo ? path.resolve(options.repo) : path.resolve(appRoot, "..", "..");
   const out = options.out ? path.resolve(options.out) : path.join(appRoot, "resources", "skills");
-  const result = buildSkills({ repoRoot, out });
+  const result = buildSkills({ out });
   console.info(`composed ${result.skills.length} skills -> ${result.out}`);
   console.info(`  ${result.skills.join(", ")}`);
 }

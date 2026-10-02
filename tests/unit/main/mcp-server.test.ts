@@ -70,7 +70,7 @@ async function connect(
   return client;
 }
 
-describe("the text-to-cad MCP server", () => {
+describe("the elastic MCP server", () => {
   it("lists its tools with descriptions written for an agent", async () => {
     const client = await connect(fakeBridge().bridge);
     const { tools } = await client.listTools();
@@ -155,7 +155,7 @@ describe("the text-to-cad MCP server", () => {
 });
 
 describe("httpBridge", () => {
-  it("refuses to start without the environment text-to-cad sets", () => {
+  it("refuses to start without the environment elastic sets", () => {
     expect(() => httpBridge({})).toThrow(BRIDGE_ENV.url);
   });
 

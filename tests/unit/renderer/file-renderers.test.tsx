@@ -72,7 +72,7 @@ describe("CodeRenderer", () => {
     const first = render(<ViewerHostContext.Provider value={testViewerHost()}><CodeRenderer {...props} /></ViewerHostContext.Provider>);
     expect(screen.getByTestId("monaco-editor")).toBeTruthy();
     expect(editorProps?.language).toBe("typescript");
-    expect(editorProps?.theme).toBe("text-to-cad-dark");
+    expect(editorProps?.theme).toBe("elastic-dark");
     expect(editorProps?.value).toBe(document.value);
     expect(editorProps?.options).toMatchObject({
       fontSize: 12.5,
@@ -82,7 +82,7 @@ describe("CodeRenderer", () => {
       wordWrap: "off",
     });
     const firstPath = editorProps?.path;
-    expect(firstPath).toMatch(/^text-to-cad-file:\/\/model\//);
+    expect(firstPath).toMatch(/^elastic-file:\/\/model\//);
 
     (editorProps?.onChange as (value: string) => void)("changed");
     expect(document.setValue).toHaveBeenCalledWith("changed");

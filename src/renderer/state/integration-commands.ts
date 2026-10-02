@@ -42,7 +42,7 @@ function inScope(tab: ExplorerTab, command: IntegrationCommand) {
 
 async function scopedTabs(command: IntegrationCommand, signal?: AbortSignal) {
   signal?.throwIfAborted();
-  if (!useProjects.getState().projects.some(project => project.id === command.projectId)) throw new Error("that project is no longer open in text-to-cad");
+  if (!useProjects.getState().projects.some(project => project.id === command.projectId)) throw new Error("that project is no longer open in elastic");
   const session = useSessions.getState().sessions.find(session => session.id === command.sessionId && session.projectId === command.projectId && !session.archived);
   if (!session) throw new Error("This session is no longer active.");
   const strip = await readSessionStrip(command.sessionId);

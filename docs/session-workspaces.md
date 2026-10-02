@@ -108,14 +108,14 @@ not record title provenance; migrated titles initially use `prompt`.
 
 ## Upgrades, restart and profiles
 
-The database is `text-to-cad.db` inside Electron's `userData` directory. Normal
-launches use the stable `text-to-cad` app-data directory. An explicit
+The database is `elastic.db` inside Electron's `userData` directory. Normal
+launches use the stable `elastic` app-data directory. An explicit
 `--user-data-dir` selects a separate profile; it does not move, merge or delete
 the normal profile. Use the same profile when relaunching a user's preview.
 The startup `[db]` log identifies the actual database.
 
 Before upgrading an existing schema, the app writes a consistent SQLite
-backup beside it: `text-to-cad.db.before-v<newest migration>-<timestamp>.bak`, named
+backup beside it: `elastic.db.before-v<newest migration>-<timestamp>.bak`, named
 by the version the upgrade goes to, not the one it leaves. `VACUUM INTO`
 includes committed WAL contents; copying only the main database file would
 not. A backup or migration error aborts the open, never resets the database.

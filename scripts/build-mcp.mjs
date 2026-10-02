@@ -1,5 +1,5 @@
 /**
- * Bundle the text-to-cad MCP server for shipping.
+ * Bundle the elastic MCP server for shipping.
  *
  * `resources/app-mcp/server.mjs` is the source: it imports
  * `@modelcontextprotocol/sdk` and `zod`, which a checkout resolves from

@@ -841,7 +841,7 @@ export const PromptInput = ({
       }
 
       try {
-        // text-to-cad: the stock form fetched each `blob:` URL here to turn it
+        // elastic: the stock form fetched each `blob:` URL here to turn it
         // into a data URL. The renderer's CSP (`connect-src`) refuses that
         // fetch, so it only ever logged an error and kept the blob URL; the
         // composer reads the bytes from the File behind each attachment

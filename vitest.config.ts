@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(appRoot, "..", "..");
+
 
 /**
  * The markdown round-trip tests load this repository's own `README.md`,
@@ -13,7 +13,7 @@ const repoRoot = path.resolve(appRoot, "..", "..");
  * written for those tests would be a fixture written to pass them. Vite serves
  * nothing outside the project root without being told to.
  */
-const server = { fs: { allow: [appRoot, repoRoot] } };
+const server = { fs: { allow: [appRoot] } };
 
 /**
  * Aliases as an array, because one of them has to be a pattern.

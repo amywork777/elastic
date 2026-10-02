@@ -1,6 +1,6 @@
 ---
 name: documents
-description: Read and edit the live text buffer in a text-to-cad file tab, retaining user drafts and checking revisions before changes.
+description: Read and edit the live text buffer in a elastic file tab, retaining user drafts and checking revisions before changes.
 ---
 
 # Live documents

@@ -20,7 +20,7 @@ forms, annotations, OCR and arbitrary remote URL loading are not exposed.
 Evaluated the official [MCP Apps PDF server](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/pdf-server)
 (compatible Apache-2.0/MIT code). It supplies its own MCP App viewer with its
 own view identity, persistence and command queue; its server does not address
-text-to-cad's existing FileTab. Embedding that separately would produce two live
+elastic's existing FileTab. Embedding that separately would produce two live
 PDFs. We therefore reuse its underlying established Mozilla PDF.js engine and
 bind it directly to the host's document capability, with a small domain MCP
 adapter. No claim is made that the upstream PDF skill and server are a matched

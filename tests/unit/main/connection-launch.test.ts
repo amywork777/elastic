@@ -36,7 +36,7 @@ function launch(
 }
 
 it("runs a Windows .cmd shim the detector found on PATH through cmd.exe, with its argv escaped", async () => {
-  const bin = await tempDir("text-to-cad-win-bin-");
+  const bin = await tempDir("elastic-win-bin-");
   const shim = path.join(bin, "npx.CMD");
   fs.writeFileSync(shim, "@echo off\n");
 
@@ -56,7 +56,7 @@ const caret = (text: string) => text.replace(/([()\][%!^"`<>&|;, *?])/g, "^$1");
 // argument's `"` survives the first parse and flips the second one's quoting,
 // and the `&` after it ends the command.
 it("escapes a .cmd shim's argv twice, wherever the shim lives", async () => {
-  const bin = await tempDir("text-to-cad-win-npm-");
+  const bin = await tempDir("elastic-win-npm-");
   const shim = path.join(bin, "gemini.cmd");
   fs.writeFileSync(shim, "@echo off\n");
 
@@ -68,7 +68,7 @@ it("escapes a .cmd shim's argv twice, wherever the shim lives", async () => {
 // A launch that names the shim itself (`gemini.cmd`, or its full path) is no
 // more runnable without cmd.exe than the bare name: spawn refuses it (EINVAL).
 it("runs a launch that already names its .cmd through cmd.exe too", async () => {
-  const bin = await tempDir("text-to-cad-win-named-");
+  const bin = await tempDir("elastic-win-named-");
   const shim = path.join(bin, "gemini.cmd");
   fs.writeFileSync(shim, "@echo off\n");
 

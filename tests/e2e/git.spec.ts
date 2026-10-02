@@ -22,19 +22,19 @@ import { chooseDirectory, launch, mod, newTab as newTabIn, scratch, settleTermin
  *   - the draft screen's own New worktree choice makes one too.
  *
  * Everything is temporary, the worktree root included, so a run never writes
- * to the developer's `~/.text-to-cad`.
+ * to the developer's `~/.elastic`.
  */
 
 declare const window: { workbench: WorkbenchApi };
 
 const gitEnv = {
   ...process.env,
-  GIT_AUTHOR_NAME: "text-to-cad Tests",
+  GIT_AUTHOR_NAME: "elastic Tests",
   GIT_AUTHOR_EMAIL: "tests@example.invalid",
-  GIT_COMMITTER_NAME: "text-to-cad Tests",
+  GIT_COMMITTER_NAME: "elastic Tests",
   GIT_COMMITTER_EMAIL: "tests@example.invalid",
 };
-const projectName = "text-to-cad-fixture";
+const projectName = "elastic-fixture";
 
 let app: ElectronApplication;
 let page: Page;
@@ -160,10 +160,10 @@ test("a worktree session gets its own branch, directory and glyph, and the explo
   const worktree = path.join(worktreeFolder(), "model-the-wrist");
   expect(session.cwd).toBe(worktree);
   expect(session.worktreePath).toBe(worktree);
-  expect(session.branch).toBe("text-to-cad/model-the-wrist");
+  expect(session.branch).toBe("elastic/model-the-wrist");
   expect(fs.existsSync(path.join(worktree, "tracked.txt"))).toBe(true);
   // The sidebar's trailing glyph, labelled with the branch.
-  await expect(page.getByLabel("Worktree · text-to-cad/model-the-wrist")).toBeVisible();
+  await expect(page.getByLabel("Worktree · elastic/model-the-wrist")).toBeVisible();
 
   await page.locator(`[data-session-row="${session.id}"]`).click();
   await expect(page.locator("[data-session-view]")).toBeVisible();
@@ -217,7 +217,7 @@ test("the worktree is listed in Settings, and Delete takes it away once no sessi
   await page.keyboard.press(`${mod}+,`);
   await page.getByRole("button", { name: "Git and worktrees" }).click();
   await expect(page.getByText(`Worktrees · ${projectName}`)).toBeVisible();
-  const card = page.getByText("text-to-cad/model-the-wrist", { exact: true });
+  const card = page.getByText("elastic/model-the-wrist", { exact: true });
   await card.scrollIntoViewIfNeeded();
   await shoot("git-settings-worktrees.png", true);
   // A session is still open on it, and it holds the agent's uncommitted file: Delete is refused
@@ -233,8 +233,8 @@ test("the worktree is listed in Settings, and Delete takes it away once no sessi
   await expect(page.getByText(`Worktrees · ${projectName}`)).toBeHidden({ timeout: 20_000 });
   expect(fs.existsSync(worktree)).toBe(false);
   // The branch is left behind: the checkout is recreatable, the commits on it are not.
-  expect(execFileSync("git", ["branch", "--list", "text-to-cad/model-the-wrist"], { cwd: repo, env: gitEnv }).toString())
-    .toContain("text-to-cad/model-the-wrist");
+  expect(execFileSync("git", ["branch", "--list", "elastic/model-the-wrist"], { cwd: repo, env: gitEnv }).toString())
+    .toContain("elastic/model-the-wrist");
   await page.getByRole("button", { name: "Back to app" }).click();
 });
 

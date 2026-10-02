@@ -91,7 +91,7 @@ function cwdFor(request: { projectId: string; sessionId?: string }): string {
  *
  * Only generated or session-recorded worktrees: a worktree the person
  * made themselves, somewhere else, is theirs, and a Delete button beside it
- * would be text-to-cad offering to remove something it never created.
+ * would be elastic offering to remove something it never created.
  */
 async function worktreesOf(project: Project): Promise<Worktree[]> {
   const parents = projectWorktreeDirs(settings.get(), project);

@@ -18,7 +18,7 @@ it("a stale view cannot overwrite another tab's file views or newer root chrome"
   const oldB = b.result.current;
   act(() => oldB.onStateChange({ ...oldB.state, panelWidth: 360, expandedDirectories: ["parts"], renderers: { '["b.step","step"]': { camera: "new-b" } } }));
   act(() => oldA.onStateChange({ ...oldA.state, renderers: { '["a.step","step"]': { camera: "new-a" } } }));
-  const stored = JSON.parse(localStorage.getItem("text-to-cad.tabs.v1")!);
+  const stored = JSON.parse(localStorage.getItem("elastic.tabs.v1")!);
   expect(Object.keys(stored)).toEqual([tabB.id, tabA.id]);
   expect(stored[tabA.id].files).toEqual({ [JSON.stringify(["shared-root", "a.step", "step"])]: { camera: "new-a" } });
   expect(stored[tabB.id].files).toEqual({ [JSON.stringify(["shared-root", "b.step", "step"])]: { camera: "new-b" } });

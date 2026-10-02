@@ -7,10 +7,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 // The script is what `npm run build` runs; the test composes into a temporary
 // directory from this repository, so what is asserted is what ships.
-import { APP_SKILLS, EXCLUDED_SKILLS, buildSkills, planSkills } from "../../../scripts/build-skills.mjs";
+import { APP_SKILLS, buildSkills, planSkills } from "../../../scripts/build-skills.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const repoRoot = path.resolve(appRoot, "..", "..");
 
 const temps: string[] = [];
 afterEach(() => {
@@ -35,34 +34,23 @@ function walk(root: string): Array<{ path: string; link: boolean }> {
 }
 
 describe("the composed skills", () => {
-  it("composes repo authoring skills and registered domain skills with the app cad-viewer override", () => {
-    const names = planSkills(repoRoot, appRoot).map((skill: { name: string }) => skill.name);
-    const repoSkills = fs
-      .readdirSync(path.join(repoRoot, "skills"), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
-    expect(repoSkills).toContain("cad-viewer");
-    expect(repoSkills).toContain("cad");
-    const planned = planSkills(repoRoot, appRoot);
-    for (const excluded of EXCLUDED_SKILLS) {
-      expect(planned.some((skill: { from: string }) => skill.from === path.join(repoRoot, 'skills', excluded))).toBe(false);
-    }
+  it("composes the skills the integrations declare, each once", () => {
+    const planned = planSkills(appRoot);
+    expect(planned.length).toBe(APP_SKILLS.length);
     for (const relative of APP_SKILLS) {
       expect(planned).toContainEqual({ name: path.basename(relative), from: path.join(appRoot, relative) });
     }
-    expect(names).not.toContain('text-to-cad-app-use');
-    expect(names).toContain("cad");
-    expect(planned.find((skill: { name: string }) => skill.name === 'cad-viewer')?.from).toBe(path.join(appRoot, 'skills', 'cad-viewer'));
+    const names = planned.map((skill: { name: string }) => skill.name);
     expect(new Set(names).size).toBe(names.length);
   });
 
   it("lands as copies, one directory per skill, with nothing else in it", () => {
-    const out = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-skills-out-"));
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-skills-out-"));
     temps.push(out);
     fs.writeFileSync(path.join(out, ".gitkeep"), "");
     fs.writeFileSync(path.join(out, "stale.txt"), "from a previous build");
 
-    const result = buildSkills({ repoRoot, out, desktopRoot: appRoot });
+    const result = buildSkills({ out, desktopRoot: appRoot });
 
     const files = walk(out);
     // Copies, never symlinks: some installers drop links silently.
@@ -71,12 +59,9 @@ describe("the composed skills", () => {
     expect(fs.existsSync(path.join(out, "stale.txt"))).toBe(false);
     expect(fs.existsSync(path.join(out, ".gitkeep"))).toBe(true);
 
-    expect(fs.existsSync(path.join(out, "cad", "SKILL.md"))).toBe(true);
     for (const relative of APP_SKILLS) expect(fs.existsSync(path.join(out, path.basename(relative), 'SKILL.md'))).toBe(true);
-    expect(fs.existsSync(path.join(out, 'text-to-cad-app-use'))).toBe(false);
-    expect(fs.readFileSync(path.join(out, 'cad-viewer', 'SKILL.md'), 'utf8')).toBe(fs.readFileSync(path.join(appRoot, 'skills', 'cad-viewer', 'SKILL.md'), 'utf8'));
-    // The cad skill's references travel with it.
-    expect(fs.existsSync(path.join(out, "cad", "references"))).toBe(true);
+    // A skill's other files travel with it.
+    expect(fs.existsSync(path.join(out, "pdf", "LICENSE.txt"))).toBe(true);
     // Nothing a checkout leaves behind travels.
     expect(files.some((file) => /(^|\/)(node_modules|__pycache__|\.venv)(\/|$)/.test(file.path))).toBe(false);
 
@@ -99,8 +84,5 @@ describe("the composed skills", () => {
       expect(skill).toMatch(/^description:\s*\S/m);
       expect(skill).toMatch(/^#\s+\S/m);
     }
-    const cad = fs.readFileSync(path.join(appRoot, 'skills', 'cad-viewer', 'SKILL.md'), 'utf8');
-    for (const tool of ['viewer_state', 'select_reference', 'capture_view']) expect(cad).toContain(tool);
-    expect(cad).toMatch(/never install cadgen/i);
   });
 });

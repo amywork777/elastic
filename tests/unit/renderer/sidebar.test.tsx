@@ -57,7 +57,7 @@ const filters = (overrides: Partial<SidebarSettings> = {}): SidebarSettings =>
 /* -------------------------------------------------------------------------- */
 
 describe("sidebarSections", () => {
-  const projects = [project("p1", "text-to-cad"), project("p2", "tom-cad")];
+  const projects = [project("p1", "elastic"), project("p2", "tom-cad")];
 
   it("puts one section per project, in the project list's own order", () => {
     const sections = sidebarSections({
@@ -69,7 +69,7 @@ describe("sidebarSections", () => {
       ],
     });
     expect(sections.map((section) => [section.kind, section.name])).toEqual([
-      ["project", "text-to-cad"],
+      ["project", "elastic"],
       ["project", "tom-cad"],
     ]);
     expect(sections[0]!.sessions.map((row) => row.id)).toEqual(["a"]);
@@ -223,7 +223,7 @@ describe("Sidebar", () => {
 
   const withProject = () => {
     useProjects.setState({
-      projects: [project("p1", "text-to-cad")],
+      projects: [project("p1", "elastic")],
       ready: true,
       activeId: "p1",
     });
@@ -247,7 +247,7 @@ describe("Sidebar", () => {
 
   it("says the filters hide everything, and clears them, instead of offering a folder", async () => {
     const user = userEvent.setup();
-    useProjects.setState({ projects: [project("p1", "text-to-cad")], ready: true, activeId: "p1", draft: null });
+    useProjects.setState({ projects: [project("p1", "elastic")], ready: true, activeId: "p1", draft: null });
     useSessions.setState({ sessions: [session({ id: "s1", title: "Bracket" })], ready: true, activeId: null });
     useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ status: "archived" }) }, ready: true });
     vi.mocked(window.workbench.settings.set).mockImplementationOnce(async (patch) => ({ ...useSettings.getState().settings!, ...(patch as Partial<Settings>) }));
@@ -280,7 +280,7 @@ describe("Sidebar", () => {
   it("does not show an empty directory group", () => {
     withProject();
     wrap(<Sidebar />);
-    expect(screen.queryByRole("button", { name: "text-to-cad", expanded: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "elastic", expanded: true })).not.toBeInTheDocument();
     // What shows instead is the panel's own empty card, not a group's.
     expect(screen.getByText("No sessions yet").closest("[data-sidebar-empty]")).not.toBeNull();
   });
@@ -311,7 +311,7 @@ describe("Sidebar", () => {
         session({ id: "a", title: "Busy", status: "running" }),
         session({ id: "b", title: "Asked", status: "waiting" }),
         session({ id: "c", title: "Broken", status: "error" }),
-        session({ id: "d", title: "Tree", gitMode: "worktree", branch: "text-to-cad/x" }),
+        session({ id: "d", title: "Tree", gitMode: "worktree", branch: "elastic/x" }),
         session({ id: "e", title: "Branch", gitMode: "checkout", branch: "main" }),
       ],
       ready: true,
@@ -455,13 +455,13 @@ describe("Sidebar", () => {
       activeId: null,
     });
     wrap(<Sidebar />);
-    await user.click(screen.getByRole("button", { name: "text-to-cad", expanded: true }));
+    await user.click(screen.getByRole("button", { name: "elastic", expanded: true }));
     expect(set).toHaveBeenCalledWith(
       expect.objectContaining({ sidebar: expect.objectContaining({ collapsedProjects: ["p1"] }) }),
     );
     // Optimistic, so the row is gone before the round trip lands.
     expect(screen.queryByText("Session 1")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "text-to-cad", expanded: false })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "elastic", expanded: false })).toBeInTheDocument();
   });
 
   it("pins from the row's menu, and the row moves to Pinned", async () => {
@@ -489,7 +489,7 @@ describe("Sidebar", () => {
     );
     expect(screen.getByText("Pinned")).toBeInTheDocument();
     expect(screen.getAllByText("Keeper")).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: "text-to-cad", expanded: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "elastic", expanded: true })).not.toBeInTheDocument();
   });
 
   /**
@@ -506,7 +506,7 @@ describe("Sidebar", () => {
 
     expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Search text-to-cad" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Search elastic" })).not.toBeInTheDocument();
     // One filter menu in the panel, whatever the projects are.
     expect(screen.getAllByRole("button", { name: "Filters" })).toHaveLength(1);
 
@@ -528,7 +528,7 @@ describe("Sidebar", () => {
   it("starts a thread in the project the `+` belongs to", async () => {
     const user = userEvent.setup();
     useProjects.setState({
-      projects: [project("p1", "text-to-cad"), project("p2", "tom-cad")],
+      projects: [project("p1", "elastic"), project("p2", "tom-cad")],
       ready: true,
       activeId: "p1",
     });

@@ -2,7 +2,7 @@
  * `skills.info`: the skills root every session in this app is handed — where
  * it is on disk and what it holds (plan §8, as revised).
  *
- * Read-only, and there is nothing to install: text-to-cad materialises the
+ * Read-only, and there is nothing to install: elastic materialises the
  * skills it ships under its own user-data directory and names that directory
  * in every `session/new`, so Settings can show what a session gets but has no
  * button to press. (This branch replaced `plugins.*`, which installed a

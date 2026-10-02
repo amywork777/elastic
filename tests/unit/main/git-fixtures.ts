@@ -28,9 +28,9 @@ const run = promisify(execFile);
 /** A fixed identity: a fresh CI runner has no `user.name` and `git commit` fails without one. */
 export const GIT_ENV = {
   ...process.env,
-  GIT_AUTHOR_NAME: "text-to-cad Tests",
+  GIT_AUTHOR_NAME: "elastic Tests",
   GIT_AUTHOR_EMAIL: "tests@example.invalid",
-  GIT_COMMITTER_NAME: "text-to-cad Tests",
+  GIT_COMMITTER_NAME: "elastic Tests",
   GIT_COMMITTER_EMAIL: "tests@example.invalid",
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_SYSTEM: "/dev/null",
@@ -57,7 +57,7 @@ function memo(key: string, build: () => Promise<Template>): Promise<Template> {
 async function templateBase(): Promise<string> {
   // Not `tempDir`: a file's `cleanTempDirs` after each test would take the
   // templates with it.
-  const base = await realpath(await mkdtemp(path.join(os.tmpdir(), "text-to-cad-git-template-")));
+  const base = await realpath(await mkdtemp(path.join(os.tmpdir(), "elastic-git-template-")));
   templateDirs.push(base);
   return base;
 }
@@ -147,7 +147,7 @@ export async function scratchDir(prefix: string, temporary: string[]): Promise<s
 
 /** A repository with one commit (`README.md` = `one\ntwo\n`), and a directory beside it for its worktrees. */
 export async function repositoryWithWorktrees(temporary: string[]): Promise<{ root: string; worktrees: string }> {
-  const base = await scratchDir("text-to-cad-git-", temporary);
+  const base = await scratchDir("elastic-git-", temporary);
   const root = path.join(base, "project");
   const worktrees = path.join(base, "worktrees");
   await committedRepository(root, "one\ntwo\n");

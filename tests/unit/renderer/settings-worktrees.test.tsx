@@ -27,7 +27,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), dismiss: v
 
 const worktree = (over: Partial<Worktree>): Worktree => ({
   path: "/w/p/fillet",
-  branch: "text-to-cad/fillet",
+  branch: "elastic/fillet",
   lastUsedAt: null,
   openSessions: 0,
   dirty: false,
@@ -105,11 +105,11 @@ it("reads afresh each time the search mounts the Git page, and keeps the list on
   );
   const search = screen.getByPlaceholderText("Search settings");
   await user.type(search, "a");
-  expect(await screen.findAllByText("text-to-cad/fillet")).not.toHaveLength(0);
+  expect(await screen.findAllByText("elastic/fillet")).not.toHaveLength(0);
   await user.clear(search);
   await user.type(search, "a");
   // The list from the first mount is on the page at once, not after the new read.
-  expect(screen.getAllByText("text-to-cad/fillet")).not.toHaveLength(0);
+  expect(screen.getAllByText("elastic/fillet")).not.toHaveLength(0);
   // A file removed on disk makes a worktree clean: a mount reads again, over the old list.
   await waitFor(() => expect(window.workbench.git.worktrees).toHaveBeenCalledTimes(2));
 });
@@ -145,13 +145,13 @@ it("keeps the previous list on the page while a re-read is under way", async () 
       <GitPage />
     </TooltipProvider>,
   );
-  expect(await screen.findByText("text-to-cad/fillet")).toBeInTheDocument();
+  expect(await screen.findByText("elastic/fillet")).toBeInTheDocument();
   act(() => useWorktreeCache.getState().invalidate());
   expect(window.workbench.git.worktrees).toHaveBeenCalledTimes(2);
-  expect(screen.getByText("text-to-cad/fillet")).toBeInTheDocument();
-  await act(async () => again.resolve([worktree({ branch: "text-to-cad/other" })]));
-  expect(await screen.findByText("text-to-cad/other")).toBeInTheDocument();
-  expect(screen.queryByText("text-to-cad/fillet")).not.toBeInTheDocument();
+  expect(screen.getByText("elastic/fillet")).toBeInTheDocument();
+  await act(async () => again.resolve([worktree({ branch: "elastic/other" })]));
+  expect(await screen.findByText("elastic/other")).toBeInTheDocument();
+  expect(screen.queryByText("elastic/fillet")).not.toBeInTheDocument();
 });
 
 it("invalidates on a session that appeared, moved or was archived, and not on status churn", () => {

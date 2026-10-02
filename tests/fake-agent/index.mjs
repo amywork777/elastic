@@ -30,7 +30,7 @@
  *   "terminal"    create a terminal (`echo` + args), poll it, wait, release
  *   "read"        fs/read_text_file on the path after "read "
  *   "write"       fs/write_text_file "hello" to the path after "write "
- *   "open"        call the text-to-cad MCP server's `open_file` on the path
+ *   "open"        call the elastic MCP server's `open_file` on the path
  *                 after "open " — the server `session/new` carried in
  *                 `mcpServers`, spawned the way an adapter spawns it
  *   "session-title <JSON>" send a session_info_update ({title, sessionId?})
@@ -60,7 +60,7 @@
  *                 permission request that waits for the answer, a subagent,
  *                 prose — with small delays so the streaming states can be
  *                 seen
- *   "skills"      call the text-to-cad MCP server's `list_skills`, and
+ *   "skills"      call the elastic MCP server's `list_skills`, and
  *                 `read_skill` on the `cad` skill, and reply with what came
  *                 back — the universal path an agent with no skill-root
  *                 feature takes
@@ -576,7 +576,7 @@ new AgentSideConnection((conn) => ({
 async function script(conn, params) {
   const sessionId = params.sessionId;
   // The LAST text block, not all of them joined: a session with an agent that
-  // does not load skill roots carries text-to-cad's preamble in front of the
+  // does not load skill roots carries elastic's preamble in front of the
   // person's first prompt, and its prose ("read the one that fits…") would
   // otherwise trigger half the keywords below.
   const text = params.prompt.filter((block) => block.type === "text").map((block) => block.text).at(-1) ?? "";
@@ -725,13 +725,13 @@ async function script(conn, params) {
   }
 
   if (text.includes("open")) {
-    // The real thing, end to end: the stdio server text-to-cad put in
+    // The real thing, end to end: the stdio server elastic put in
     // `session/new`, spawned with the environment it gave (bridge URL, the
     // session's token and cwd), and its `open_file` tool called over MCP.
     const file = after("open");
     await send({ sessionUpdate: "tool_call", toolCallId: "open-1", title: `open_file ${file}`, kind: "other", status: "in_progress", rawInput: { path: file } });
     try {
-      const result = await callTextToCadTool("open_file", { path: file });
+      const result = await callAppTool("open_file", { path: file });
       await send({ sessionUpdate: "tool_call_update", toolCallId: "open-1", status: result.isError ? "failed" : "completed", rawOutput: result });
     } catch (error) {
       await send({ sessionUpdate: "tool_call_update", toolCallId: "open-1", status: "failed", content: [{ type: "content", content: { type: "text", text: String(error.message ?? error) } }] });
@@ -743,8 +743,8 @@ async function script(conn, params) {
     // MCP server rather than through any skill-root feature of the agent's.
     await send({ sessionUpdate: "tool_call", toolCallId: "skills-1", title: "list_skills", kind: "other", status: "in_progress" });
     try {
-      const listed = await callTextToCadTool("list_skills", {});
-      const read = await callTextToCadTool("read_skill", { name: "cad" });
+      const listed = await callAppTool("list_skills", {});
+      const read = await callAppTool("read_skill", { name: "cad" });
       const answer = JSON.parse(listed.content[0].text);
       if (listed.isError || read.isError) throw new Error("Skill MCP request failed");
       const names = answer.map((skill) => skill.name);
@@ -842,10 +842,10 @@ async function script(conn, params) {
   };
 }
 
-/** Spawn the `text-to-cad` MCP server from `session/new`, call one tool, and let it go. */
-async function callTextToCadTool(name, args) {
+/** Spawn the `elastic` MCP server from `session/new`, call one tool, and let it go. */
+async function callAppTool(name, args) {
   const domain = toolByName(name)?.integration.id;
-  const server = mcpServers.find((candidate) => candidate.name === `text-to-cad-${domain}`);
+  const server = mcpServers.find((candidate) => candidate.name === `elastic-${domain}`);
   if (!server) {
     throw new Error(`Session carried no MCP server for ${name}`);
   }

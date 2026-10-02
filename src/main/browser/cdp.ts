@@ -203,7 +203,7 @@ export class ScopedBrowserCdp {
         case "Target.getBrowserContexts": return { browserContextIds: [] };
         case "Target.getTargets": return { targetInfos: await Promise.all(this.service.list(this.scope).map(t => info(t.tabId))) };
         case "Target.getTargetInfo": return { targetInfo: !page && !params.targetId
-          ? { targetId: "app-browser", type: "browser", title: "text-to-cad", url: "", attached: true, browserContextId: "app-workspace" }
+          ? { targetId: "app-browser", type: "browser", title: "elastic", url: "", attached: true, browserContextId: "app-workspace" }
           : await info(targetId()) };
         case "Target.setDiscoverTargets":
           discover = Boolean(params.discover);
@@ -233,9 +233,9 @@ export class ScopedBrowserCdp {
         }
         // Both spellings: the deprecated Page one also takes an arbitrary downloadPath.
         case "Browser.setDownloadBehavior":
-        case "Page.setDownloadBehavior": throw new Error("Download policy belongs to text-to-cad's browser host.");
+        case "Page.setDownloadBehavior": throw new Error("Download policy belongs to elastic's browser host.");
         case "Browser.getWindowForTarget": targetId(); return { windowId: 1, bounds: { left: 0, top: 0, width: 1000, height: 700, windowState: "normal" } };
-        case "Browser.setWindowBounds": throw new Error("text-to-cad owns the browser pane size; resize it in the app.");
+        case "Browser.setWindowBounds": throw new Error("elastic owns the browser pane size; resize it in the app.");
         default:
           if (!page || /^(Browser|Target|Storage)\./.test(method)) throw new Error(`Unsupported scoped browser command: ${method}`);
           if (method === "Page.navigate") browserURL(String(params.url));

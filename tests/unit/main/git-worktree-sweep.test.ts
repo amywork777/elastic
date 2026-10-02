@@ -193,7 +193,7 @@ describe("pruneWorktrees", () => {
     }
     // A `git` first on PATH that writes down every argv it is given.
     const real = (await run("sh", ["-c", "command -v git"])).stdout.trim();
-    const bin = await scratchDir("text-to-cad-git-log-", temporary);
+    const bin = await scratchDir("elastic-git-log-", temporary);
     const log = path.join(bin, "calls");
     await writeFile(path.join(bin, "git"), `#!/bin/sh\necho "$*" >> "${log}"\nexec "${real}" "$@"\n`, { mode: 0o755 });
     const previous = process.env.PATH;
@@ -249,7 +249,7 @@ describe("a check git could not answer", () => {
    */
   async function failingIgnoredCheck(): Promise<() => void> {
     const real = (await run("sh", ["-c", "command -v git"])).stdout.trim();
-    const bin = await scratchDir("text-to-cad-git-wrapper-", temporary);
+    const bin = await scratchDir("elastic-git-wrapper-", temporary);
     await writeFile(
       path.join(bin, "git"),
       `#!/bin/sh\nfor arg in "$@"; do [ "$arg" = "--ignored=matching" ] && { echo "fatal: unable to read index" >&2; exit 128; }; done\nexec "${real}" "$@"\n`,

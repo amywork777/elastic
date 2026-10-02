@@ -19,7 +19,6 @@ import { buildSkills } from "./build-skills.mjs";
 import { nodeTool } from "./node-bin.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const repoRoot = path.resolve(appRoot, "..", "..");
 
 /**
  * `electron-vite build`, run by this Node from the package's own entry — not
@@ -32,7 +31,7 @@ export function electronViteBuild() {
 export function buildAll({ env = process.env } = {}) {
   const version = appVersion();
 
-  const skills = buildSkills({ repoRoot, out: path.join(appRoot, "resources", "skills") });
+  const skills = buildSkills({ out: path.join(appRoot, "resources", "skills") });
   console.info(`composed ${skills.skills.length} skills -> resources/skills`);
 
   // Rollup holds the whole renderer graph in memory, and this renderer is a

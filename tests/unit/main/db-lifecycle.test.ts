@@ -31,7 +31,7 @@ async function load() {
 }
 
 beforeEach(() => {
-  env.userData = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-db-"));
+  env.userData = fs.mkdtempSync(path.join(os.tmpdir(), "elastic-db-"));
   env.opened = 0;
   env.version = 0;
 });
@@ -62,9 +62,9 @@ describe("db lifecycle", () => {
 
     const left = fs.readdirSync(env.userData).filter((name) => name.includes(".before-v"));
     expect(left).toHaveLength(3);
-    expect(left).not.toContain("text-to-cad.db.before-v4-100.bak");
-    expect(left).not.toContain("text-to-cad.db.before-v4-200.bak");
-    expect(left).toContain("text-to-cad.db.before-v4-400.bak");
+    expect(left).not.toContain("elastic.db.before-v4-100.bak");
+    expect(left).not.toContain("elastic.db.before-v4-200.bak");
+    expect(left).toContain("elastic.db.before-v4-400.bak");
     expect(fs.existsSync(path.join(env.userData, "unrelated.bak"))).toBe(true);
   });
 
@@ -72,7 +72,7 @@ describe("db lifecycle", () => {
     const database = await load();
     const message = database.startupFailureMessage(new Error("database schema 9 is newer than this app supports (5)"), true);
     expect(message).toContain("newer than this app supports");
-    expect(message).toContain(path.join(env.userData, "text-to-cad.db"));
+    expect(message).toContain(path.join(env.userData, "elastic.db"));
     expect(database.startupFailureMessage(new Error("the MCP bridge could not listen"), false)).toBe(
       "the MCP bridge could not listen",
     );

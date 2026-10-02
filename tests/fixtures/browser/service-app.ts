@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import { BrowserService } from "../../../src/main/browser/service";
 import { armQuitDeadline } from "../../../src/main/quit-deadline";
-app.setName("TextToCadBrowserTest");
+app.setName("ElasticBrowserTest");
 // The app's own quit deadline (src/main/quit-deadline.ts): once a window has held native pages,
 // Chromium's shutdown on macOS can take tens of seconds that no test is waiting on.
 app.on("will-quit", () => armQuitDeadline());

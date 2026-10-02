@@ -11,7 +11,7 @@
  * and then tells whoever is listening (the IPC layer, the harness).
  *
  * Every session is also handed what this app gives an agent (plan §8): the
- * text-to-cad MCP server in `mcpServers`, and the skills root as an additional
+ * elastic MCP server in `mcpServers`, and the skills root as an additional
  * directory — `additionalDirectories` and `_meta.additionalRoots` both, on
  * `session/new` and `session/load` alike. For an agent that does not read
  * either, `preamble` rides in front of the first prompt instead.
@@ -90,7 +90,7 @@ export type SessionConnectionOptions = {
   launch: Launch;
   env: Record<string, string>;
   cwd: string;
-  /** Passed to `session/new` and `session/load`; P5 adds the text-to-cad server. */
+  /** Passed to `session/new` and `session/load`; P5 adds the elastic server. */
   mcpServers?: McpServer[];
   /**
    * The skills root (`src/main/integrations/skills.ts`), named in `session/new` and
@@ -402,7 +402,7 @@ export class SessionConnection {
     try {
       response = await this.agent.initialize({
         protocolVersion: PROTOCOL_VERSION,
-        clientInfo: { name: "text-to-cad", version: this.options.clientVersion ?? "0.0.0" },
+        clientInfo: { name: "elastic", version: this.options.clientVersion ?? "0.0.0" },
         clientCapabilities: {
           fs: { readTextFile: true, writeTextFile: true },
           terminal: true,

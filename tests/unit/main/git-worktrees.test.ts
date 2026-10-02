@@ -39,7 +39,7 @@ afterAll(cleanGitTemplates);
  * `ahead`, someone else has since pushed `theirs.txt` (see `pushedRepository`).
  */
 async function pushed(options: { ahead?: boolean } = {}) {
-  const base = await scratchDir("text-to-cad-git-", temporary);
+  const base = await scratchDir("elastic-git-", temporary);
   const root = path.join(base, "project");
   const worktrees = path.join(base, "worktrees");
   const { serverTip } = await pushedRepository(root, path.join(base, "remote.git"), { readme: "one\ntwo\n", ...options });
@@ -85,7 +85,7 @@ describe("parseWorktreeList", () => {
       "",
       "worktree /wt/feature",
       "HEAD def456",
-      "branch refs/heads/text-to-cad/feature",
+      "branch refs/heads/elastic/feature",
       "locked",
       "",
       "worktree /wt/loose",
@@ -101,7 +101,7 @@ describe("parseWorktreeList", () => {
     expect(fromLines).toHaveLength(3);
     expect(fromLines[0]).toMatchObject({ path: "/repo", branch: "main", primary: true });
     expect(fromLines[1]).toMatchObject({
-      branch: "text-to-cad/feature",
+      branch: "elastic/feature",
       locked: true,
       primary: false,
     });
@@ -138,7 +138,7 @@ describe("isUnder and samePath", () => {
 
 describe("repoInfo", () => {
   it("answers empty for a directory that is not a repository", async () => {
-    const plain = await scratchDir("text-to-cad-plain-", temporary);
+    const plain = await scratchDir("elastic-plain-", temporary);
     expect(await git.repoInfo(plain)).toEqual(git.emptyRepoInfo());
   });
 
@@ -159,7 +159,7 @@ describe("repoInfo", () => {
   });
 
   it("reports a repository with no commits as unborn", async () => {
-    const base = await scratchDir("text-to-cad-unborn-", temporary);
+    const base = await scratchDir("elastic-unborn-", temporary);
     await git_(base, "init", "--quiet", "--initial-branch=main");
     const info = await git.repoInfo(base);
     expect(info).toMatchObject({ isRepository: true, unborn: true, branch: "main" });
@@ -179,11 +179,11 @@ describe("createWorktree", () => {
       repoPath: root,
       parentDir: worktrees,
       name: "Model the wrist",
-      branchPrefix: "text-to-cad/",
+      branchPrefix: "elastic/",
     });
 
     expect(created.path).toBe(path.join(worktrees, "model-the-wrist"));
-    expect(created.branch).toBe("text-to-cad/model-the-wrist");
+    expect(created.branch).toBe("elastic/model-the-wrist");
     expect(created.base).toBe(await git.head(root));
     // It is a real checkout of the repository, not an empty folder.
     expect(await readdir(created.path)).toContain("README.md");
@@ -193,7 +193,7 @@ describe("createWorktree", () => {
     expect(listed[0]?.primary).toBe(true);
     expect(listed[1]).toMatchObject({
       path: created.path,
-      branch: "text-to-cad/model-the-wrist",
+      branch: "elastic/model-the-wrist",
       primary: false,
     });
   });
@@ -202,7 +202,7 @@ describe("createWorktree", () => {
     const { root, worktrees } = await repositoryWithWorktrees(temporary);
     const created = await git.createWorktree({ repoPath: root, parentDir: worktrees, name: "…" });
     expect(path.basename(created.path)).toMatch(/^session-[0-9a-f]{1,4}$/);
-    expect(created.branch).toBe(`text-to-cad/${path.basename(created.path)}`);
+    expect(created.branch).toBe(`elastic/${path.basename(created.path)}`);
   });
 
   it("suffixes a name whose directory or branch is taken", async () => {
@@ -211,13 +211,13 @@ describe("createWorktree", () => {
     const second = await git.createWorktree({ repoPath: root, parentDir: worktrees, name: "wrist" });
     expect(path.basename(first.path)).toBe("wrist");
     expect(path.basename(second.path)).toBe("wrist-2");
-    expect(second.branch).toBe("text-to-cad/wrist-2");
+    expect(second.branch).toBe("elastic/wrist-2");
 
     // A branch that exists without a worktree also has to be stepped over:
     // `git worktree add -b` would fail on it.
-    await git_(root, "branch", "text-to-cad/wrist-3");
+    await git_(root, "branch", "elastic/wrist-3");
     const third = await git.createWorktree({ repoPath: root, parentDir: worktrees, name: "wrist" });
-    expect(third.branch).toBe("text-to-cad/wrist-4");
+    expect(third.branch).toBe("elastic/wrist-4");
   });
 
   it("refuses a prefix a branch is in the way of, naming it, and steps over a branch under a name", async () => {
@@ -235,15 +235,15 @@ describe("createWorktree", () => {
 
   it("steps over a branch name someone else already has on the remote", async () => {
     const { root, worktrees } = await pushed();
-    // Another machine pushed `text-to-cad/wrist`; only the fetch tells this checkout.
-    await git_(root, "push", "--quiet", "origin", "main:refs/heads/text-to-cad/wrist");
-    await git_(root, "update-ref", "-d", "refs/remotes/origin/text-to-cad/wrist");
+    // Another machine pushed `elastic/wrist`; only the fetch tells this checkout.
+    await git_(root, "push", "--quiet", "origin", "main:refs/heads/elastic/wrist");
+    await git_(root, "update-ref", "-d", "refs/remotes/origin/elastic/wrist");
 
     const fetched = await git.createWorktree({ repoPath: root, parentDir: worktrees, name: "wrist", fetch: true });
-    expect(fetched.branch).toBe("text-to-cad/wrist-2");
+    expect(fetched.branch).toBe("elastic/wrist-2");
     // Without a fetch, what the checkout already knows of the remote still counts.
     const known = await git.createWorktree({ repoPath: root, parentDir: worktrees, name: "wrist" });
-    expect(known.branch).toBe("text-to-cad/wrist-3");
+    expect(known.branch).toBe("elastic/wrist-3");
   });
 
   it("with fetch, starts from the fetched upstream rather than local HEAD, and tracks nothing", async () => {
@@ -263,14 +263,14 @@ describe("createWorktree", () => {
   });
 
   it("refuses a directory that is not a repository, in words a person can act on", async () => {
-    const plain = await scratchDir("text-to-cad-plain-", temporary);
+    const plain = await scratchDir("elastic-plain-", temporary);
     await expect(
       git.createWorktree({ repoPath: plain, parentDir: path.join(plain, "wt") }),
     ).rejects.toThrow("Project is not a git repository, worktree mode unavailable");
   });
 
   it("refuses a repository with nothing to branch from", async () => {
-    const base = await scratchDir("text-to-cad-unborn-", temporary);
+    const base = await scratchDir("elastic-unborn-", temporary);
     await git_(base, "init", "--quiet", "--initial-branch=main");
     await expect(
       git.createWorktree({ repoPath: base, parentDir: path.join(base, "wt") }),

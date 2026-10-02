@@ -67,7 +67,7 @@ function applyMenuBarItem(enabled: boolean) {
   try {
     tray = new Tray(nativeImage.createEmpty());
     tray.setTitle("◆");
-    tray.setToolTip("text-to-cad");
+    tray.setToolTip("elastic");
     tray.on("click", showWindow);
   } catch (error) {
     // A menu-bar item is a convenience; failing to make one is not a reason to

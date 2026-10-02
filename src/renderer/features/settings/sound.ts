@@ -1,7 +1,7 @@
 /**
  * The notification sound, and the Preview button beside it.
  *
- * text-to-cad's own sound is synthesised rather than shipped as an asset: two
+ * elastic's own sound is synthesised rather than shipped as an asset: two
  * short sine tones are a smaller, more reviewable thing than a wav file in the
  * repository, and the point of the preview is to answer "is this audible where
  * I am sitting", which a chime answers as well as anything.

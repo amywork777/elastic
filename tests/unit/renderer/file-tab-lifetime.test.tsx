@@ -101,11 +101,11 @@ it("a retained file callback opens only its owner session after the user switche
 });
 
 it("a worktree tab names its worktree before the crumbs, with its path as a hint rather than a native title", async () => {
-  expect(worktreeMark("/home/me/.text-to-cad/worktrees/p/wrist")).toEqual({ label: "wrist", path: "/home/me/.text-to-cad/worktrees/p/wrist" });
-  expect(worktreeMark("C:\\Users\\me\\.text-to-cad\\worktrees\\p\\wrist")?.label).toBe("wrist");
+  expect(worktreeMark("/home/me/.elastic/worktrees/p/wrist")).toEqual({ label: "wrist", path: "/home/me/.elastic/worktrees/p/wrist" });
+  expect(worktreeMark("C:\\Users\\me\\.elastic\\worktrees\\p\\wrist")?.label).toBe("wrist");
   expect(worktreeMark(null)).toBeNull();
   const tab = useExplorer.getState().open("file", { path: "notes.txt" })!;
-  render(<FileTab sessionId="file-tab-owner" tabId={tab.id} project={project} root="/home/me/.text-to-cad/worktrees/p/wrist" path="notes.txt" panel={null} />);
+  render(<FileTab sessionId="file-tab-owner" tabId={tab.id} project={project} root="/home/me/.elastic/worktrees/p/wrist" path="notes.txt" panel={null} />);
   await screen.findByRole("textbox", { name: "Draft" });
   const mark = document.querySelector("[data-crumb=worktree]")!;
   expect(mark.textContent).toBe("wrist");
