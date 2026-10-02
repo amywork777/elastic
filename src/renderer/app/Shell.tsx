@@ -9,6 +9,10 @@ import { maxWidthOf, resolvePanes } from "@renderer/lib/panes";
 import type { SidePane } from "@renderer/lib/panes";
 import { isPrimaryModifier } from "@renderer/lib/platform";
 import { runUiCommand } from "@renderer/state/bridge";
+import { useUi } from "@renderer/state/ui";
+import { Rail } from "@renderer/app/Rail";
+import { GlobalAppSurface } from "@renderer/features/plugins/GlobalAppSurface";
+import { PluginsSurface } from "@renderer/features/plugins/PluginsSurface";
 import { useExplorer } from "@renderer/state/explorer";
 import { useSettings } from "@renderer/state/settings";
 import { PANE_LIMITS } from "@shared/types";
@@ -52,6 +56,7 @@ import { PANE_LIMITS } from "@shared/types";
  */
 export function Shell() {
   const layout = useSettings((state) => state.settings?.layout);
+  const surface = useUi((state) => state.surface);
   const setLayout = useSettings((state) => state.setLayout);
   const rowRef = useRef<HTMLDivElement | null>(null);
 
@@ -111,6 +116,8 @@ export function Shell() {
   // afterwards is "the state agrees with what fits", and the two writes are
   // no-ops once it does.
   useEffect(() => {
+    // A hidden row (another rail surface is up) measures zero wide: not a reason to close anything.
+    if (surface.kind !== "home" || rowWidth === 0) return;
     if (resolved.collapse.includes("explorer") && !explorerCollapsed) {
       setExplorerCollapsed(true);
     }
@@ -129,11 +136,14 @@ export function Shell() {
 
   return (
     <div
-      className="h-screen w-screen overflow-hidden bg-background text-foreground"
-      data-leftmost={leftmost}
+      className="flex h-screen w-screen overflow-hidden bg-background text-foreground"
+      data-leftmost={surface.kind === "home" ? leftmost : "sidebar"}
       data-shell
     >
-      <div className="flex h-full w-full" ref={rowRef}>
+      <Rail />
+      {surface.kind === "plugins" ? <PluginsSurface sidebarWidth={storedSidebarWidth} /> : null}
+      {surface.kind === "app" ? <GlobalAppSurface pluginId={surface.pluginId} toolId={surface.toolId} /> : null}
+      <div className={surface.kind === "home" ? "flex h-full min-w-0 flex-1" : "hidden"} ref={rowRef}>
         {resolved.sidebar === null ? null : (
           <>
             <aside

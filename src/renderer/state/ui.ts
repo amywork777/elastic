@@ -34,8 +34,21 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
  * (plan §3). Keeping that as a route rather than a modal is what lets it have
  * its own nav and its own search without fighting the shell for the keyboard.
  */
+/**
+ * What the shell shows, picked on the rail (Codex's model): the sessions
+ * (home), the plugins pages, or one plugin's global app.
+ */
+export type Surface =
+  | { kind: "home" }
+  | { kind: "plugins"; view: "browse" | "file-types" | { plugin: string } }
+  | { kind: "app"; pluginId: string; toolId: string };
+
 type UiState = {
   route: "app" | "settings";
+  surface: Surface;
+  /** The plugins page last shown, so the rail's Plugins goes back to it. */
+  lastPluginsView: Extract<Surface, { kind: "plugins" }>["view"];
+  setSurface: (surface: Surface) => void;
   settingsSection: SettingsSection;
   commandPaletteOpen: boolean;
   /**
@@ -57,6 +70,9 @@ type UiState = {
 
 export const useUi = create<UiState>((set) => ({
   route: "app",
+  surface: { kind: "home" },
+  lastPluginsView: "browse",
+  setSurface: (surface) => set(surface.kind === "plugins" ? { surface, lastPluginsView: surface.view } : { surface }),
   settingsSection: "general",
   commandPaletteOpen: false,
   commandPaletteQuery: "",

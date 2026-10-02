@@ -1,4 +1,6 @@
 import { Blocks, FileText, GitCompare, Globe, Plus, SquareTerminal, X } from "lucide-react";
+import { PluginLogo } from "@renderer/plugins/PluginLogo";
+import { toolsWithEntry, usePlugins } from "@renderer/plugins/store";
 import type { LucideIcon } from "lucide-react";
 import { createElement, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -9,6 +11,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@renderer/components/ui/dropdown-menu";
@@ -131,6 +134,9 @@ export function TabStrip() {
   const tabs = useExplorer((state) => state.tabs);
   const activeId = useExplorer((state) => state.activeId);
   const open = useExplorer((state) => state.open);
+  // Plugin tools with a `thread` entrypoint open from the same menu, below the built-in kinds.
+  usePlugins((state) => state.revision);
+  const threadTools = toolsWithEntry("thread").filter(({ tool }) => tool.visibility.includes("app"));
   const close = useExplorer((state) => state.close);
   const setActive = useExplorer((state) => state.setActive);
   const move = useExplorer((state) => state.move);
@@ -381,6 +387,17 @@ export function TabStrip() {
                   <KindIcon className="size-3.5" kind={kind} />
                   {label}
                   <DropdownMenuShortcut><ShortcutText keys={bindingOf(shortcut)} /></DropdownMenuShortcut>
+                </DropdownMenuItem>
+              ))}
+              {threadTools.length > 0 ? <DropdownMenuSeparator /> : null}
+              {threadTools.map(({ plugin, tool }) => (
+                <DropdownMenuItem key={`${plugin.id}/${tool.id}`} onSelect={() => {
+                  const opened = open("tool", { pluginId: plugin.id, toolId: tool.id, title: tool.title });
+                  if (opened) focusTabBody(opened.id);
+                }}>
+                  <PluginLogo className="size-3.5" plugin={plugin} />
+                  <span className="truncate">{tool.title}</span>
+                  <span className="ml-auto truncate pl-2 text-muted-foreground text-xs">{plugin.displayName}</span>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

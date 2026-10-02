@@ -87,6 +87,9 @@
 :root {
   --titlebar-height: 48px;
   --titlebar-inset: 0px;
+  /* The rail at the window's left edge (app/Rail.tsx): the traffic lights sit
+   * over it, so the pane after it needs only what the lights overhang. */
+  --rail-width: 52px;
 }
 
 /* 84px is the room the pinned cluster needs, measured on macOS 15 as the x of
@@ -108,14 +111,14 @@
  * from the same collapsed flag that decides who is leftmost. Settings replaces
  * the shell entirely and reserves the same room itself (SettingsRoute). */
 [data-shell][data-leftmost="session"] [data-session-header] {
-  padding-left: calc(var(--titlebar-inset) + 0.75rem);
+  padding-left: calc(max(0px, var(--titlebar-inset) - var(--rail-width)) + 0.75rem);
 }
 
 /* The sidebar's own strip holds nothing at its left end — its collapse sits at
  * the right — but the room is reserved all the same, so that a control added
  * to that row later cannot land under the lights. */
 [data-shell][data-leftmost="sidebar"] [data-sidebar-titlebar] {
-  padding-left: var(--titlebar-inset);
+  padding-left: max(0px, var(--titlebar-inset) - var(--rail-width));
 }
 
 /* The wordmark: JetBrains Mono ExtraBold Italic (resources/brand/fonts, OFL),
