@@ -48,7 +48,7 @@ jobs:
 
       - name: Rebuild the native modules
         if: steps.native.outputs.cache-hit != 'true'
-        run: npm run native:rebuild --workspace elastic
+        run: npm run native:rebuild
 
       - name: Headless Chromium for the browser suites
         run: npx playwright install chromium --only-shell

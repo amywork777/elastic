@@ -90,7 +90,7 @@ the rule is about.
 - **Root workspace dependencies are installed in this checkout, never borrowed.** electron-builder walks
   the tree by real path: a symlinked `node_modules` resolves every transitive
   dependency to `undefined`, packages an app missing half its modules, and does
-  not fail while doing it. Use root `npm ci` and explicit `npm run native:rebuild --workspace elastic`.
+  not fail while doing it. Use root `npm ci` and explicit `npm run native:rebuild`.
 - **Every path from the renderer arrives with the project it is relative to,
   and optionally a root within it.** Main resolves the pair against that
   project's directory — or, when the request names a `root`, against one of
