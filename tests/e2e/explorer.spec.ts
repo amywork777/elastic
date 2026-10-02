@@ -29,7 +29,7 @@ declare const window: {
 };
 
 const MARKDOWN = "AGENTS.md";
-const IMAGE = "apps/desktop/build/icon.png";
+const IMAGE = "build/icon.png";
 const STEP = "tests/fixtures/sample.step";
 
 let app: ElectronApplication;
@@ -87,36 +87,36 @@ test("expands three levels of the tree, and keeps them across the remount a new 
   const folder = (relative: string) => page.locator(`[role="treeitem"][data-path="${relative}"]`);
   // Each level is a lazy `explorer.list`, and each used to be a click that shut the tree
   // instead of opening it once a file was open under any of them.
-  await folder("apps").click();
-  await folder("apps/web").click();
-  await folder("apps/web/src").click();
-  await expect(folder("apps/web/src/shared")).toBeVisible();
-  await folder("apps/web/src/client").click();
-  await page.locator(`[role="treeitem"][data-path="apps/web/src/client/unboundIdentifiers.test.js"]`).click();
-  await expect(page.getByRole("tab", { name: /unboundIdentifiers\.test\.js/ })).toBeVisible();
-  await expect(folder("apps/web/src/client")).toBeVisible();
-  await folder("apps/web").click();
-  await expect(folder("apps/web/src")).toHaveCount(0);
-  await folder("apps/web").click();
-  await expect(folder("apps/web/src/client")).toBeVisible();
+  await folder("src").click();
+  await folder("src/main").click();
+  await folder("src/main/integrations").click();
+  await expect(folder("src/main/integrations/browser")).toBeVisible();
+  await folder("src/main/integrations/pdf").click();
+  await page.locator(`[role="treeitem"][data-path="src/main/integrations/pdf/module.mjs"]`).click();
+  await expect(page.getByRole("tab", { name: /module\.mjs/ })).toBeVisible();
+  await expect(folder("src/main/integrations/pdf")).toBeVisible();
+  await folder("src/main").click();
+  await expect(folder("src/main/integrations")).toHaveCount(0);
+  await folder("src/main").click();
+  await expect(folder("src/main/integrations/pdf")).toBeVisible();
   await shoot("file-tree-deep.png");
 });
 
 test("copies a relative and an absolute path from a row's context menu", async () => {
-  const row = page.locator(`[role="treeitem"][data-path="apps/web/src/client/unboundIdentifiers.test.js"]`);
+  const row = page.locator(`[role="treeitem"][data-path="src/main/integrations/pdf/module.mjs"]`);
   await openContextMenu(row);
   // A file menu has no Copy reference: the paths say it, and a reference inside a file is the
   // viewer's to copy.
   await expect(page.getByRole("menu").getByRole("menuitem", { name: "Copy reference" })).toHaveCount(0);
   await expect(page.getByRole("menu").getByRole("menuitem", { name: "Move to Trash" })).toBeVisible();
   await pick("Copy relative path");
-  await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toBe("apps/web/src/client/unboundIdentifiers.test.js");
+  await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toBe("src/main/integrations/pdf/module.mjs");
   await openContextMenu(row);
   await pick("Copy path");
   await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
-    .toBe(fs.realpathSync(path.join(repoRoot, "apps/web/src/client/unboundIdentifiers.test.js")));
+    .toBe(fs.realpathSync(path.join(repoRoot, "src/main/integrations/pdf/module.mjs")));
   // The close button is the tab's sibling, out of the accessibility tree (Delete is its keyboard twin).
-  await page.locator('[data-tab-strip] button[aria-label="Close unboundIdentifiers.test.js"]').click();
+  await page.locator('[data-tab-strip] button[aria-label="Close module.mjs"]').click();
 });
 
 test("opens an image with its dimensions, and reveals it in the tree", async () => {

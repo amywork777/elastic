@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import type { WorkbenchApi } from "../../src/shared/ipc";
-import { chooseDirectory, launch, scratch, setTheme as setThemeIn, settledLayout, shoot as shootInto } from "./launch";
+import { appRoot, chooseDirectory, launch, scratch, setTheme as setThemeIn, settledLayout, shoot as shootInto } from "./launch";
 
 /**
  * The session UI against the fake agent (plan §12): new session → prompt →
@@ -662,13 +662,19 @@ test("activity keeps failures separate from the summary and uses a quiet thinkin
  * References, both ways. An agent names files in prose: the ones that exist are links that
  * open in the explorer, the rest are words — which needs main to say which exist. A person
  * types one into the composer: it is a chip, and it goes to the agent as its plain token.
- * (The viewer's own Add to prompt is `cad.spec.ts`.)
+ * Which files can carry a `#fragment` is what enabled plugins open: here the example Tables
+ * plugin, installed from its folder, makes `.csv` one.
  */
 test("paths an agent writes are links that open in the explorer, and a typed reference is a chip sent as its text", async () => {
   const workspace = scratch("references");
   extraDirs.push(workspace);
-  const STEP = "tests/fixtures/cad/import-smoke.step";
-  for (const file of ["README.md", "apps/desktop/AGENTS.md", STEP]) {
+  const STEP = "tests/fixtures/sample.csv";
+  const tables = await page.evaluate((folder) => window.workbench.plugins.installFolder({ path: folder }),
+    path.join(appRoot, "resources", "plugins", "plugins", "csv-table"));
+  expect(tables?.tools.map((tool) => tool.id)).toContain("tables/show_table");
+  // The window heard about it: Tables' global view is on the rail.
+  await expect(page.getByRole("navigation", { name: "Rail" }).getByRole("button", { name: "Tables" })).toBeVisible();
+  for (const file of ["README.md", "AGENTS.md", STEP]) {
     fs.mkdirSync(path.dirname(path.join(workspace, file)), { recursive: true });
     fs.writeFileSync(path.join(workspace, file), `# ${path.basename(file)}\n`);
   }
@@ -679,11 +685,11 @@ test("paths an agent writes are links that open in the explorer, and a typed ref
   const outcome = await page.evaluate(({ id, text }) => window.workbench.sessions.prompt({ id, content: [{ type: "text", text }] }),
     { id: session.id, text: "mention some files" });
   expect(outcome.stopReason).toBe("end_turn");
-  // Real paths are buttons — prose, a code span, a CAD reference with its selector — and a
+  // Real paths are buttons — prose, a code span, a plugin format's reference with its fragment — and a
   // missing path or a version number is text.
   const readme = page.locator('[data-path-link="README.md"]');
   await expect(readme).toBeVisible();
-  await expect(page.locator('[data-path-link="apps/desktop/AGENTS.md"]')).toBeVisible();
+  await expect(page.locator('[data-path-link="AGENTS.md"]')).toBeVisible();
   await expect(page.locator(`[data-path-link="${STEP}"]`)).toHaveAttribute("data-path-selector", "o1");
   await expect(page.locator('[data-path-text="nope/missing.md"]')).toBeVisible();
   await expect(page.locator('[data-path-link="0.5.0"]')).toHaveCount(0);
@@ -841,5 +847,7 @@ async function expectPaneWidths() {
   expect(widths).toHaveLength(2);
   expect(Math.abs(widths[0]! - 230), `sidebar ${widths[0]}`).toBeLessThanOrEqual(1);
   expect(widths[1]!, `session ${widths[1]}`).toBeGreaterThanOrEqual(320);
-  expect(Math.abs(widths[0]! + widths[1]! - await page.evaluate(() => window.innerWidth))).toBeLessThanOrEqual(3);
+  // The rail is the rest of the window.
+  const rail = await page.locator("[data-rail]").evaluate((element) => element.getBoundingClientRect().width);
+  expect(Math.abs(rail + widths[0]! + widths[1]! - await page.evaluate(() => window.innerWidth))).toBeLessThanOrEqual(3);
 }

@@ -1,4 +1,4 @@
-import { FRAGMENT_SOURCE, splitReference } from "@shared/file-refs";
+import { FRAGMENT_SOURCE, isReferenceFile, splitReference } from "@shared/file-refs";
 
 /**
  * What in an agent's prose might be a file (plan §8: "reference files by
@@ -123,7 +123,7 @@ function tokenFrom(raw: string, at: number): PathToken | null {
   return { start, end: start + body.length, raw: body, path: normalised.replace(/\/+$/, ""), selector };
 }
 
-/** Selectors point into CAD files, and into the generators that make them. */
+/** A fragment points into a format an enabled plugin opens (`@shared/file-refs`). */
 function isSelectorHost(file: string): boolean {
-  return /\.(step|stp|glb|stl|3mf|dxf|urdf|srdf|sdf)(\.py)?$/i.test(file);
+  return isReferenceFile(file);
 }

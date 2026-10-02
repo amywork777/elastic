@@ -23,6 +23,7 @@ import { McpBridge, PLUGIN_INTEGRATION_PREFIX } from "../../../src/main/integrat
 import { PluginHost } from "../../../src/main/plugins/host";
 import { PluginRegistry } from "../../../src/main/plugins/registry";
 import { PluginService } from "../../../src/main/plugins/service";
+import { PluginsSnapshotSchema } from "../../../src/shared/ipc/plugins";
 
 const root = path.resolve(".");
 const modules = path.join(root, "node_modules", "@modelcontextprotocol");
@@ -72,6 +73,11 @@ describe("the plugin host, against real servers", () => {
     expect(plugins.fs!.tools).toEqual([]);
     expect(plugins.mem!.servers[0]!.toolNames).toContain("create_entities");
     expect(plugins.demo!.tools.map((tool) => [tool.id, tool.entrypoints])).toEqual([["basic/get-time", [{ type: "thread" }]]]);
+  });
+
+  it("answers snapshots the IPC contract accepts", () => {
+    const parsed = PluginsSnapshotSchema.safeParse(service.snapshot());
+    expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
   });
 
   it("serves an MCP App's HTML and calls its tool, as the frame does", async () => {

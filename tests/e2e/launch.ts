@@ -22,7 +22,8 @@ declare const window: { innerWidth: number; innerHeight: number };
 declare function requestAnimationFrame(callback: () => void): number;
 
 export const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-export const repoRoot = path.resolve(appRoot, "..", "..");
+/** This repository: the e2e suites browse the checkout itself as a project. */
+export const repoRoot = appRoot;
 export const fakeAgent = path.join(appRoot, "tests", "fake-agent", "index.mjs");
 export const mod = process.platform === "darwin" ? "Meta" : "Control";
 

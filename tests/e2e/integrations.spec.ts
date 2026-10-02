@@ -11,11 +11,11 @@ import { chooseDirectory, launch, mod, scratch } from "./launch";
  *
  *   - the skills root in every `session/new` (both spellings), the preamble
  *     only for an agent that will not read one, the workspace MCP server's two
- *     skills tools, and the app's own `cadgen` first on the session's PATH.
+ *     skills tools.
  *     Nothing is installed into any agent's own configuration;
  *   - the domain MCP servers `session/new` carries, each started by the agent
  *     with the environment the app gave it, operating the live app: browser
- *     tabs, documents with unsaved edits and revisions, drawings, PDFs and
+ *     tabs, documents with unsaved edits and revisions, PDFs and
  *     terminals, each checked on screen as well as in the reply.
  *
  * The fake agent appends a JSON line for every `session/new`, `session/load`
@@ -50,7 +50,7 @@ test.beforeAll(async () => {
   fs.writeFileSync(path.join(project, "fixture.pdf"), pdfFixture());
   ({ app, page } = await launch({
     userData: path.join(userData, "profile"),
-    env: { FAKE_AGENT_INTEGRATION_PROOF: "1", FAKE_AGENT_RECORD: record, CADGEN_DAEMON: "0" },
+    env: { FAKE_AGENT_INTEGRATION_PROOF: "1", FAKE_AGENT_RECORD: record },
   }));
   page.on("pageerror", (error) => errors.push(error.message));
   await page.evaluate(() => window.workbench.settings.set({ theme: "dark" }));
@@ -65,12 +65,12 @@ test.afterAll(async () => {
 test("the skills root is in session/new in both layouts, and the preamble only for an agent that ignores it", async () => {
   const info = await page.evaluate(() => window.workbench.skills.info());
   const names = info.skills.map((skill) => skill.name);
-  expect(names).toEqual(expect.arrayContaining(["cad", "cad-viewer", "documents", "pdf", "drawings", "terminals", "app-browser"]));
+  expect(names).toEqual(expect.arrayContaining(["app-browser", "documents", "pdf", "terminals"]));
   expect(names).not.toContain("elastic-app-use");
   // One directory per app version, under the app's own user-data directory.
   expect(path.dirname(info.root!)).toBe(path.join(fs.realpathSync(path.join(userData, "profile")), "skills"));
   for (const layout of [path.join(".claude", "skills"), path.join(".agents", "skills")]) {
-    for (const name of ["cad", "cad-viewer", "documents", "pdf", "drawings", "terminals", "app-browser"]) {
+    for (const name of ["app-browser", "documents", "pdf", "terminals"]) {
       expect(fs.existsSync(path.join(info.root!, layout, name, "SKILL.md"))).toBe(true);
     }
   }
@@ -86,20 +86,13 @@ test("the skills root is in session/new in both layouts, and the preamble only f
   }
   const skills = native.find((frame) => frame.kind === "skills")!;
   expect((skills.params.names as string[]).sort()).toEqual([...names].sort());
-  expect(skills.params.cad).toEqual({ path: "cad/SKILL.md", text: fs.readFileSync(path.join(info.root!, ".claude", "skills", "cad", "SKILL.md"), "utf8") });
-  // The app's own cadgen is first on the session's PATH, where `command -v` finds it.
-  const first = String(created.params.PATH ?? "").split(path.delimiter)[0]!;
-  const shipped = [path.join(first, "cadgen"), path.join(first, "cadgen.cmd")].find((candidate) => fs.existsSync(candidate));
-  if (process.env.WORKBENCH_E2E_REQUIRE_CAD === "1") {
-    expect(shipped, "CAD qualification requires the app's cadgen command in the session PATH").toBeDefined();
-  }
-  if (shipped) expect(native.find((frame) => frame.kind === "which")!.params.cadgen).toBe(shipped);
+  expect(skills.params.documents).toEqual({ path: "documents/SKILL.md", text: fs.readFileSync(path.join(info.root!, ".claude", "skills", "documents", "SKILL.md"), "utf8") });
 
   // gemini-cli's `newSession` ignores additional directories: it is told once, in the first prompt.
   const told = (await run("gemini-cli", ["first", "second"])).filter((frame) => frame.kind === "prompt");
   expect(told).toHaveLength(2);
   expect(JSON.stringify(told[0]!.params.prompt)).toContain("Additional skills are at");
-  expect(JSON.stringify(told[0]!.params.prompt)).toContain("- cad:");
+  expect(JSON.stringify(told[0]!.params.prompt)).toContain("- documents:");
   expect(JSON.stringify(told[1]!.params.prompt)).not.toContain("Additional skills are at");
 });
 
@@ -111,8 +104,8 @@ test("a real ACP session starts isolated domain MCPs and operates the live app's
   await expect(page.locator("[data-explorer-ready=true]")).toBeVisible();
 
   const catalog = await proof({ operation: "catalog" }) as { catalog: Array<{ name: string; tools: string[] }> };
-  expect(catalog.catalog.map((entry) => entry.name).sort()).toEqual(["browser", "cad", "documents", "drawings", "pdf", "terminals", "workspace"].map((name) => `elastic-${name}`).sort());
-  const tools = (name: string) => catalog.catalog.find((entry) => entry.name === `elastic-${name}`)?.tools ?? [];
+  expect(catalog.catalog.map((entry) => entry.name).sort()).toEqual(["browser", "documents", "pdf", "terminals", "workspace"].map((name) => `app-${name}`).sort());
+  const tools = (name: string) => catalog.catalog.find((entry) => entry.name === `app-${name}`)?.tools ?? [];
   expect(tools("documents")).toContain("edit_document");
   expect(tools("pdf")).not.toContain("edit_document");
   expect(tools("browser")).toContain("browser_snapshot");
@@ -152,16 +145,9 @@ test("a real ACP session starts isolated domain MCPs and operates the live app's
   expect(refused.isError).toBe(true);
   await expect(page.getByRole("tab", { name: /notes\.txt/ })).toBeVisible();
 
-  // Drawings: an ephemeral tab the agent opens, reads and renames.
-  const drawing = json<{ tabId: string }>(await tool("drawings", "open_drawing", { title: "MCP scratch" }));
-  const [drawingState, renamed] = await batch("drawings", [
-    { name: "drawing_state", args: { tabId: drawing.tabId } },
-    { name: "rename_drawing", args: { tabId: drawing.tabId, title: "Assembly sketch" } },
-  ]);
-  expect(json(drawingState!)).toMatchObject({ elementCount: 0, ephemeral: true });
-  json(renamed!);
-  await expect(page.getByRole("tab", { name: /Assembly sketch/ })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Drawing name" })).toHaveValue("Assembly sketch");
+  // Another tab in front: the browser tab the agent opened above.
+  const strip = json<{ tabs: Array<{ id: string; kind: string }> }>(await tool("workspace", "list_open_tabs", {}));
+  json(await tool("workspace", "show_tab", { tabId: strip.tabs.find((tab) => tab.kind === "browser")!.id }));
 
   // Back to the document: hidden, it still holds the agent's text; shown, it binds again with a
   // new revision, and saves.

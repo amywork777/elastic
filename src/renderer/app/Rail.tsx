@@ -1,4 +1,4 @@
-import { Blocks, MessagesSquare, Settings } from "lucide-react";
+import { Blocks, MessagesSquare } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@renderer/lib/utils";
@@ -30,15 +30,14 @@ function RailButton({ label, active, onClick, children }: { label: string; activ
 /**
  * The rail: an app switcher down the window's left edge, as Codex has it.
  * Fixed destinations first (sessions, plugins), then one icon per plugin tool
- * with a `global` entrypoint (its own full-window page), then Settings at the
- * bottom. The rail never collapses; the sidebar beside it belongs to whichever
+ * with a `global` entrypoint (its own full-window page). Settings stays where
+ * it was: the sidebar's button, the menu and Mod+,. The rail never collapses; the sidebar beside it belongs to whichever
  * item is selected.
  */
 export function Rail() {
   const surface = useUi((state) => state.surface);
   const setSurface = useUi((state) => state.setSurface);
   const lastPluginsView = useUi((state) => state.lastPluginsView);
-  const openSettings = useUi((state) => state.openSettings);
   usePlugins((state) => state.revision);
   const apps = toolsWithEntry("global");
   const is = (kind: Surface["kind"]) => surface.kind === kind;
@@ -64,10 +63,6 @@ export function Rail() {
           <PluginLogo className="size-5" plugin={plugin} />
         </RailButton>
       ))}
-      <div className="flex-1" />
-      <RailButton active={false} label="Settings" onClick={() => openSettings()}>
-        <Settings className="size-[18px]" />
-      </RailButton>
     </nav>
   );
 }

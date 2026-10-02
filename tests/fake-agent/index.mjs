@@ -60,8 +60,8 @@
  *                 permission request that waits for the answer, a subagent,
  *                 prose — with small delays so the streaming states can be
  *                 seen
- *   "skills"      call the elastic MCP server's `list_skills`, and
- *                 `read_skill` on the `cad` skill, and reply with what came
+ *   "skills"      call the app MCP server's `list_skills`, and
+ *                 `read_skill` on the `documents` skill, and reply with what came
  *                 back — the universal path an agent with no skill-root
  *                 feature takes
  *   "which"       run `command -v cadgen` in a terminal, so a test can see
@@ -719,7 +719,7 @@ async function script(conn, params) {
 
   if (text.includes("mention")) {
     const prose =
-      "Look at README.md and `apps/desktop/AGENTS.md`; the part is tests/fixtures/cad/import-smoke.step#o1 " +
+      "Look at README.md and `AGENTS.md`; the table is tests/fixtures/sample.csv#o1 " +
       "(nope/missing.md does not exist, and 0.5.0 is a version).\n";
     await send({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: prose } });
   }
@@ -744,17 +744,17 @@ async function script(conn, params) {
     await send({ sessionUpdate: "tool_call", toolCallId: "skills-1", title: "list_skills", kind: "other", status: "in_progress" });
     try {
       const listed = await callAppTool("list_skills", {});
-      const read = await callAppTool("read_skill", { name: "cad" });
+      const read = await callAppTool("read_skill", { name: "documents" });
       const answer = JSON.parse(listed.content[0].text);
       if (listed.isError || read.isError) throw new Error("Skill MCP request failed");
       const names = answer.map((skill) => skill.name);
-      record("skills", { names, cad: JSON.parse(read.content[0].text) });
+      record("skills", { names, documents: JSON.parse(read.content[0].text) });
       await send({ sessionUpdate: "tool_call_update", toolCallId: "skills-1", status: "completed", rawOutput: { names } });
       await send({
         sessionUpdate: "agent_message_chunk",
         content: {
           type: "text",
-          text: `skills: ${names.join(",")} · cad starts ${JSON.parse(read.content[0].text).text.slice(0, 3)}`,
+          text: `skills: ${names.join(",")} · documents starts ${JSON.parse(read.content[0].text).text.slice(0, 3)}`,
         },
       });
     } catch (error) {
@@ -845,7 +845,7 @@ async function script(conn, params) {
 /** Spawn the `elastic` MCP server from `session/new`, call one tool, and let it go. */
 async function callAppTool(name, args) {
   const domain = toolByName(name)?.integration.id;
-  const server = mcpServers.find((candidate) => candidate.name === `elastic-${domain}`);
+  const server = mcpServers.find((candidate) => candidate.name === `app-${domain}`);
   if (!server) {
     throw new Error(`Session carried no MCP server for ${name}`);
   }
