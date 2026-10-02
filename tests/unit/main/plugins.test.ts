@@ -9,9 +9,10 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("electron", () => ({ protocol: { registerSchemesAsPrivileged: vi.fn(), handle: vi.fn() } }));
+const clearStorageData = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("electron", () => ({ protocol: { registerSchemesAsPrivileged: vi.fn(), handle: vi.fn() }, session: { defaultSession: { clearStorageData } } }));
 
-import { appPolicy, releaseApp, stageApp } from "../../../src/main/plugins/app-protocol";
+import { appPolicy, frameNavigationAllowed, releaseApp, stageApp } from "../../../src/main/plugins/app-protocol";
 import { expandPluginRoot, insidePlugin, readMarketplace, readPlugin } from "../../../src/main/plugins/manifest";
 import { PluginRegistry } from "../../../src/main/plugins/registry";
 import { appOnly } from "../../../src/main/plugins/service";
@@ -162,5 +163,24 @@ describe("mcp-app:// documents", () => {
     const url = stageApp("<p>hi</p>", undefined);
     expect(url).toMatch(/^mcp-app:\/\/[0-9a-f]{24}\/index\.html$/);
     releaseApp(url);
+    // The frame's origin goes with it: nothing it stored is left for a later one.
+    expect(clearStorageData).toHaveBeenCalledWith({ origin: url.replace(/\/index\.html$/, "") });
+  });
+
+  it("gives every staged document an origin of its own", () => {
+    const origins = new Set(Array.from({ length: 20 }, () => new URL(stageApp("<p/>", undefined)).hostname));
+    expect(origins.size).toBe(20);
+  });
+
+  it("keeps an app's frame on its own origin", () => {
+    const own = "mcp-app://aaaaaaaaaaaaaaaaaaaaaaaa/index.html";
+    expect(frameNavigationAllowed(own, "mcp-app://aaaaaaaaaaaaaaaaaaaaaaaa/other.html")).toBe(true);
+    expect(frameNavigationAllowed(own, "mcp-app://bbbbbbbbbbbbbbbbbbbbbbbb/index.html")).toBe(false);
+    expect(frameNavigationAllowed(own, "file:///Applications/elastic.app/Contents/Resources/app/out/renderer/index.html")).toBe(false);
+    expect(frameNavigationAllowed(own, "http://localhost:5173/")).toBe(false);
+    expect(frameNavigationAllowed(own, "https://example.com/")).toBe(false);
+    expect(frameNavigationAllowed(own, "javascript:alert(1)")).toBe(false);
+    // Frames that are not apps (the browser's own pages live in views, not frames) are not this rule's.
+    expect(frameNavigationAllowed("about:blank", "https://example.com/")).toBe(true);
   });
 });

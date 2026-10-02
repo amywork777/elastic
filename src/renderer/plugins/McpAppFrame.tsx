@@ -80,7 +80,7 @@ type Staged = { key: string; url: string | null; error: string | null };
  * size in whatever it is mounted in: a tab, a rail page, a file.
  *
  * The HTML is served from its own `mcp-app://` URL (main's
- * `plugins/app-protocol.ts`) in a frame sandboxed without same-origin, and
+ * `plugins/app-protocol.ts`) in a sandboxed frame whose origin is its own, and
  * spoken to with the MCP Apps bridge over `postMessage`. The app's requests
  * (its own server's tools and resources) go to main as `plugins.request` in
  * this frame's scope. The host's theme goes in as style variables, and the
@@ -222,8 +222,9 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
         <iframe
           className="absolute inset-0 size-full border-0 bg-background"
           ref={frameRef}
-          // No allow-same-origin: the app is an opaque origin, reachable by postMessage only.
-          sandbox="allow-scripts allow-forms allow-popups allow-downloads"
+          // allow-same-origin keeps the frame's own mcp-app://<id> origin real (workers, storage);
+          // it is never the app's origin (main's plugins/app-protocol.ts), so the app stays postMessage-only.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads"
           src={url}
           title={`${pluginName}: ${tool}`}
         />

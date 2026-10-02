@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { BrowserWindow, app, dialog, nativeImage, nativeTheme, shell } from "electron";
 
 import { initIntegrations, shutdownIntegrations } from "./integrations";
-import { registerAppScheme, serveAppScheme } from "./plugins/app-protocol";
+import { guardAppFrames, registerAppScheme, serveAppScheme } from "./plugins/app-protocol";
 import { APP_NAME, APP_SLUG } from "../shared/brand";
 import { browserService } from "./browser/service";
 import { endTrackedChildren, killTrackedChildren } from "./children";
@@ -152,6 +152,7 @@ function createWindow() {
   });
 
   restrictAppPermissions(window.webContents.session);
+  guardAppFrames(window.webContents);
   if (state.maximized) {
     window.maximize();
   }

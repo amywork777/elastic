@@ -24,7 +24,7 @@ from this 0.7.8 setup.
 
 | Plugin | Installs | Servers | Tools | Views | Agent / call | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| text-to-cad (cadgen 0.7.8 + PR #509) | yes, unchanged | ready (stdio) | 16 | rail page, thread tab, `Open with` for STEP/STL/GLB... | | rail page renders recents with thumbnails; a STEP file view fails, see CAD below |
+| text-to-cad (cadgen 0.7.8 + PR #509) | yes, unchanged | ready (stdio) | 16 | rail page, thread tab, `Open with` for STEP/STL/GLB... | | rail page renders recents with thumbnails; a STEP file renders (fixed: plugin frames are now their own origin, see CAD below) |
 | Linear (Claude Code plugin) | yes (after the bare `.mcp.json` fix) | Sign in (HTTP, OAuth) | after sign-in | none | | registration and PKCE work; the sign-in reaches `mcp.linear.app/authorize` |
 | Figma (Claude Code plugin) | yes, 14 skills | Sign in (HTTP, OAuth) | after sign-in | none | | `mcp.figma.com` refuses client registration (403): only apps Figma approved can sign in |
 | Playwright MCP (`@playwright/mcp`) | yes | ready | 25 | none (no MCP App) | `browser_navigate` to example.com returns its snapshot | needs `--browser chrome` (or its own browser install) |
@@ -52,13 +52,15 @@ but the model shows "Couldn't load the model: surf worker failed." Found:
 - Not the cause, but fixed on the way: elastic dropped the `data:` and `blob:`
   sources cadgen declares in `_meta.ui.csp.connectDomains`.
 
-Two ways out, a decision rather than a bug fix:
-1. elastic adds `allow-same-origin` to plugin frames. Each staged document has
-   a random `mcp-app://<id>` host, so the origin would be its own, not the
-   window's. It is a security trade-off (the frame gets storage and a real
-   origin), so it was not made without a decision.
-2. cadgen starts its workers from a classic worker or a `data:` URL, which
-   works from an opaque origin. That keeps hosts strict.
+**Fixed (2026-10-02, Amy chose option 1, "own origin per plugin").** Every
+plugin frame now keeps `allow-same-origin` on its own random `mcp-app://<id>`
+origin: never the app's or another frame's, no `window.workbench`, no top or
+cross-origin navigation (`guardAppFrames`), storage cleared on release
+(`src/main/plugins/app-protocol.ts`; unit tests in `tests/unit/main/plugins.test.ts`,
+an in-frame probe in `tests/e2e/plugins.spec.ts`). Re-run on the same setup:
+the STEP model renders (`cad-step-file.png`), with cadgen's analytics prompt on
+top. The other option, cadgen starting workers from a classic worker or a
+`data:` URL, is no longer needed.
 
 Codex's "worker did not announce itself within 120s" did not reproduce here;
 that message is cadgen's daemon pool (`cadgen/daemon/pool.py:274`), a
@@ -66,8 +68,8 @@ different worker.
 
 ## What "all the apps" takes
 
-- **CAD:** works as a plugin (rail page, tabs, file handler) once the worker
-  question above is settled. PR #509 is what gives elastic the tab surfaces.
+- **CAD:** works as a plugin: rail page, tabs, file handler, and the model
+  renders. PR #509 is what gives elastic the tab surfaces.
 - **Figma:** OAuth is built (`src/main/plugins/oauth.ts`), but Figma's server
   only registers clients it knows. elastic needs Figma to approve it (or a
   client id from Figma configured in the plugin). Until then Figma works only

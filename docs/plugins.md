@@ -97,8 +97,12 @@ presents Codex's entrypoints, so a server that has tab surfaces (text-to-cad's
 CAD plugin) can offer them to any host that declares it rather than to a list
 of client names (`src/main/plugins/host.ts`).
 
-The view is a sandboxed frame (no same-origin) served from its own
-`mcp-app://` URL under a policy with no network access unless the resource's
+The view is a sandboxed frame served from its own `mcp-app://<random id>`
+URL, which is its own origin: real, so module and `blob:` workers and storage
+work (text-to-cad's CAD page needs them), but never the app's or another
+view's. It cannot reach the app's page or `window.workbench`, navigate the
+window, or leave its origin, and its storage is cleared when it closes. It is
+served under a policy with no network access unless the resource's
 `_meta.ui.csp` lists `connectDomains` or `resourceDomains`. It talks to the app
 with the MCP Apps protocol over `postMessage`: `ui/initialize`, then the tool's
 input and result arrive as `ui/notifications/tool-input` and `tool-result`, and

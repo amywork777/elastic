@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 /**
  * Plugins end to end, in the built app: the examples marketplace on the Plugins page, an
  * install from it, a file of a format the plugin claims opening behind the consent screen and
@@ -103,4 +104,40 @@ test("the rail page and the session's + menu open the same app", async () => {
   await home.getByRole("button", { name: "Show table" }).click();
   await expect(home.locator("tbody tr")).toHaveCount(2);
   await shoot("plugins-rail-page.png");
+});
+
+test("each app frame is an origin of its own: workers start, the app and other frames stay out of reach", async () => {
+  // The rail page and the session's Table tab, both open from the test above: two frames of one plugin.
+  const apps = page.frames().filter((frame) => frame.url().startsWith("mcp-app://"));
+  expect(apps.length).toBeGreaterThanOrEqual(2);
+  const [first, second] = apps as [typeof apps[number], typeof apps[number]];
+  const probe = (frame: typeof first) =>
+    frame.evaluate(async () => {
+      let parentReadable = true;
+      try { void window.parent.document.title; } catch { parentReadable = false; }
+      // `import.meta` parses only in a module worker; a classic one fails to start.
+      const source = "self.postMessage(import.meta.url ? 'module' : 'none');";
+      const worker = new Worker(URL.createObjectURL(new Blob([source], { type: "text/javascript" })), { type: "module" });
+      const kind = await new Promise<string>((resolve) => {
+        worker.onmessage = (event) => resolve(String(event.data));
+        worker.onerror = () => resolve("failed");
+        setTimeout(() => resolve("timeout"), 5_000);
+      });
+      worker.terminate();
+      return { origin: location.origin, workbench: typeof (window as { workbench?: unknown }).workbench, parentReadable, worker: kind };
+    });
+  const a = await probe(first);
+  const b = await probe(second);
+  for (const result of [a, b]) {
+    expect(result.origin).toMatch(/^mcp-app:\/\/[0-9a-f]{24}$/);
+    expect(result).toMatchObject({ workbench: "undefined", parentReadable: false, worker: "module" });
+  }
+  expect(a.origin).not.toBe(b.origin);
+  await first.evaluate(() => localStorage.setItem("elastic-isolation", "first"));
+  expect(await second.evaluate(() => localStorage.getItem("elastic-isolation"))).toBeNull();
+  // A frame that tries to leave its origin for the app's page stays where it was.
+  const before = first.url();
+  await first.evaluate(() => { location.href = "mcp-app://ffffffffffffffffffffffff/index.html"; }).catch(() => {});
+  await page.waitForTimeout(500);
+  expect(first.url()).toBe(before);
 });
