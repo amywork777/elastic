@@ -25,6 +25,13 @@ import { z } from "zod";
 export const MCP_APP_MIME = "text/html;profile=mcp-app";
 /** The client capability extension that tells a server this host renders MCP Apps. */
 export const MCP_UI_EXTENSION = "io.modelcontextprotocol/ui";
+/**
+ * The client capability extension that tells a server which of Codex's UI entrypoints this host
+ * presents (a rail page, a thread tab, a file handler), so a server can offer tabs to any host that
+ * declares them rather than to a list of client names. Named after the tool `_meta` key it answers.
+ */
+export const UI_ENTRYPOINTS_EXTENSION = "openai/ui";
+export const UI_ENTRYPOINTS = ["global", "thread", "file"] as const;
 
 /** One MCP server as a plugin's `.mcp.json` declares it: Codex's keys, and Claude Code's. */
 export const PluginServerConfigSchema = z.object({

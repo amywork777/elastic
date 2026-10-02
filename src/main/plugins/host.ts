@@ -31,7 +31,13 @@ import {
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { MCP_APP_MIME, MCP_UI_EXTENSION, type PluginServerConfig } from "../../shared/plugins";
+import {
+  MCP_APP_MIME,
+  MCP_UI_EXTENSION,
+  UI_ENTRYPOINTS,
+  UI_ENTRYPOINTS_EXTENSION,
+  type PluginServerConfig,
+} from "../../shared/plugins";
 import { expandPluginRoot, insidePlugin } from "./manifest";
 
 /** The MCP methods a proxy may forward, and the result each is read as. */
@@ -93,7 +99,15 @@ export class PluginHost {
     const { config } = server;
     const client = new Client(
       { name: this.deps.clientName, version: this.deps.clientVersion },
-      { capabilities: { roots: { listChanged: false }, extensions: { [MCP_UI_EXTENSION]: { mimeTypes: [MCP_APP_MIME] } } } },
+      {
+        capabilities: {
+          roots: { listChanged: false },
+          extensions: {
+            [MCP_UI_EXTENSION]: { mimeTypes: [MCP_APP_MIME] },
+            [UI_ENTRYPOINTS_EXTENSION]: { entrypoints: [...UI_ENTRYPOINTS] },
+          },
+        },
+      },
     );
     const connection: Connection = { client, closed: false, stderr: [], roots };
     client.setRequestHandler(ListRootsRequestSchema, async () => ({

@@ -82,6 +82,21 @@ _meta: {
 | `global` | an icon on the rail and a full-window page, in the app's scope |
 | `file` with `extensions` | how files of those types open in the explorer, after the person allows the plugin for the project |
 
+At `initialize` the app declares both halves in its client capabilities, so a
+server can tell what it is talking to without knowing the app's name:
+
+```js
+extensions: {
+  "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
+  "openai/ui": { entrypoints: ["global", "thread", "file"] },
+}
+```
+
+The first is the MCP Apps standard (views render). The second says this host
+presents Codex's entrypoints, so a server that has tab surfaces (text-to-cad's
+CAD plugin) can offer them to any host that declares it rather than to a list
+of client names (`src/main/plugins/host.ts`).
+
 The view is a sandboxed frame (no same-origin) served from its own
 `mcp-app://` URL under a policy with no network access unless the resource's
 `_meta.ui.csp` lists `connectDomains` or `resourceDomains`. It talks to the app

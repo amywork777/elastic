@@ -50,6 +50,16 @@ beforeAll(async () => {
   await service.installFolder(plugin("fs", { filesystem: { command: node, args: [path.join(modules, "server-filesystem", "dist", "index.js")] } }));
   await service.installFolder(plugin("mem", { memory: { command: node, args: [path.join(modules, "server-memory", "dist", "index.js")], env: { MEMORY_FILE_PATH: path.join(dir, "memory.jsonl") } } }));
   await service.installFolder(plugin("demo", { basic: { command: node, args: [path.join(modules, "server-basic-vanillajs", "dist", "index.js"), "--stdio"] } }));
+  // A server that answers what the client declared at initialize.
+  const caps = path.join(dir, "caps.mjs");
+  fs.writeFileSync(caps, [
+    `import { McpServer } from ${JSON.stringify(path.join(modules, "sdk", "dist", "esm", "server", "mcp.js"))};`,
+    `import { StdioServerTransport } from ${JSON.stringify(path.join(modules, "sdk", "dist", "esm", "server", "stdio.js"))};`,
+    `const server = new McpServer({ name: "caps", version: "0" });`,
+    `server.registerTool("client_caps", {}, async () => ({ content: [{ type: "text", text: JSON.stringify(server.server.getClientCapabilities()) }] }));`,
+    `await server.connect(new StdioServerTransport());`,
+  ].join("\n"));
+  await service.installFolder(plugin("caps", { caps: { command: node, args: [caps] } }));
 }, 60_000);
 
 afterAll(async () => {
@@ -61,7 +71,7 @@ afterAll(async () => {
 describe("the plugin host, against real servers", () => {
   it("lists every server's tools and reads the UI ones' entrypoints", () => {
     const plugins = Object.fromEntries(service.plugins().map((entry) => [entry.id, entry]));
-    for (const id of ["csv-table", "fs", "mem", "demo"]) {
+    for (const id of ["csv-table", "fs", "mem", "demo", "caps"]) {
       expect(plugins[id]!.servers.every((server) => server.status === "ready"), `${id}: ${JSON.stringify(plugins[id]!.servers)}`).toBe(true);
     }
     expect(plugins["csv-table"]!.skills).toEqual(["csv-tables"]);
@@ -73,6 +83,14 @@ describe("the plugin host, against real servers", () => {
     expect(plugins.fs!.tools).toEqual([]);
     expect(plugins.mem!.servers[0]!.toolNames).toContain("create_entities");
     expect(plugins.demo!.tools.map((tool) => [tool.id, tool.entrypoints])).toEqual([["basic/get-time", [{ type: "thread" }]]]);
+  });
+
+  it("declares MCP Apps and the Codex entrypoints it presents, so a server can offer tabs by capability", async () => {
+    const result = await service.request(null, "caps", "caps", "tools/call", { name: "client_caps", arguments: {} }) as { content: Array<{ text: string }> };
+    expect(JSON.parse(result.content[0]!.text).extensions).toEqual({
+      "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
+      "openai/ui": { entrypoints: ["global", "thread", "file"] },
+    });
   });
 
   it("answers snapshots the IPC contract accepts", () => {
