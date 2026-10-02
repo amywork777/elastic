@@ -5,7 +5,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { createDesktopPromptContext } from "@renderer/features/explorer/host/promptContext";
 import { Composer } from "@renderer/features/session/Composer";
-import { withAnnotations } from "@renderer/features/session/composer/AnnotationsChip";
+import { openAnnotation, withAnnotations } from "@renderer/features/session/composer/AnnotationsChip";
 import { useAcp } from "@renderer/state/acp";
 import { useComposer } from "@renderer/state/composer";
 import type { DraftPart, TakenDraft } from "@renderer/state/composer";
@@ -66,11 +66,11 @@ it("sending writes the annotations after the prompt as a numbered list of geomet
 
 it("pressing an annotation in the chat box opens its model and asks the viewer to open it", () => {
   const openFile = vi.fn(() => ({ id: "bracket-tab" }) as FileTab);
-  const openAnnotation = vi.fn();
-  useExplorer.setState({ projectId: "p", ready: true, tabs: [], activeId: null, openFile, openAnnotation });
+  const openInTab = vi.fn();
+  useExplorer.setState({ projectId: "p", ready: true, tabs: [], activeId: null, openFile, openAnnotation: openInTab });
   openAnnotation({ projectId: "p", root: null }, { id: "a1", text: "fillet these", references: [edge("o1.1.f2", "Face 2")] });
   expect(openFile).toHaveBeenCalledWith("parts/bracket.step", null);
-  expect(openAnnotation).toHaveBeenCalledWith("bracket-tab", "a1");
+  expect(openInTab).toHaveBeenCalledWith("bracket-tab", "a1");
   expect(() => openAnnotation(null, { id: "a2", text: "", references: [edge("o1.1.f2")] })).toThrow(/project/);
 });
 

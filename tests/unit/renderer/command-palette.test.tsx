@@ -62,7 +62,7 @@ describe("the command palette", () => {
     const user = userEvent.setup();
     render(<CommandPalette />);
     await user.type(screen.getByPlaceholderText(COMMAND_PALETTE_PROMPT), "new");
-    for (const name of ["New session", "New file tab", "New review tab", "New terminal", "New browser tab", "New drawing"]) {
+    for (const name of ["New session", "New file tab", "New review tab", "New terminal", "New browser tab"]) {
       expect(screen.getByRole("option", { name })).toBeInTheDocument();
     }
     expect(screen.getByText("Create")).toBeInTheDocument();

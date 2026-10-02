@@ -3,6 +3,15 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 
+import { registerReferenceExtensions } from "@shared/file-refs";
+
+/**
+ * The composer's and the transcript's references (`part.step#o1.2` chips and
+ * links) are the formats an enabled plugin opens. The suites exercise them
+ * as a CAD plugin would leave them: .step, .stp, .stl, .3mf and .glb claimed.
+ */
+registerReferenceExtensions(["step", "stp", "stl", "3mf", "glb"]);
+
 /**
  * A renderer test runs the real components, so it needs the two things a
  * renderer always has and jsdom does not: the preload bridge and matchMedia.
@@ -72,17 +81,13 @@ Object.defineProperty(window, "workbench", {
     skills: {
       info: vi.fn(async () => ({ root: null, skills: [] })),
     },
-    runtime: {
-      revealLog: vi.fn(async () => ({ revealed: true })),
-      status: vi.fn(async () => ({
-        state: "missing",
-        python: null,
-        cadgenVersion: null,
-        viewerBuilt: false,
-        overridden: false,
-        log: null,
-      })),
-      repair: vi.fn(),
+    plugins: {
+      list: vi.fn(async () => ({ plugins: [], marketplaces: [], fileHandlers: {}, fileConsent: {} })),
+      refresh: vi.fn(async () => ({ plugins: [], marketplaces: [], fileHandlers: {}, fileConsent: {} })),
+      installFolder: vi.fn(async () => null), installFromMarketplace: vi.fn(), uninstall: vi.fn(async () => undefined),
+      setEnabled: vi.fn(), addMarketplace: vi.fn(async () => null), removeMarketplace: vi.fn(async () => undefined),
+      setFileHandler: vi.fn(async () => undefined), allowFiles: vi.fn(async () => undefined),
+      request: vi.fn(), openFile: vi.fn(), stageApp: vi.fn(async () => ({ url: "mcp-app://test/index.html" })), releaseApp: vi.fn(async () => undefined),
     },
     dialogs: { chooseDirectory: vi.fn(async () => null), chooseFile: vi.fn(async () => null) },
     settings: { get: vi.fn(), set: vi.fn(), fallbacks: vi.fn(async () => ({ refused: {}, gone: {} })) },

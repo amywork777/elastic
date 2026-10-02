@@ -18,7 +18,7 @@ import authPrompt from "../../../src/renderer/features/session/AuthPrompt.tsx?ra
 const fsModule = "node:fs";
 const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as { readFileSync: (file: string, encoding: "utf8") => string };
 const here = (import.meta as ImportMeta & { dirname: string }).dirname;
-const tokens = readFileSync(`${here}/../../../../../packages/ui/src/styles/tokens.css`, "utf8");
+const tokens = readFileSync(`${here}/../../../packages/ui/src/styles/tokens.css`, "utf8");
 
 /** `oklch(L C h)` (L as a number or a percentage), as linear sRGB. */
 function oklchToLinear(value: string): [number, number, number] {

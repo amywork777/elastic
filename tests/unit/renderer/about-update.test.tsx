@@ -101,7 +101,7 @@ describe("About › Software update", () => {
     renderAbout();
     await userEvent.click(screen.getByRole("button", { name: "Check now" }));
     await waitFor(() => expect(app().checkForUpdates).toHaveBeenCalled());
-    expect(screen.getByRole("status")).toHaveTextContent("text-to-cad is up to date.");
+    expect(screen.getByRole("status")).toHaveTextContent("elastic is up to date.");
   });
 
   it("an install the updater is inactive for does not claim to run from a checkout", () => {

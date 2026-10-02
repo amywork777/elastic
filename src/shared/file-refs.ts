@@ -10,7 +10,9 @@
  * an explicit fragment is a reference. Pure, so links, chips and tests share it.
  */
 
-const PART = "[A-Za-z0-9_][A-Za-z0-9_.:-]*";
+// Starts with a letter (so `#12` and `#9x` stay prose) and ends on a letter or
+// digit (so a sentence's full stop after `part.step#o1.` is not part of it).
+const PART = "[A-Za-z_](?:[A-Za-z0-9_.:-]*[A-Za-z0-9_])?";
 /** One fragment, or a comma-separated list; the source of every regex below. */
 export const FRAGMENT_SOURCE = `${PART}(?:,${PART})*`;
 const FRAGMENT_RE = new RegExp(`^${FRAGMENT_SOURCE}$`);

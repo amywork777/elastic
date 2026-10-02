@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { registerReferenceExtensions } from "@shared/file-refs";
 import type { PluginsSnapshot } from "@shared/ipc/plugins";
 import { fileExtensionsOf, toolHasEntry, type PluginRecord, type PluginTool } from "@shared/plugins";
 
@@ -19,15 +20,30 @@ type PluginsState = PluginsSnapshot & {
 
 const EMPTY: PluginsSnapshot = { plugins: [], marketplaces: [], fileHandlers: {}, fileConsent: {} };
 
+/**
+ * The formats enabled plugins open are the ones the composer and the
+ * transcript treat as references (`name.ext#fragment` chips and links):
+ * registered with `@shared/file-refs` while their plugin is on.
+ */
+let releaseReferences: (() => void) | null = null;
+function registerReferences(snapshot: PluginsSnapshot): void {
+  releaseReferences?.();
+  releaseReferences = registerReferenceExtensions(claimedExtensions(snapshot));
+}
+
 export const usePlugins = create<PluginsState>((set) => ({
   ...EMPTY,
   ready: false,
   revision: 0,
   load: async () => {
     const snapshot = await window.workbench.plugins.list();
+    registerReferences(snapshot);
     set((state) => ({ ...snapshot, ready: true, revision: state.revision + 1 }));
   },
-  receive: (snapshot) => set((state) => ({ ...snapshot, ready: true, revision: state.revision + 1 })),
+  receive: (snapshot) => {
+    registerReferences(snapshot);
+    set((state) => ({ ...snapshot, ready: true, revision: state.revision + 1 }));
+  },
 }));
 
 export function enabledPlugins(state: Pick<PluginsSnapshot, "plugins"> = usePlugins.getState()): PluginRecord[] {

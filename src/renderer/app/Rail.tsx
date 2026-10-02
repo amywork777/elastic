@@ -2,31 +2,28 @@ import { Blocks, MessagesSquare, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@renderer/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@renderer/components/ui/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { PluginLogo } from "@renderer/plugins/PluginLogo";
 import { toolsWithEntry, usePlugins } from "@renderer/plugins/store";
 import { useUi, type Surface } from "@renderer/state/ui";
 
 function RailButton({ label, active, onClick, children }: { label: string; active: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          aria-current={active ? "page" : undefined}
-          aria-label={label}
-          className={cn(
-            "app-no-drag flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors",
-            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
-            active && "bg-sidebar-accent text-sidebar-accent-foreground",
-          )}
-          onClick={onClick}
-          type="button"
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
+    <TooltipHint content={label} side="right">
+      <button
+        aria-current={active ? "page" : undefined}
+        aria-label={label}
+        className={cn(
+          "app-no-drag flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors",
+          "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          active && "bg-sidebar-accent text-sidebar-accent-foreground",
+        )}
+        onClick={onClick}
+        type="button"
+      >
+        {children}
+      </button>
+    </TooltipHint>
   );
 }
 

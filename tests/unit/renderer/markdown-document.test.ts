@@ -3,9 +3,8 @@ import { describe, expect, it } from "vitest";
 
 // The repository's own files, as bytes, through Vite's `?raw` — a fixture
 // written for this test would be a fixture written to pass it.
-import AGENTS from "../../../../../AGENTS.md?raw";
-import CONTRIBUTING from "../../../../../CONTRIBUTING.md?raw";
-import README from "../../../../../README.md?raw";
+import AGENTS from "../../../AGENTS.md?raw";
+import README from "../../../README.md?raw";
 
 import {
   documentToMarkdown,
@@ -25,7 +24,6 @@ import {
 const FILES: [string, string][] = [
   ["README.md", README],
   ["AGENTS.md", AGENTS],
-  ["CONTRIBUTING.md", CONTRIBUTING],
 ];
 const LINE_ENDINGS = [["LF", "\n"], ["CRLF", "\r\n"]] as const;
 // Exercise both checkout conventions on every platform; the serializer still

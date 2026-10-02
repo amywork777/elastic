@@ -21,7 +21,6 @@ describe("parseReference", () => {
     expect(parseReference("bracket.step#label.f45")).toEqual({ file: "bracket.step", selector: "label.f45" });
     expect(parseReference("#o1,o2")).toEqual({ file: "", selector: "o1,o2" });
     expect(parseReference("bracket.step")).toEqual({ file: "bracket.step", selector: "" });
-    expect(parseReference("src/bracket.step.py#o1")).toEqual({ file: "src/bracket.step.py", selector: "o1" });
     expect(parseReference("assembly.glb")).toEqual({ file: "assembly.glb", selector: "" });
     // Words with a hash in them, non-CAD files, URLs, prose.
     for (const word of ["C#", "issue#12", "README.md", "README.md#o1", "https://x.y/a.step", "#", "bracket.step#9x", "thicker"]) {

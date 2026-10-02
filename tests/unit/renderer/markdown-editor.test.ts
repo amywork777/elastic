@@ -2,9 +2,8 @@ import { Editor } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vitest";
 
 // See `markdown-document.test.ts`: the repository's own files, as bytes.
-import AGENTS from "../../../../../AGENTS.md?raw";
-import CONTRIBUTING from "../../../../../CONTRIBUTING.md?raw";
-import README from "../../../../../README.md?raw";
+import AGENTS from "../../../AGENTS.md?raw";
+import README from "../../../README.md?raw";
 
 import {
   capturePristine,
@@ -28,7 +27,6 @@ import { markdownExtensions } from "@renderer/features/explorer/renderers/markdo
 const FILES: [string, string][] = [
   ["README.md", README],
   ["AGENTS.md", AGENTS],
-  ["CONTRIBUTING.md", CONTRIBUTING],
 ];
 const LINE_ENDINGS = [["LF", "\n"], ["CRLF", "\r\n"]] as const;
 // Test Windows and Unix inputs regardless of this checkout's line endings.

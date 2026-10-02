@@ -39,7 +39,6 @@ describe("the path grammar", () => {
   it("keeps a selector only on a file that can carry one, and reads every selector form", () => {
     expect(findPathTokens("bracket.step#label.f45.")[0]).toMatchObject({ raw: "bracket.step#label.f45", selector: "label.f45" });
     expect(findPathTokens("assy.step#o1,o2")[0]).toMatchObject({ selector: "o1" });
-    expect(findPathTokens("part.step.py#o1")[0]).toMatchObject({ path: "part.step.py", selector: "o1" });
     expect(findPathTokens("notes.md#o1")[0]).toMatchObject({ raw: "notes.md", selector: "" });
     // `#not` is a label selector; `#9x` is nothing, and the file stands alone.
     expect(findPathTokens("bracket.step#not a selector")[0]).toMatchObject({ raw: "bracket.step#not", selector: "not" });
