@@ -163,9 +163,9 @@ describe("package.mjs", () => {
     });
   });
 
-  describe("the README's Packaging section", () => {
+  describe("the design notes' Packaging section", () => {
     const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-    const readme = fs.readFileSync(path.join(appRoot, "README.md"), "utf8");
+    const readme = fs.readFileSync(path.join(appRoot, "docs", "design.md"), "utf8");
     const section = (heading: string) => {
       const start = readme.indexOf(`\n### ${heading}\n`);
       expect(start, heading).toBeGreaterThan(-1);

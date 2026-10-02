@@ -7,8 +7,6 @@ import { useOpenFolder } from "@renderer/hooks/use-open-folder";
 import { cn } from "@renderer/lib/utils";
 import { useAgents, useAgentsProbing } from "@renderer/state/agents";
 import { useOnboarding } from "@renderer/state/onboarding";
-import { useProjects } from "@renderer/state/projects";
-import { useSessions } from "@renderer/state/sessions";
 import { useSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";
 import appMark from "@renderer/assets/brand/elastic-mark.svg";
@@ -98,12 +96,12 @@ function WelcomeStep() {
         Welcome to elastic
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Describe a part and an AI agent builds it as real CAD you can open, measure and export.
+        The coding agent you already use, in a window built around it. Everything beyond the chat is a plugin.
       </p>
       <ul className="mt-6 space-y-3 text-sm">
-        <Point title="Session in the middle">The agent writes a script and builds the part in your folder.</Point>
-        <Point title="Model on the right">Every STEP, STL and drawing opens in the built-in viewer.</Point>
-        <Point title="Point at what to change">Select a face or edge and Annotate it.</Point>
+        <Point title="Session in the middle">The agent works in your folder, and you watch every step.</Point>
+        <Point title="Tabs on the right">Files, changes, a browser, terminals, and the views plugins add.</Point>
+        <Point title="Plugins on the rail">Give agents new tools and skills, and open what they make.</Point>
       </ul>
     </section>
   );

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   ExplorerTabSchema,
-  PersistedExplorerTabSchema,
   REVIEW_SCOPE_LABELS,
   ReviewScopeSchema,
   SessionSchema,

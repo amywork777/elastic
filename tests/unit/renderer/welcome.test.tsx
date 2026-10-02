@@ -8,7 +8,8 @@ import { useOnboarding } from "@renderer/state/onboarding";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import { useSettings } from "@renderer/state/settings";
-import { defaultSettings, type Project } from "@shared/types";
+import { useUi } from "@renderer/state/ui";
+import { defaultSettings } from "@shared/types";
 import type { AgentStatus } from "@shared/agents";
 
 const agent = (overrides: Partial<AgentStatus>) =>
@@ -49,10 +50,10 @@ describe("the welcome", () => {
     expect(document.activeElement?.tagName).toBe("H1");
   });
 
-  it("names the panes as they are and the viewer's Annotate action", () => {
+  it("names the panes as they are, and the rail's plugins", () => {
     render(<Welcome />);
     expect(screen.getByText("Session in the middle.")).toBeInTheDocument();
-    expect(screen.getByText("Select a face or edge and Annotate it.")).toBeInTheDocument();
+    expect(screen.getByText("Plugins on the rail.")).toBeInTheDocument();
     expect(screen.queryByText(/Chat on the left/)).toBeNull();
   });
 
@@ -153,8 +154,6 @@ describe("the welcome", () => {
 
 describe("the welcome's start step", () => {
   const patch = vi.fn(async () => undefined);
-  let resolveSample: (project: Project) => void = () => {};
-  let rejectSample: (error: Error) => void = () => {};
 
   beforeEach(() => {
     patch.mockClear();
@@ -164,13 +163,6 @@ describe("the welcome's start step", () => {
     useAgents.setState({ agents: [agent({ installed: true, auth: "authenticated" })], ready: true });
     (window.workbench as unknown as { onboarding: unknown }).onboarding = {
       status: vi.fn(async () => ({ enabled: true })),
-      createSample: vi.fn(
-        () =>
-          new Promise<Project>((resolve, reject) => {
-            resolveSample = resolve;
-            rejectSample = reject;
-          }),
-      ),
     };
   });
 
@@ -182,31 +174,10 @@ describe("the welcome's start step", () => {
     return user;
   }
 
-  // Back cancels it: the welcome is not finished, and the sample is not
-  // selected behind it — the folder and the session the person had stay.
-  it("neither finishes the welcome nor selects the sample when the person went Back while it was copying", async () => {
+  it("ends on the Plugins page when the person picks Browse plugins", async () => {
     const user = await toStartStep();
-    await user.click(screen.getByRole("button", { name: /Try the sample/ }));
-    await user.click(screen.getByRole("button", { name: "Back" }));
-    await act(async () => resolveSample({ id: "/s", name: "elastic Sample", path: "/s", createdAt: 0 }));
-    expect(patch).not.toHaveBeenCalledWith({ onboardingCompleted: true });
-    expect(useProjects.getState()).toMatchObject({ activeId: "/mine", draft: null });
-    expect(useSessions.getState().activeId).toBe("s1");
-  });
-
-  it("selects the sample and finishes the welcome when it is ready and the person stayed", async () => {
-    const user = await toStartStep();
-    await user.click(screen.getByRole("button", { name: /Try the sample/ }));
-    await act(async () => resolveSample({ id: "/s", name: "elastic Sample", path: "/s", createdAt: 0 }));
+    await user.click(screen.getByRole("button", { name: /Browse plugins/ }));
     expect(patch).toHaveBeenCalledWith({ onboardingCompleted: true });
-    expect(useProjects.getState()).toMatchObject({ activeId: "/s", draft: { path: "/s" } });
-    expect(useSessions.getState().activeId).toBeNull();
-  });
-
-  it("announces a failed copy", async () => {
-    const user = await toStartStep();
-    await user.click(screen.getByRole("button", { name: /Try the sample/ }));
-    await act(async () => rejectSample(new Error("The disk is full.")));
-    expect(screen.getByRole("alert")).toHaveTextContent("The disk is full.");
+    expect(useUi.getState().surface).toEqual({ kind: "plugins", view: "browse" });
   });
 });

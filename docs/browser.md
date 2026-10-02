@@ -157,7 +157,7 @@ method composition is ignored.
 
 The browser toolbar offers selected text and page screenshot actions. Both add a
 URL reference plus a text/PNG attachment through the same desktop prompt port
-used by files and drawings. Selection is a `.txt` attachment so native capture
+used by files and PDFs. Selection is a `.txt` attachment so native capture
 can finish asynchronously after the port has bound the tab's owner session. Capture
 checks the page URL and navigation generation before and after reading it. The
 generation counts new documents only — a single-page app's pushState or fragment

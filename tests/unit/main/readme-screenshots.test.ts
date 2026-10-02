@@ -1,5 +1,5 @@
 /**
- * The README's screenshot paragraph ("What the specs capture, and nothing
+ * docs/design.md's screenshot paragraph ("What the specs capture, and nothing
  * else") and the e2e specs name the same shots: every PNG a spec writes
  * (`shoot…(` or `outputPath(`) is named there, and every shot named there is
  * one a spec writes or one of the committed `tests/e2e/__screenshots__/`.
@@ -33,7 +33,7 @@ const shots: Shot[] = readdirSync(e2eRoot)
     ),
   );
 
-const readme = readFileSync(path.join(appRoot, "README.md"), "utf8");
+const readme = readFileSync(path.join(appRoot, "docs", "design.md"), "utf8");
 const start = readme.indexOf("What the specs capture");
 const end = readme.indexOf("is older evidence no spec", start);
 const paragraph = start >= 0 && end > start ? readme.slice(start, end) : "";

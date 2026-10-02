@@ -1,9 +1,12 @@
-# text-to-cad desktop
+# elastic: design notes
 
-The desktop client: projects on the left, one agent session in the middle, an
-explorer on the right that renders code, browsers, terminals, reviews and every
-file type the CAD Viewer understands. cadgen and the CAD skills ship inside the
-app, pinned to its own version, and every session runs with them.
+This is the long-form design record carried over from the text-to-cad desktop
+app, kept for the generic parts: layout, keyboard, the explorer, ACP and git.
+elastic is the desktop client those notes describe with everything beyond chat
+moved into plugins ([plugins](plugins.md)): projects on the left, one agent
+session in the middle, an explorer on the right that renders code, browsers,
+terminals, reviews and the file types the enabled plugins and built-in
+renderers open.
 
 Sessions own their explorer tabs and agent tools. Project headings are derived
 directory groups, with no separate project lifecycle. See
@@ -14,27 +17,24 @@ Electron 40 · electron-vite · React 19 · TypeScript · Tailwind v4 ·
 shadcn/ui (stock neutral) · Vercel AI Elements · `@agentclientprotocol/sdk` ·
 Monaco (code) · TipTap over remark (markdown) · PDF.js.
 
-This app is a root npm workspace. Install dependencies in this checkout with
-`npm ci` from the repository root, build shared packages, then rebuild native
-modules explicitly. Do not borrow another checkout's `node_modules`: packaged
-Electron dependency resolution must be verified from this workspace's tree.
+This repository is an npm workspace root (`packages/*`). Install dependencies
+in this checkout with `npm ci`, build the workspace packages (each has a `build` script), then rebuild
+native modules explicitly. Do not borrow another checkout's `node_modules`:
+packaged Electron dependency resolution must be verified from this tree.
 
 `features/explorer/FileTab.tsx` is a thin host of `@workbench/ui/file-viewer`.
-Its adapters translate IPC file access, source capabilities, root identity,
-persistence and CAD commands into package contracts. `renderers/index.tsx` registers
-the shared viewer renderers (CAD, and DXF drawings, GLB, triangle meshes (STL, 3MF) and
-robot descriptions (URDF, SRDF, SDF) as their own renderers; all get the tab's backend
-connection, preferences, host commands and live binding) and this app's own
-Markdown, code, image, PDF and fallback renderers, which only the desktop
+Its adapters translate IPC file access, source capabilities, root identity and
+persistence into package contracts. `renderers/index.tsx` registers this app's
+own Markdown, code, image, PDF and fallback renderers, which only the desktop
 registers and so live beside it in `features/explorer/renderers/` rather than in
-`@workbench/ui` (see "File renderers" below). The whole
-file-tab interface is shared with web. Projects, sessions, browser/terminal/
-review tabs, agent integrations and native services remain in this app.
-Neither shared package imports app source, and desktop imports no web source.
+`@workbench/ui` (see "File renderers" below); renderers an enabled plugin
+provides register through `src/renderer/plugins/file-renderers.tsx`. A plugin's
+own tab is a `tool` tab (`features/explorer/ToolTab.tsx`). Projects, sessions,
+browser/terminal/review tabs, agent integrations and native services remain in
+this app. Neither workspace package imports app source.
 Every file tab has its own tab record (`@workbench/ui/tab-store`): the viewer's
-settings — the tool stack's layout — and each file's view (camera, Display
-settings, preview's Playback settings, the renderer's own slices), one entry per
-tab in `text-to-cad.tabs.v1` (localStorage), kept across a window reload and a
+settings and each file's view (the renderer's own slices), one entry per
+tab in `elastic.tabs.v1` (localStorage), kept across a window reload and a
 restart and forgotten when the tab closes for good (`adapters/tabStore.ts`;
 `desktopTabStore(tabId)` is what the renderers and the file tab share). Nothing is
 window-wide: a new tab starts from the defaults, and a preference set in one tab
@@ -46,29 +46,24 @@ why the record's `fileTree` and `appearance` go unused here.
 ## Dev
 
 ```sh
-# From the repository root:
 npm ci
-npm run build:packages
-npm run native:rebuild --workspace elastic
-npm run dev:desktop  # electron-vite: main, preload and renderer with HMR
+npm run native:rebuild
+npm run dev  # electron-vite: main, preload and renderer with HMR
 ```
 
 The Browser pane cannot show an Electron window — visual checks go
-through computer-use `app_screenshot` on the text-to-cad window, or through the
+through computer-use `app_screenshot` on the elastic window, or through the
 Playwright screenshots below.
 
 These environment variables matter in development:
 
 | Variable | Effect |
 | --- | --- |
-| `WORKBENCH_APTABASE_KEY` | Read at BUILD time and compiled in (see Telemetry). Unset means no network call is ever attempted. |
-| `CAD_DESKTOP_PYTHON` | An interpreter with cadgen installed, used instead of the bundled runtime (see CAD runtime below). A developer's knob; the e2e suite breaks and clears the equivalent setting on purpose. |
-| `WORKBENCH_PREWARM` | Under `NODE_ENV=test` both pre-warms are off — the project's (viewer child, only for a root that holds a model, + cadgen daemon on project open) and the agents' (one idle adapter per agent in the index, see "Opening a session"); `1` turns them on, as `tests/e2e/cad.spec.ts` and `tests/e2e/persistence.spec.ts` do. The launch's agent probe ("Which agents are installed", under ACP) is not gated: it starts no agent. |
+| `WORKBENCH_PREWARM` | Under `NODE_ENV=test` the agents' pre-warm is off (one idle adapter per agent in the index, see "Opening a session"); `1` turns it on, as `tests/e2e/persistence.spec.ts` does. The launch's agent probe ("Which agents are installed", under ACP) is not gated: it starts no agent. |
 | `WORKBENCH_FAKE_AGENT` | Launch this stdio ACP agent instead of whatever the registry says, for every provider. The session and git suites point it at `tests/fake-agent/index.mjs`; a session needs an agent to exist at all, and a real one would make the suite a test of somebody's login state. |
 | `WORKBENCH_FAKE_AGENT_ARGS` | Extra arguments for that fake agent, split on spaces (`src/main/ipc/acp.ts`). `tests/e2e/launch.ts` passes them as `fakeArgs`; `persistence.spec.ts` uses `--load-delay` to hold `session/load`. The flags are listed at the top of `tests/fake-agent/index.mjs`. |
 | `FAKE_AGENT_PROFILE` | Read by `tests/fake-agent/index.mjs` from its own environment, never by the app. `claude-code` makes the fake agent answer in the Claude adapter's shape (see "ACP"). `tests/unit/main/connection.test.ts` passes it in the connection's `env`; for a dev run, set it beside `WORKBENCH_FAKE_AGENT` — main's environment reaches the agent through the login-shell capture (`src/main/agents/shell-env.ts` runs `$SHELL -ilc` with it). |
 | `WORKBENCH_ONBOARDING` | Under `NODE_ENV=test` the first-run welcome and checklist are off, so a fresh test profile opens on the screen it tests; `1` turns them back on (`onboardingEnabled` in `src/main/onboarding.ts`). Outside tests onboarding is always on, and the settings fields decide whether it shows (see Onboarding). |
-| `WORKBENCH_RUNTIME_CACHE` | Where `npm run bundle:runtime` keeps the downloaded python-build-standalone archives when no `--cache` is given; default `~/.cache/text-to-cad/python` (`defaultCacheDir` in `scripts/bundle-runtime.mjs`). Build-time only; the app never reads it. |
 
 Two more decide whether the window is seen at all:
 
@@ -77,35 +72,10 @@ Two more decide whether the window is seen at all:
 | `WORKBENCH_LAUNCH_INACTIVE` | `1` shows the window without taking focus, for a relaunch from a script while the person is working in another app. |
 | `WORKBENCH_E2E_HIDDEN` | `1` never shows it. `playwright.config.ts` sets this for the whole suite (see Windows nobody sees, below); `WORKBENCH_E2E_HIDDEN=0 npm run e2e` puts the windows back on screen. |
 
-## Telemetry
-
-Anonymous counts through Aptabase, and only when two separate things are true:
-a key was compiled in (`WORKBENCH_APTABASE_KEY` at build time, baked in as
-`__APTABASE_KEY__` by `electron.vite.config.ts` — a packaged app has no build
-environment to read, and a key settable by whoever launches the binary is a key
-anyone can point at their own project), and the user's `telemetry` setting is
-on. That setting is on with an opt-out (plan §14) and is read per event, so
-turning it off in Settings › General stops the next one, not the next launch —
-and Settings prints the table below beside the switch rather than linking to
-it.
-
-Four events, and the union type in `src/main/telemetry.ts` is the whole
-vocabulary — adding a fifth is a change to that type:
-
-| Event | Property |
-| --- | --- |
-| `app_launched` | — |
-| `session_created` | `agent` — the registry id (`claude-code`, `codex`, …) |
-| `file_opened` | `extension` — `step`, `md`, `py`, … |
-| `settings_changed` | `key` — the settings field's name, never its value |
-
-Aptabase adds the app version, the OS and a per-install random id. Nothing here
-carries a path, a file name, a project name, a prompt, or an agent's output.
-
 ## UI typography
 
 The app and its shared FileViewer use the same 13px default from
-[`@workbench/ui` tokens](../../packages/ui/src/styles/tokens.css).
+[`@workbench/ui` tokens](../packages/ui/src/styles/tokens.css).
 `src/renderer/styles/globals.css` applies `text-ui` to the body; shadcn's
 `text-sm` and `text-base` controls use the same token, including menus rendered
 in portals. Use this size for ordinary interface text, with smaller sizes for
@@ -115,8 +85,7 @@ unchanged; `use-appearance.ts` still scales rem-based text and layout together.
 
 ## Loading feedback
 
-The silver text-to-cad star appears while the CAD runtime/viewer starts and while
-geometry loads. An initial agent connection uses a smaller version; the live
+The silver star appears while a file or tool tab loads. An initial agent connection uses a smaller version; the live
 Thinking/Running status uses a 24px mark with plain, unanimated text. Waiting
 for approval holds a still pose. These reuse `@workbench/ui/loading-icon` and its
 baked image (no additional WebGL context). OS/app reduced motion and hidden
@@ -129,41 +98,23 @@ A first run opens on a welcome over the whole window instead of the shell
 (`features/onboarding/Welcome.tsx`, chosen in `app/App.tsx`): three steps —
 what the app is, **Connect an agent** (Claude Code and Codex, with Install and
 Sign in running the same jobs as Settings › Agents, and a link there for the
-rest), and a start step that offers **Try the sample** or **Open a folder…**.
+rest), and a start step that offers **Open a folder** and **Browse plugins**.
 Finishing or skipping sets `onboardingCompleted`. The welcome's current step is
 `step` in `state/onboarding.ts`, not component state, because Settings replaces
 the welcome the way it replaces the shell: "Use a different agent in Settings ›
 Agents", Cmd+, or Back to app returns to the step the person left (it is held
 for the window, not saved). After it, the sidebar shows a
 **Getting started** checklist (`features/onboarding/GettingStarted.tsx`) whose
-four items tick themselves from what the person has done — an agent installed
-and signed in, a folder open, a session, a CAD file reaching the viewer
-(`markViewerOpened`, called from `adapters/cadRuntime.tsx`). Closing it, or
+items tick themselves from what the person has done. Closing it, or
 pressing Done when it is complete, sets `onboardingChecklistDismissed`.
 
 What the person has done is ordinary settings (`onboardingCompleted`,
-`onboardingChecklistDismissed`, `onboardingViewerOpened` in `SettingsSchema`,
-`src/shared/types.ts`); the renderer's derivations are `state/onboarding.ts`.
-Main answers the two things that are not settings, over `onboarding.*`
-(`src/{shared,main}/ipc/onboarding.ts`, `src/main/onboarding.ts`):
-
-- `onboarding.status` — whether this run shows onboarding at all. It is off
-  under `NODE_ENV=test`, so a fresh test profile opens on the screen it tests,
-  unless `WORKBENCH_ONBOARDING=1`.
-- `onboarding.createSample` — copies the bundled sample (`resources/sample/`:
-  `l_bracket.py`, the `l_bracket.step` it builds, a README of things to ask)
-  to `~/Documents/text-to-cad Sample` and answers with the project; the
-  welcome selects it, unless the person went Back while it copied (main
-  broadcasts no `ui.directorySelected` for it). No channel takes a directory by name. The sample is copied, never opened in
-  place — a signed bundle must not be written into, and the agent will edit
-  it — and a folder there that already has files in it is reused as it is,
-  not overwritten. The copy is staged as `<target>.copying` (a stale one is
-  discarded first) and renamed into place, so the target holds files only once
-  it holds all of them. A rename that fails with EPERM, EBUSY or EACCES (Windows
-  antivirus or the indexer holding the new tree) is attempted five times (one try
-  and four retries) with a short backoff, then the staging tree is copied into place; a copy that dies
-  there clears the target, so no half-sample is left to be taken for the
-  person's own.
+`onboardingChecklistDismissed` in `SettingsSchema`, `src/shared/types.ts`); the
+renderer's derivations are `state/onboarding.ts`. Main answers the one thing
+that is not a setting, over `onboarding.status`
+(`src/{shared,main}/ipc/onboarding.ts`, `src/main/onboarding.ts`): whether this
+run shows onboarding at all. It is off under `NODE_ENV=test`, so a fresh test
+profile opens on the screen it tests, unless `WORKBENCH_ONBOARDING=1`.
 
 ## Settings
 
@@ -231,8 +182,7 @@ field says which lines ("Line 3 has no KEY=value and will not be saved").
 
 Interaction motion is scoped to activity/thought reveals, composer reference
 chips, and attachment previews: 100–160 ms, with at most 3 px of travel and a
-small scale change. It does not animate streamed text, pane dimensions, or CAD
-geometry. The OS reduced-motion preference and Settings › Appearance's Reduce
+small scale change. It does not animate streamed text or pane dimensions. The OS reduced-motion preference and Settings › Appearance's Reduce
 motion switch both suppress these transitions, app-wide: `MotionConfig` in
 `app/App.tsx` carries the setting ("always" with the switch, else the OS's) to
 every motion component, and the shimmer stands still under it.
@@ -252,19 +202,16 @@ app's skills are composed into `resources/skills/` (`build:skills`),
 electron-vite builds main, preload and renderer into `out/`, and the MCP
 server is bundled into `out/app-mcp/` (`build:mcp`). Packaging runs the
 same script. The renderer consumes the compiled shared-package exports and
-bundles their lazy renderers, CSS, assets and workers. Run
-`npm run build:packages` from the repository root after shared code changes;
+bundles their lazy renderers, CSS, assets and workers. Rebuild
+the workspace packages (`npm run build --workspace @workbench/ui`, and the same
+for `@workbench/core`) after shared code changes;
 app source continues to use HMR. Tests consume the same exports.
 
-**The renderer's first chunk is kept small on purpose.** Five heavy modules
+**The renderer's first chunk is kept small on purpose.** Four heavy modules
 load with their first use rather than with the window: the review tab's Monaco
 (`ReviewTab`, `React.lazy` in `features/explorer/ExplorerPane.tsx`),
 xterm with the first terminal tab (`load-terminal.ts`, also fetched once the
-window is idle and again when a new terminal is asked for), the CAD client
-(`adapters/cadRuntime.tsx` imports `@workbench/core/client` when a file's
-connection is first acquired; a chunk that does not load surfaces as a
-`CadRuntimeError` with reason `viewer-failed`, so the tab shows the "CAD
-viewer did not start" card), Mermaid (`src/renderer/lib/mermaid.ts`, on the
+window is idle and again when a new terminal is asked for), Mermaid (`src/renderer/lib/mermaid.ts`, on the
 first diagram; an import that fails is retried by the next diagram, as math's
 is, not remembered for the life of the window) and KaTeX (`src/renderer/lib/math.ts`: `hasMath` says whether a
 text may hold a formula, `useMathPlugin` imports the plugin and KaTeX's
@@ -291,22 +238,8 @@ The unit suite caps workers at four; Electron uses one worker and no automatic
 retries. The git and workspace suites take their repositories from
 `tests/unit/main/git-fixtures.ts`: each shape (committed, pushed, pushed with a
 remote a commit ahead) is built once per test file in a template directory and
-copied per test, with `origin` repointed at the copy's own remote. CAD integration tests use `tests/fixtures/cad/import-smoke.step` and
-private caches beneath their temporary user-data directories. CAD profiles use
-short temporary paths on POSIX so Python's Unix sockets stay within platform
-limits. They disable the shared build daemon (except its explicit prewarm test)
-and discard inherited broker settings, so an interactive
-cache or another running viewer cannot satisfy a cold test. No suite runs a
-real agent (see below). CI selects this app only for changes to desktop,
-shared UI/core, cadgen or shared build infrastructure; see the dependency graph
-in the root `CONTRIBUTING.md`.
-
-`WORKBENCH_E2E_REQUIRE_CAD=1` requires the resolved runtime to be ready and match
-`VERSION`, so CAD qualification cannot pass by skipping its render, toolbar,
-selection, prewarm or shutdown coverage. The macOS test job uses the checkout's
-`.venv` with fresh Node/browser assets; embedded-runtime packaging has its own
-qualification. The invalid-interpreter test still verifies the failure card
-before clearing its override and returning to the resolved runtime.
+copied per test, with `origin` repointed at the copy's own remote. No suite runs a
+real agent (see below).
 
 ### Windows nobody sees
 
@@ -328,9 +261,7 @@ still shows the window, without taking focus.
 
 `npm run e2e` writes screenshots beneath each test's Playwright output directory
 (`test-results/` by default, or `--output`); it never rewrites the committed
-design evidence in `tests/e2e/__screenshots__/`. CI uploads that run's PNGs and,
-on failure, its traces and error context; both artifacts are kept for three days.
-What the specs capture, and nothing else: `shell-light` and `shell-dark`;
+design evidence in `tests/e2e/__screenshots__/`. What the specs capture, and nothing else: `shell-light` and `shell-dark`;
 the traffic lights' corner in the states that own it (`titlebar-sidebar`,
 `titlebar-session`, `titlebar-settings` — the reserved rectangle drawn over
 it); `settings-<page>` for General, Agents, Appearance, Git, Shortcuts and
@@ -338,10 +269,8 @@ About, and `settings-agent-codex` / `settings-agent-claude-code`;
 `strip-overflow` (a pane at its floor with more tabs than fit, `+` pinned to
 the right edge) — all from `shell.spec.ts`. From `explorer.spec.ts`, the
 explorer pane only: `file-markdown-preview`, `file-markdown-source`,
-`file-tree-deep`, `file-image`, `terminal`, `drawing-with-prompt` (a drawing
-attached to the draft) and `browser-app-shell` (a browser tab's page and
-selection added to the prompt). From `cad.spec.ts`: `file-cad-failed` (the
-runtime broken on purpose) and `file-cad`. From `git.spec.ts`:
+`file-tree-deep`, `file-image`, `terminal` and `browser-app-shell` (a browser tab's page and
+selection added to the prompt). From `git.spec.ts`:
 `git-review-all`, `git-review-committed`, `git-commit-panel` (the review
 tab's commit strip), `worktree-explorer` and `git-settings-worktrees` (Settings' per-project worktree card, whole window).
 From `session.spec.ts`: `session-new`, `session-new-model-menu` (a group per
@@ -356,7 +285,7 @@ agent's `limits` turn), `session-cancelled`, `session-error`,
 `transcript-layout.spec.ts`: `transcript-light`, `transcript-dark` and
 `transcript-expanded`; from `browser-service.spec.ts`, `browser-use-native`
 (the native page as Browser Use captured it). The committed
-`tests/e2e/__screenshots__/` (`file-cad-failed`, `file-markdown-editable`,
+`tests/e2e/__screenshots__/` (`file-markdown-editable`,
 `file-markdown-raw-blocks`, `file-tree-deep`) is older evidence no spec
 rewrites. Look at them; they are the cheapest review of
 whether the app still looks like an app, and every defect found in P3's
@@ -386,9 +315,7 @@ of every adapter). `tests/unit/main/mode-option.test.ts` runs the same fake with
 as `modes`: the one mode chip has to be drawn from either shape, and an
 adapter that sends only the option used to get no chip at all. `shell.spec.ts` presses
 the shortcuts that need a real window, beside the pane drags, the overshoot collapse and
-the traffic lights' corner; `cad.spec.ts` ends by quitting with a repository
-watched, a shell, a session and the CAD viewer all running, and asserts no
-child is left behind (see Quitting, below). `persistence.spec.ts` launches the app
+the traffic lights' corner. `persistence.spec.ts` launches the app
 twice against one user-data directory — a project, sessions with the fake
 agent, `app.quit()`, relaunch — and asserts everything comes back and the
 transcript resumes through `session/load`. It is also what a click on a
@@ -400,23 +327,12 @@ warm adapter, asserted from main's own timing line. Its second launch runs the
 fake agent with `--load-delay`, because an instant reconnect is a state nobody
 can look at.
 
-The CAD tests run against whatever runtime the app resolves on its own (see
-CAD runtime, below): the bundled one once `npm run bundle:runtime` has run,
-else the checkout's `.venv`. `cad.spec.ts` first breaks the runtime on
-purpose — an override pointing nowhere — to see the failure card with the
-interpreter's words in it, then clears the override and renders the STEP in
-the same tab. It uses a fresh temporary project containing the tiny STEP
-fixture, so CAD catalog reads never become repository-wide scans. The
-render is skipped only in local runs without a runtime and without
-`WORKBENCH_E2E_REQUIRE_CAD=1`. The first render compiles the STEP in cadgen's build
-pool and is the slow assertion of the suite.
-
 `tests/e2e/git.spec.ts` checks transient folder drafts, confirms folder
 choices create no sidebar groups or explorer tabs, and exercises the
 new-worktree choice through the form. Its review assertions wait, file by
 file, for that file's block to carry `data-review-ready` (`review-diff.tsx`
 sets it once the editor has drawn) before counting editors, so a slow run
-fails on the file it was still drawing. No test talks to a model: every agent
+fails on the file it was still painting. No test talks to a model: every agent
 in the suite is the fake.
 
 Nothing in `npm test` loads `better-sqlite3` or `node-pty`: both are built
@@ -426,83 +342,20 @@ else that needs a real database belongs in the e2e.
 
 ## Brand
 
-The sidebar uses the original faceted star in its original blue,
-beside “text-to-cad” in the regular system typeface (`features/sidebar/Wordmark.tsx`).
-The mark in `src/renderer/assets/brand` embeds the original star pixels with
-an exterior SVG clip. It is not a path-only vector.
-
-The Dock and packaged app icon use this same blue star on a dark tile.
-
-TEXT-TO-CAD, set in JetBrains Mono ExtraBold Italic and drawn twice: a light-blue
-copy of the glyphs offset down and right, then the foreground copy on top. No
-blur and no gradient — the shadow is a second crisp copy, so the mark holds up
-scaled, printed, and at 16px.
-
-```sh
-npm run brand   # resources/brand/*.png
-npm run icons   # build/icon.png, from src/renderer/assets/brand/text-to-cad-star.svg
-```
-
-| File | What it is |
-| --- | --- |
-| `resources/brand/text-to-cad-wordmark-dark.png`, `…-dark@2x.png` | the wordmark for dark surfaces — white ink over the blue. Transparent, cropped to the ink plus one margin: 1347×196 and 2694×392 |
-| `resources/brand/text-to-cad-wordmark-light.png`, `…-light@2x.png` | the same for light surfaces, ink `#0a0a0a` |
-| `build/icon.png` | the app icon: the blue star on a dark squircle tile, on macOS's icon grid |
-
-Two numbers decide how the wordmark looks, and each is a named constant in
-`scripts/make-brand.mjs`:
-
-- **The blue is `#62b7ec`**. The icon this replaced
-  (`apps/docs/public/favicon.png`, still the docs site's favicon and untouched)
-  is a shaded 3D render with no single hex, so the constant is the mean of its
-  opaque unambiguously-blue pixels in the light luminance band: the star's lit
-  faces. Its neighbours are `#3e90ce` below and `#a3e2fd` above.
-- **The offset is 9% of the cap height**, right and down by the same amount, so
-  the light reads as coming from the top left. Cap height, not font size,
-  because that is what the eye measures an offset against. Much under 6% and the
-  blue vanishes under the ink at this weight.
-
-`scripts/make-brand.mjs` renders every PNG in headless Chromium (the project's
-Playwright), from an SVG whose `<text>` baseline is placed off the real face's
-canvas ink metrics — so the crop is the letters, not the font's line box. The
-face is embedded as a data URL, so what is installed on the machine cannot
-change the output. Both scripts are deterministic: run either twice and the
-bytes match.
-
-**The font is `resources/brand/fonts/JetBrainsMono-ExtraBoldItalic.woff2`**,
-from JetBrains Mono 2.304, under the SIL Open Font License 1.1. The licence
-travels with the font, as the OFL requires: `OFL.txt` sits beside it in that
-directory and must stay there.
+The mark is `src/renderer/assets/brand/elastic-mark.svg`.
 
 ## Packaging
 
 ```sh
-npm run brand            # the wordmark into resources/brand (committed)
-npm run icons            # the sidebar star onto a tile -> build/icon.png (committed)
-scripts/bundle/bundle.sh --clean  # cadgen's package runtime; ignored build output
-npm run cad:resources    # the cadgen wheel + constraints into resources/cadgen (from the .venv)
-npm run bundle:runtime   # THE CAD RUNTIME into resources/runtime/<os>-<arch> (~1.2 GB, once per pin)
+npm run icons            # the sidebar mark onto a tile -> build/icon.png (committed)
 npm run package:mac      # or :win, :linux -> release/
 ```
 
-`electron-builder.yml` holds the config: appId `dev.texttocad.desktop`, and
-every artifact named `text-to-cad-<version>-<os>-<arch>.<ext>`. The runtime is
-the product: `scripts/package.mjs` refuses to package a target whose runtime
-is not under `resources/runtime/` at this version (`--no-runtime` to package
-without one, for a build whose purpose is not CAD). `npm run package:mac`
-with no arch flags builds arm64 and x64 and needs both runtimes;
-`-- --arm64` builds and needs one (the script adds the config's target
-names behind an arch flag, because electron-builder ignores a bare `--arm64`
-when the config lists arches). Sizes measured on 0.5.0, mac-arm64: the
-runtime is 1.24 GB on disk, the app 1.6 GB, the dmg 456 MB, the zip 468 MB
-— and that is the point (plan §8, as revised): nothing downloads at first
-launch.
-
-The runtime bundler installs the exact wheel file under `resources/cadgen/`.
-Release CI validates that there is one wheel matching the release version and
-uses that path both to derive dependency constraints and to build every target
-runtime; pip indexes and caches may supply dependencies, but never substitute a
-different cadgen build.
+`electron-builder.yml` holds the config: appId `dev.elastic.desktop`, and
+every artifact named `elastic-<version>-<os>-<arch>.<ext>`. `npm run package:mac`
+with no arch flags builds arm64 and x64; `-- --arm64` builds one (the script
+adds the config's target names behind an arch flag, because electron-builder
+ignores a bare `--arm64` when the config lists arches).
 
 | Platform | Targets |
 | --- | --- |
@@ -511,12 +364,12 @@ different cadgen build.
 | Linux | AppImage + deb, x64, best-effort |
 
 `scripts/package.mjs` is the way in. It builds first, then stamps the
-repository's `VERSION` onto the app as `extraMetadata.version` — `package.json`
-stays at `0.0.0` because `VERSION` is the one canonical release version
+`VERSION` at this repository's root onto the app as `extraMetadata.version` — `package.json`
+stays at `0.0.0` because `VERSION` is the one canonical version
 (AGENTS.md) — and passes anything else through to electron-builder, so
 `npm run package:mac -- --arm64 --x64` works.
 
-`npm run icons` composites the sidebar's blue star onto its tile and writes
+`npm run icons` composites the sidebar mark onto its tile and writes
 `build/icon.png`; the mark lives in one place and electron-builder derives the
 platform containers — the macOS `.icns`, the Windows `.ico` — from that one PNG
 at package time. An unpackaged app (`npm run dev`, `npx electron .`) runs inside
@@ -542,10 +395,8 @@ back to it for Windows when `WIN_CSC_LINK` is unset, which would sign the
 installer with the Apple cert and pin its subject as the publisher every later
 update is checked against, so `scripts/package.mjs` drops the Apple variables
 from any invocation that is not `--mac` and refuses `--mac` together with
-another os while `CSC_LINK` is set. Linux builds are never signed. The release
-workflow hands the Apple secrets to the macOS leg and `WIN_CSC_LINK` and
-`WIN_CSC_KEY_PASSWORD` to the Windows leg, so adding the secrets is all it
-takes to sign; until then both installers are unsigned.
+another os while `CSC_LINK` is set. Linux builds are never signed. Without the
+secrets every installer is unsigned.
 
 `hardenedRuntime` and the entitlements (`build/entitlements.mac*.plist`) are
 configured either way but only applied by codesign, so an unsigned build never
@@ -554,11 +405,9 @@ build, which on a laptop is `CSC_LINK` set by hand.
 
 ### Updates
 
-`electron-updater` checks the GitHub Releases of `earthtojake/text-to-cad`.
-Release CI builds every installer from the exact commit it tags, then creates
-or resumes that commit's Release with the cadgen wheel and sdist, installers,
-blockmaps and `latest*.yml` feeds as peer assets. None of those build outputs
-is committed. `src/main/updater.ts` checks ten seconds after
+`src/main/updater.ts` uses `electron-updater`. No feed is configured in
+`electron-builder.yml`, so a build without one never checks for updates; adding
+a `publish` block turns it on. With a feed it checks ten seconds after
 launch and every six hours, with `autoDownload` off: the app says an update
 exists and downloads when asked. Settings › About and updates is the whole UI.
 Development builds report `unsupported` and check nothing; so does an install the
@@ -590,55 +439,19 @@ off) until the quit; if neither the quit nor an installer error arrives within a
 minute the status becomes an `error` that keeps the staged version, and Restart
 can be pressed again.
 
-electron-updater reads the latest *published* Release, so one without a
-platform's feed would strand every installed app on that platform. A run whose
-artifacts lack `latest-mac.yml` or `latest.yml` still tags and uploads, but
-leaves the Release a draft (installed apps keep the previous feed); re-running
-the failed desktop jobs re-runs the publish and releases it. Linux is
-best-effort, so `latest-linux.yml` is not required.
-
-A run resumes a version that is already tagged only when the tag points at the
-commit being run and its Release is a draft or missing: dispatch the workflow
-on the tagged commit. A later push with the same version, or a published
-Release, stops at the gate; a `gh` error other than "release not found" fails
-the gate rather than guessing.
-
-The tag job runs on `!cancelled()` and tests only the publish job's result, so
-a desktop platform that fails, or a leg that hits its timeout, delays the tag
-rather than preventing it, while a cancelled run tags nothing.
-
 ### What is bundled
 
-`resources/runtime/<os>-<arch>/` (the CAD runtime: a pinned Python with
-cadgen and its whole closure installed), `resources/cadgen/` (the wheel and
-its constraints) and `resources/skills/` (the composed skills) ship beside
-the app as `extraResources`; all three are build outputs, gitignored under a
-committed `.gitkeep`. Two more are committed and copied as they are:
-`resources/sample/` (the onboarding sample, Try the sample) and
+`resources/skills/` (the composed skills, a build output gitignored under a
+committed `.gitkeep`) and `resources/plugins/` (the example plugins and their
+marketplace) ship beside the app as `extraResources`, with
 `src/main/browser/vendor/LICENSE`, which lands as
-`notices/browser-use-browser-harness-js-LICENSE`. `npm run build` fills the skills; `npm run
-cad:resources` fills the wheel directory from a checkout after verifying the
-ignored cadgen `_runtime` bundle is complete (the release
-workflow drops the wheel it just built into it instead); `npm run
-bundle:runtime` fills the runtime from those two (the release workflow runs
-it per leg: macOS bundles `mac-arm64` natively and `mac-x64` cross, Windows
-and Linux their own). The MCP server ships inside `out/app-mcp/`,
-unpacked from the asar so an agent can run it by path. See
-`resources/README.md` for the bundler's steps, the cross-target rule and the
-signing note.
+`notices/browser-use-browser-harness-js-LICENSE`. `npm run build` fills the
+skills. The MCP server ships inside `out/app-mcp/`, unpacked from the asar so an
+agent can run it by path. See `resources/README.md` for what lives in
+`resources/`.
 
-The release workflow checks out without git-lfs, and the root tracks `*.step`
-in LFS, so a checked-out resource can arrive as a 130-byte pointer.
 `scripts/package.mjs` looks through every checked-out extraResource after the
-build and refuses to package one that is a pointer — take it out of LFS with a
-`.gitattributes` beside it, as `resources/sample/` has, or `git lfs pull`.
-
-A runtime is current only for the wheel it was installed from. `bundle:runtime`
-records the wheel's name and `wheelSha256` in the runtime's `runtime.json`,
-and `scripts/package.mjs` treats a bundle whose hash differs from the wheel now
-in `resources/cadgen/` as missing. `npm run cad:resources` rebuilds the wheel
-under the same `cadgen-<version>` name but with a new hash, so a
-`bundle:runtime` has to follow it before the next package.
+build and refuses to package one that is a Git LFS pointer rather than content.
 
 ## Layout
 
@@ -798,17 +611,11 @@ from the tree, the tab strip, the command palette or an agent's
 the pane's width, and only a person's own toggle or drag writes it: an agent
 opening a file shows the pane without deciding anything for next time.
 
-A CAD file in the explorer is laid out by the shared FileViewer, which measures
-its own width: from 720px up, the file tree — a CAD file's one host panel —
-is drawn in the file tab's own panel column beside the model (see "The panels
-a file has"), and the tool stack hangs under the viewer's toolbar; below it
-the tree is a floating sheet over the model, the crumbs collapse to the file
-and the view cube is hidden. The explorer pane opens at 740px
+A file renderer that wants a side panel is laid out by the shared FileViewer,
+which measures its own width. The explorer pane opens at 740px
 (`PANE_LIMITS.explorer.default`), so a fresh pane in the default 1440px window
-is the wide layout, with room for the 220px panel column beside the model; a narrower window or a dragged
-separator takes it below the breakpoint. The app owns light/dark appearance. Inspect uses its
-fixed light (`#f0f4f9`) or dark (`#333333`) canvas; Render starts from the
-matching photographic studio and keeps its model-local backdrop edits.
+is the wide layout; a narrower window or a dragged separator takes the viewer
+below its 720px breakpoint. The app owns light/dark appearance.
 
 A markdown file opens as a document you can type in — a ProseMirror editor
 over TipTap's schema, saved with `Cmd/Ctrl+S` like any other file, with
@@ -816,25 +623,25 @@ over TipTap's schema, saved with `Cmd/Ctrl+S` like any other file, with
 opened, block for block: every top-level block (and every list item) carries
 the exact slice of the file it came from, and only the ones that changed are
 re-printed, by remark, using the bullet, emphasis and wrap column the file
-already uses. A whole-document serializer moves 18 lines of this
-repository's `README.md` and 149 of its `AGENTS.md` on a one-word edit; this
+already uses. A whole-document serializer rewrites lines far from a one-word edit; this
 moves the block. Raw HTML, link reference definitions and footnotes have no
 node in the schema and are held as their own bytes. See
 `features/explorer/renderers/markdown/document.ts` for the whole argument, and
 `tests/unit/renderer/markdown-{document,editor}.test.ts` for the proof, which is run against
-these three files.
+this repository's `README.md` and `AGENTS.md`.
 
-**Paths in a transcript are links** when they exist (plan §8). `features/session/links` is
+**Paths in a transcript are links** when they exist. `features/session/links` is
 the whole of it: a remark plugin marks every path-shaped token in an
-agent's prose — `models/bracket.step`, `README.md`, a code span holding a
+agent's prose — `models/part.step`, `README.md`, a code span holding a
 path — as a link candidate; `state/path-links.ts` asks main which of them
 exist, one `explorer.exists` per message per root rather than one per
 token, and caches the answers until `files.changed` says otherwise; and
 the `a` component draws a candidate as a button once it is known to be a
 file or a folder, and as the words it was otherwise. A file opens in the
 explorer with its renderer; a folder is revealed in the tree; a path with
-a selector (`bracket.step#o1.2`, `#label.f45`) opens the file in the
-viewer and hands the selector to the STEP renderer's command source. Paths
+a selector (`part.step#o1.2`) opens the file in its renderer and hands
+the selector to that renderer's command source (`src/shared/file-refs.ts`:
+the app does not interpret a fragment). Paths
 are relative to the thread's root — its worktree when it has one.
 
 Activity summaries stay neutral even when a call fails. A separate red failure count marks a folded group, and its failed rows show a red **Failed** indicator; expand a row for the original error. Completed thinking rows use an ellipsis, with a spinner while thinking is active. Status comes from the agent’s tool-call status, not from words in its output.
@@ -850,10 +657,10 @@ answers) opt out again. Anything else that needs selecting says so with
 `data-selectable`, the same as a path in Settings.
 
 **The composer is an editor, not a textarea** (`features/session/composer`).
-A CAD reference typed into it — `models/bracket.step#o1.2`, `#label.f45`,
-`bracket.step` — becomes a chip the moment the space after it lands, a
-pasted prompt's references become chips at once, and the viewer's Add to
-prompt action places a chip in the box and focuses it
+A file reference typed into it — `notes.txt#L12`, `part.step#o1.2`, or a
+bare name of a format an enabled plugin opens — becomes a chip the moment the
+space after it lands, a pasted prompt's references become chips at once, and a
+renderer's Add to prompt action places a chip in the box and focuses it
 (the host's prompt-context service). The chip is an inline atom in a
 one-paragraph ProseMirror document: Backspace removes it whole, the arrow
 keys step over it and select it as a unit, and it prints back to its plain
@@ -874,21 +681,20 @@ is a question about a line of text, not about a pixel count. Two things had
 to go for it: a `min-h` of three lines, and send in a footer under the box,
 which made the smallest possible composer a line to type in plus a line
 holding one button. The row of chips is still under the box, outside it.
-The viewer's camera button ("Ask about this
-view") renders the viewport to a PNG and
-accepts it together with selected references on the composer store (`acceptContext`), which the composer's
-attachments pick up and send as an ACP image block.
+A renderer's capture action (for example "Ask about this view") hands a PNG
+together with selected references to the composer store (`acceptContext`),
+which the composer's attachments pick up and send as an ACP image block.
 
 Click a composer reference chip, or focus its button with Tab and press
-Enter, to open its model and select the referenced geometry. The draft and
+Enter, to open its file and select the referenced fragment. The draft and
 its caret stay intact, and activating a chip never submits the prompt.
 References open relative to the session’s workspace or the new draft’s pinned
-workspace. A bare selector requires a CAD tab in that same workspace;
-otherwise the app asks you to open the model first. This uses the viewer’s
-existing `selectReference` contract; hover does not alter its selection.
+workspace. A bare selector requires a file tab in that same workspace;
+otherwise the app asks you to open the file first. This uses the explorer's
+`selectReference`; hover does not alter its selection.
 
-References added from a named part or feature show the model filename alongside
-its label, for example `car.step · wheel_front_left`. Switching model tabs does
+References added from a named part show the file name alongside
+its label. Switching tabs does
 not change a reference's filename. Long names truncate within the chip; the
 full label is available on hover. The
 full file/selector remains in the tooltip and is still the text sent to the
@@ -898,7 +704,7 @@ unresolved references keep their file/selector fallback.
 A file is sorted the moment it is attached (paperclip, paste or drop), not
 when the prompt is sent. Images and UTF-8 text up to 256 KB
 (`MAX_INLINE_TEXT_BYTES` in `composer/attachments.ts`) attach as before. A
-CAD file the viewer renders (`CAD_EXTENSIONS`) never goes in as bytes: one
+file in a format an enabled plugin opens never goes in as bytes: one
 already in the project folder — matched by name and byte size, since Electron
 gives the renderer no path for a picked file — is inserted as its path, the
 same token a typed reference chip sends; one outside the folder is refused
@@ -925,10 +731,9 @@ made.
 
 Image attachments show a contained thumbnail beside the filename, with an always-visible remove control. Click the thumbnail (or focus it and press Enter) to inspect the full image. Escape, Close or the backdrop dismisses the preview and returns focus to the thumbnail; the draft is unchanged. Explorer tabs use a bordered active state and visible keyboard focus on selection and close controls.
 
-The viewer's Copy Reference(s) button, ⌘C and the copy items in its menus are
-clipboard-only. A STEP's viewport and model-tree menus also offer **Add to
-prompt**, which adds that reference to the draft, and the navbar's snapshot
-adds the current view and the selected references together. Each tab delivers
+A renderer's copy-reference action is clipboard-only. A renderer's Add to
+prompt action adds that reference to the draft, and a snapshot action adds the
+current view and the selected references together. Each tab delivers
 only to the session that owns it. A workspace mismatch is rejected, and
 switching to another session never redirects context. Nothing is sent until the
 user submits.
@@ -936,7 +741,7 @@ user submits.
 FileViewer receives an explicit `ViewerHost`: workspace files/actions, live
 documents, native clipboard, prompt delivery, navigation and environment
 (appearance, keyboard platform and the app's reduced-motion setting).
-Follow the [shared host contract](../../packages/ui/docs/viewer-host.md) when
+Follow the [shared host contract](../packages/ui/docs/viewer-host.md) when
 adding integrations; native effects and session workflows belong in this app.
 Prompt delivery binds the tab's immutable owner session when the host is
 created, validates the entire bundle before one acceptance, and preserves its
@@ -952,7 +757,7 @@ components', Copy path, the terminal's selection) writes plain text with the web
 `navigator.clipboard.writeText`, which the app's permission handler allows as
 `clipboard-sanitized-write`.
 
-Incoming CAD selection and capture requests bind the project, tab, path and root
+Incoming selection and capture requests bind the project, tab, path and root
 at request time. Only that active document receives them; replacing or closing
 the target clears them. Nonce-specific acknowledgement prevents consumed requests
 from replaying when the viewer remounts, while a repeated reference click creates
@@ -967,8 +772,7 @@ diffs of files the answer says changed. A diff that cannot be read says so,
 with git's words and a Retry. A refresh that fails keeps the last answer on
 screen, marked stale under a "Could not refresh" line with Try again.
 
-The composer's paperclip opens one picker for files and photos. The viewer's
-camera button adds the current view and selected references to the draft.
+The composer's paperclip opens one picker for files and photos.
 There is no microphone: macOS dictation can type into the editor.
 
 ## The model, the effort and the mode
@@ -1032,7 +836,7 @@ reports against). Changing the mode in a live thread stores it as that
 agent's default too, so the next session starts where the last was left.
 
 **Permissions are the mode, and only the mode.** There were two levels for a
-while: the agent's own mode *and* an approval setting of text-to-cad's own ("Ask"
+while: the agent's own mode *and* an approval setting of elastic's own ("Ask"
 / "Approve for me") which could answer an incoming `session/request_permission`
 with the agent's allow-once option before the person saw it. That is two
 answers to one question — and no way to tell, when a request did not appear,
@@ -1146,7 +950,7 @@ While a query is typed the pages are stacked under one visually hidden h1
 ("Search results") with each page's title an h2, and a status region, there
 before the first keystroke, says "N rows match" (it counts rows, not pages).
 The composer's editor is named "Prompt", and the document title is
-"text-to-cad — Settings", "text-to-cad — Welcome", or "text-to-cad — " followed
+"elastic — Settings", "elastic — Welcome", or "elastic — " followed
 by the selected session's title (`app/App.tsx`). F6 and Shift+F6 move focus to the
 next and the previous pane on screen, skipping one that is shut, and on the
 window's capture phase, so they work from inside an editor or a terminal. Where
@@ -1211,8 +1015,9 @@ project row on the project's name only; ids and paths are not text to match
 
 ## The explorer strip
 
-The strip's `+` is one button and a menu of the five kinds, each with its
-binding — ⌘T file, ⇧⌘R review, ⇧⌘B browser, ⌃` terminal, ⇧⌘D drawing
+The strip's `+` is one button and a menu of the built-in kinds, each with its
+binding — ⌘T file, ⇧⌘R review, ⇧⌘B browser, ⌃` terminal — and, below them,
+the plugin tools that declare a `thread` entrypoint (the `tool` tab kind)
 (`lib/shortcuts.ts` is the table the menu prints and `useExplorerShortcuts`
 in `ExplorerPane.tsx` answers to). It sits **after the last tab, inside the scrolling row**, and is
 `position: sticky` at its right edge: it slides along with the tabs until the
@@ -1259,15 +1064,14 @@ Tab `sessionId` is immutable; `projectId` is only the directory identity used by
 filesystem services. Reviews always use their owning session's revisions.
 
 Ordinary tab edits are saved after a 400 ms debounce, keyed by session ID.
-Drawing tabs/scenes are excluded from IPC persistence and database writes.
 Switching sessions flushes the departing snapshot, retains its in-memory strip
 and restores the destination's own strip. Writes serialize per session; unrelated
 sessions load independently. Background agent commands open/show/close only
 that agent's tabs and never navigate the user's selected session. Browser pages
 and PTYs enforce the same session ownership, even for identical directories.
 Unsaved text drafts and renderer view settings belong to their tab; shared
-immutable CAD geometry caches can still be reused. Archiving/deleting a session
-releases live browser/terminal/drawing/CAD resources. Archive keeps unsaved
+immutable caches can still be reused. Archiving/deleting a session
+releases live browser, terminal and plugin tool resources. Archive keeps unsaved
 text drafts in window memory for restoration (quitting still discards drafts), flushes and
 retains ordinary tab metadata for restoration; deleting the session removes it.
 Both write the session row first and tear the tools down after, so a write that
@@ -1275,41 +1079,13 @@ throws (a locked database, a missing row) leaves the session active with its
 tokens, pages and shells intact.
 Failed tab restoration displays a retry action without replacing stored tabs.
 
-### Drawings
-
-Choose **Drawing** from `+` (or ⇧⌘D / Ctrl+Shift+D) for a light Excalidraw
-sketchpad. Edit the name in the drawing header; agents can supply a name on open
-or rename an existing sketch. Names remain in memory alongside the scene. Pan
-and drawing tools share the top toolbar, with menu/style/undo controls directly
-below in narrow panes; the lock control is hidden. Freehand, shapes, arrows and text become visual prompt context with
-**Add to prompt**. This appends a PNG and sketch description to the owning
-session's draft, preserving existing text and never submitting it. The
-destination is part of the tab's identity; even a late callback after changing
-sessions cannot redirect the result. Deleted or archived sessions cancel delivery.
-
-Drawings live only in renderer memory. Switching tabs or sessions keeps them;
-closing the tab, archiving/deleting its session, reloading or exiting discards them.
-An image already added to a draft or transcript is a separate copy. This
-scratch surface has no file import/export, autosave, Mermaid insertion, image
-embedding or scene-editing MCP tool. The `drawings` integration provides
-`open_drawing({title?})`, `rename_drawing({tabId,title})`, `drawing_state({tabId})` and
-`capture_drawing({tabId})`. Opening a saved `.excalidraw` as a regular file
-continues to show its source text.
-
-The shared editor is `@workbench/ui/drawing`; desktop owns its temporary
-lifetime and prompt port. Fonts are bundled for offline use by the shared
-`@workbench/ui/drawing-assets` Vite plugin (desktop ships the full set) and the
-editor loads only on opening a Drawing tab. Read [the drawing contract](../../packages/ui/docs/drawing.md)
-for limits, asset licensing and the reuse boundary for future CAD overlays.
-
 ### File renderers
 
-The shared viewer renderers come from `@workbench/ui/renderers/*`. Markdown, code,
-image, PDF and the unsupported fallback are this app's own, because web
-registers none of them: `features/explorer/renderers/{markdown,code,image,pdf,unsupported}`,
+Markdown, code,
+image, PDF and the unsupported fallback are this app's own renderers: `features/explorer/renderers/{markdown,code,image,pdf,unsupported}`,
 each a `defineFileRenderer` registration from `@workbench/ui/file-viewer` over the
 package's public exports only (the contract a host renderer may rely on is
-`@workbench/ui`'s [renderer contracts](../../packages/ui/docs/renderers.md)).
+`@workbench/ui`'s [renderer contracts](../packages/ui/docs/renderers.md)).
 Monaco, TipTap, remark and PDF.js are this app's dependencies, not the package's.
 
 They keep the Markdown document and source views, Monaco's configuration and
@@ -1351,8 +1127,8 @@ it in CI.
 
 ### Live files and terminals
 
-A file tab keeps its `file` kind and chooses a renderer: CAD, PDF, Markdown,
-code, image or unsupported. The `documents` integration reads the live text
+A file tab keeps its `file` kind and chooses a renderer: PDF, Markdown,
+code, image, unsupported, or one an enabled plugin registers. The `documents` integration reads the live text
 buffer, including unsaved typing, and requires its revision before replacing
 or saving it. `read_document` returns at most 2 MiB of characters
 (`MAX_DOCUMENT_CHARS`, held equal to the renderer's `MAX_BRIDGE_DOCUMENT_CHARS`
@@ -1370,7 +1146,7 @@ the cap, so the editor that saved can tell its own write from an agent's;
 nothing else is read. Dirty tabs refuse ordinary
 and agent-driven close; the UI provides explicit discard. These drafts last
 for the app window, not across quitting. PDF tools operate on the same PDF.js
-document as the page on screen. See [workspace integrations](docs/integrations.md)
+document as the page on screen. See [workspace integrations](integrations.md)
 for the complete tab/renderer/integration mapping and lifecycle rules.
 
 Terminal tabs are views of main-owned PTYs. Switching tabs does not stop a
@@ -1381,7 +1157,7 @@ new output or user typing. Closing a terminal releases its process; stopping
 it leaves the output available until close. `stop_terminal` signals the shell
 and waits up to two seconds: `exited: true` with the `exitCode`, or `exited:
 false` when the program is still running. A provider's own shell tool has
-separate process IDs and does not automatically create a text-to-cad terminal tab.
+separate process IDs and does not automatically create an elastic terminal tab.
 A session holds at most 16 ptys, stopped ones and the person's own included
 (each keeps its scrollback until its tab closes); `create_terminal` refuses past
 that, checked before the pty is registered so concurrent calls cannot overshoot.
@@ -1389,7 +1165,7 @@ that, checked before the pty is registered so concurrent calls cannot overshoot.
 answers to, so a restored terminal starts a fresh shell instead of attaching to
 one that died with the app; a live pty (a renderer reload) keeps its id. A tab
 the agent opened carries `agent: true`, and its respawn through
-`terminal.create` puts the runtime launchers in front of `PATH` again.
+`terminal.create` puts the session's runtime directories (`src/main/runtime-path.ts`) in front of `PATH` again.
 `TerminalTab`'s key handler copies a selection on Cmd/Ctrl+C and passes Cmd/Ctrl+K
 to the command palette. Paste is xterm's own paste listener, which brackets the
 text when the shell asked for it; the Cmd/Ctrl+V branch of the handler only
@@ -1419,12 +1195,12 @@ Git-ignored outputs, dependency folders and unsupported formats. Renderer
 support determines what opens in the file tab; it never hides a tree row.
 Unknown types open with **Not supported**. Listings are lazy and complete for
 each expanded directory. The bounded fuzzy index visits project content before
-dependency caches so cache files do not crowd generated CAD outputs out of the
+dependency caches so cache files do not crowd project files out of the
 search budget. `listPaths` reads the next 16 directories (`LIST_READ_AHEAD`)
 while it takes the current one apart, and consumes them in the order they were
 found, so a capped walk returns the same paths a serial one would
-(`scripts/bench/explorer-list-paths/` compares the two, manually). Background recursive watching respects the root's Git ignore
-rules and excludes dependency caches so packaged runtimes do not create tens
+(`tests/unit/main/list-paths-reference.ts` is the serial reference). Background recursive watching respects the root's Git ignore
+rules and excludes dependency caches so they do not create tens
 of thousands of watchers. Every browsed directory and every opened file's
 parent receives a direct watch, including Git-ignored outputs. Those files stay
 live without expanding their folders, and all watches close when their root's
@@ -1458,9 +1234,7 @@ files toggle last, which stays there whatever is open and whatever kind of
 file it is. The tree's header is its filter and nothing else. There is no
 `Copy path` button and no `Open ▾`: those are items in the entry menus.
 
-The row itself is the CAD Viewer's — `@workbench/ui/navigation`, inside the complete shared FileViewer that web
-viewer draws too, so the two apps have one nav row and not two that resemble
-each other. This app supplies the branch label before the crumbs (`leading`,
+The row itself is the shared FileViewer's — `@workbench/ui/navigation`. This app supplies the branch label before the crumbs (`leading`,
 drawn by `FileTab.tsx`) and, through a source adapter, the two things only it
 has: where a directory listing comes from and the entry menus on a crumb
 (`features/explorer/adapters/fileSource.ts`).
@@ -1478,10 +1252,9 @@ prevents the broadcast and initiating caller's receipt from applying a move
 twice. External edits preserve dirty drafts and refresh clean documents.
 
 **Every crumb is a menu of its neighbours** (`@workbench/ui/navigation`'s
-`Breadcrumbs.jsx`, the model in its `crumbs.js`), the way the CAD Viewer's
-breadcrumb is. The crumbs
-are the path's segments **below the root** — `STL/link_plate.stl` is `STL ›
-link_plate.stl` — and each one's menu is its **parent's** listing with the
+`Breadcrumbs.jsx`, the model in its `crumbs.js`). The crumbs
+are the path's segments **below the root** — `docs/design.md` is `docs ›
+design.md` — and each one's menu is its **parent's** listing with the
 crumb itself marked: the first crumb drops down the root's entries, a folder
 crumb drops down what sits beside that folder, and the file crumb drops down
 its siblings. There is no crumb for the project or the worktree, and that is
@@ -1510,7 +1283,7 @@ the whole list aimed at the row that was clicked, and the empty space under
 the rows is the root). A file: Open (tree rows only — a crumb is the open
 file, and a file is one tab: opening it again by any door focuses that
 tab) · Open with default app · Open with… · Reveal in Finder (Show in Explorer / Show in file manager)
-· Copy path · Copy relative path · Copy reference (CAD files: copy the path
+· Copy path · Copy relative path · Copy reference (copy the path
 through the native clipboard port and deliver the typed workspace reference
 through the injected prompt destination) ·
 Rename · Duplicate · Move to Trash. A folder: New file · New folder · Open
@@ -1543,12 +1316,8 @@ control that is always there is always in the same place. Opening any panel
 closes whatever was open.
 
 Markdown declares one, the two readings of the same bytes (`View source` /
-`View preview`). A CAD file — STEP, robot, GLB, STL, 3MF, DXF — declares none:
-its Features, Links, Reference, Issues and Position are panels of the viewer's
-own tool stack over the viewport
-([the tool stack](../../packages/ui/docs/settings-ui.md#the-tool-stack)), and
-nothing it does opens or turns this column. Display is a popover in the
-viewport's top-right bar, never a panel. Code, images and PDFs declare none, leaving the tree as the whole list.
+`View preview`). A renderer with its own tool stack declares none, and
+nothing it does opens or turns this column. Code, images and PDFs declare none, leaving the tree as the whole list.
 
 A declaration identifies where its content belongs: `tree` is the app's file
 tree, `slot` is a box the renderer draws into, and `body` replaces the file
@@ -1566,123 +1335,23 @@ can be walked file by file; `openSessionTab` applies a requested panel in the sa
 strip update that selects the tab, and leaves a tab's panel alone when none is
 asked for. Below the viewer's 720px breakpoint the tab's panel is not consulted:
 a file opens with no sheet and a sheet opens from its toggle. A stored panel id
-no panel in the list has — the retired CAD Settings (`cad-file`), or markdown's
-source view on a tab now showing a `.step` — resolves as nothing open
-(`resolveOpenPanel`); saved `cad-theme` and `cad-display` choices read as `null`.
-
-### Inspect and Render
-
-CAD controls are shared with web, and the shared
-[viewer design system](../../packages/ui/docs/settings-ui.md) is their contract;
-what follows is what a desktop tab shows. STEP and robot files have a toolbar at
-the top left
-([tools and lifecycle](../../packages/ui/docs/settings-ui.md#tools-and-lifecycle)).
-A STEP's is Select, Draw, Measure, Explode, Clip, then Position where the
-sidecar declares kinematics.
-No tool has a menu on the strip: what a tool can be set to (Select's modes,
-Measure's snapping, Position's joints) is its panel beneath the
-toolbar while it is up; Explode and Clip are toggles whose panels sit there too. A robot description's is Select (which picks
-whole links; Shift, Ctrl or Cmd adds one), Position where it has movable joints,
-and it opens in Select. An agent's select command on a robot fails
-with a sentence saying so; its clearSelection clears the link selection. Draw is
-a STEP tool and appears nowhere else. A GLB, an STL and a 3MF have nothing to
-select: they have no toolbar, and an
-agent's select command on one fails with a sentence saying so. Routines and
-clips play only in preview, whose playbar sits under the model. Buttons wrap inside the
-toolbar in a narrow pane. Display is not a tool: its settings are a popover
-from the button beside Preview, and opening it leaves the tool in hand.
-
-The file navbar's snapshot action (the camera) attaches the viewport PNG and
-the selected references to this tab's owning session draft through the
-prompt-context adapter; it does not send a message. There is no zoom control
-anywhere: no percentage readout, no menu behind one, no zoom toolbar. A STEP's
-viewport context menu ends in Zoom to fit and Zoom to selection (off without a
-selection), offered over a part, over the backdrop and on every Features tree
-row. The view cube sits at the bottom right, hidden below the 720px breakpoint
-and in preview: its faces turn the camera to the six plane views and its
-corners to the isometric views, keeping the zoom. Neither touches the model, its
-motion or its display settings. The camera is never stored, so reopening a file
-frames it afresh.
-
-**Preview** is the shared shell's own button, a play circle in the viewport's
-top-right bar beside Display settings
-([camera, animation and preview](../../packages/ui/docs/settings-ui.md#camera-animation-and-preview)).
-It keeps this app's navbar and file tree column, hides the toolbar and tool
-stack, orbits by default, and offers Playback settings (for a file with
-routines its Routine, Speed, Loop and Autoplay, then Orbit) beside the same
-Display settings; the routine plays on entry only with Autoplay on. Escape or
-its X ("Exit preview") exits, stops the routine and puts the tools view's
-camera back. The host passes nothing for it.
-
-A STEP's tool stack holds Select's Features, then the Reference while
-something is selected and Issues when there are any; Position's panel (a `Pose`
-choice with its Reset, then the joint sliders) is there while that tool is up,
-when the sidecar declares kinematics.
-Preview's playback and Position's pose retain independent runtimes, enable state
-and actions; every pose write (a value, a named pose, a Position-tool knob,
-Reset) is an instant jump, and Reset also stops any playing routine and hands
-the pose back to Position. A robot's holds Select's Links (the link tree), the
-Reference, an SDF's metadata panel for a `.sdf`, and Position for the joints.
-A DXF drawing has no toolbar and no tool stack: it is a straight 2D render
-on a canvas — drag to pan, wheel or pinch to zoom about the pointer,
-double-click to fit — and the navbar carries only Take snapshot and the files
-toggle.
-
-Display's first section holds the Mode dropdown (Solid, Render, X-ray, Hidden
-line, Wireframe) and Projection; Surfaces, Edges, Grid / Axes, Lighting (with
-its Preview/Final quality), Background and Floor follow. A robot, a GLB, an STL
-and a 3MF have no CAD edges, so they offer only Solid and Render and no Edges
-section. Switching modes never reframes the camera
-or changes the open panel. Display settings, Clip and Explode persist in the
-tab's record for the file.
-The tool stack stays as it is while the Display popover is open, so the Features
-tree keeps its disclosure and scroll.
-
-Settings › Appearance owns the app's System, Light and Dark preference; the
-desktop adds no appearance control to Display. Authored materials are read-only
-in every display mode, with names and properties in the selection's reference
-details. There is no Materials tab, local assignment or material undo state.
-Use prompts to change source material assignments or properties.
-
-Embedded STEP animation modules load through temporary Blob URLs in the
-renderer. Its content security policy permits `blob:` scripts for this path,
-while retaining the restrictions on remote scripts, inline scripts and `eval`.
-The shared loader revokes each URL after module evaluation; no adjacent
-JavaScript file is discovered or written.
-
-Neither a display-mode change nor a photographic setting changes the app's appearance.
-`cad.spec.ts` checks that the embedded viewer never writes the document's
-theme (`data-theme`, `data-theme-preference`, `cad-viewer:theme` all stay
-unset); `shell.spec.ts` samples the document's scheme through launch and a
-theme change. See the shared [Render modes](../../packages/ui/docs/render-mode.md)
-playbook for the mode bases and camera behavior.
+no panel in the list has — markdown's source view on a tab now showing
+another format — resolves as nothing open (`resolveOpenPanel`).
 
 ## Quitting
 
-`app.quit()` has a budget of two seconds (`tests/e2e/cad.spec.ts` quits with everything running and
-asserts the process is gone within it, and that `[quit] teardown` and `[quit] will-quit` were logged; it prints
-`[quit-budget] app.quit() to pid gone: N ms of 2000 ms (deadline 1200 ms)` whether it passes or fails, so a CI log shows
-how much of the budget a run used, and records N as the `quit-ms` annotation), and the
+`app.quit()` has a budget of two seconds (`tests/unit/main/quit-deadline.test.ts` and `tests/unit/main/quit-sequence.test.ts` hold the sequence), and the
 teardown in `before-quit` is written for it: every owner signals what it
 owns and nothing is awaited. Electron waits for the Node side, and the Node
 side waits for every child it holds a pipe to, so `src/main/children.ts`
-registers every process main spawns — the viewer, the adapters, the
+registers every process main spawns — the adapters, the
 terminals' backends, the probes, `git` — and `before-quit` kills the probes
 outright, sends a git write (commit, push, worktree add/remove) SIGTERM so it
 can drop its `index.lock` (signalled, not waited for: the write may outlive
 the quit and finish, or be killed at `will-quit`), and detaches the rest; `will-quit` kills whatever
-ignored its signal. Before that, a cadgen version probe (sixty-second timeout) still
-importing OCP held the exit for sixty seconds, and chokidar's `close()` over
-this repository blocked for most of a second, so the watchers are not closed
+ignored its signal. Chokidar's `close()` over
+a large tree blocked for most of a second, so the watchers are not closed
 at all — an fsevents handle dies with the process.
-
-On POSIX, an app-owned viewer runs in its own process group. Its transient CAD
-workers are stopped when the viewer exits or the app quits, including workers
-that outlive the viewer process. A reused external viewer is not a child
-of this app and is never touched. The shared warm daemon outlives the app by
-design and is spared by pid, not by group (the app-owned viewer has a group of
-its own too, so sparing a group would spare it); on Windows the deadline's tree
-kill takes the warm daemon with it. The deadline, below, has the mechanism.
 
 What is left after `before-quit` is Chromium's own shutdown, which on this
 macOS takes twelve seconds to minutes once a window has held a WebGL context
@@ -1696,16 +1365,13 @@ kills the app and its helpers at an absolute deadline, 1.2 seconds from
 window that never acks its unload, a main-process error dialog (an
 `uncaughtException` while quitting exits at once) — is bounded too. It counts
 teardown and watchdog startup toward the same budget. On POSIX it kills every
-direct child except the warm daemon, which it spares by pid (the app hands it
-`daemonPids()` from `src/main/cad/daemon.ts`, which drops a daemon's pid when it exits so a reused pid is never spared; sparing by process group would
-also spare the app-owned viewer, which is `detached` too). A child that leads a
-group of its own, like the viewer, is killed as a group, so its compile workers
-go with it; Chromium's helpers are killed singly. (A viewer reused from another
-run is not a child of this app and is never touched.) Its two probes, `pgrep -P`
+direct child except any pids it is handed to spare. A child that leads a
+group of its own is killed as a group, so its workers
+go with it; Chromium's helpers are killed singly. Its two probes, `pgrep -P`
 for the children and `ps` for their groups, each run under a 250 ms timeout so a
 hung `ps` cannot stall the final kill of the app. If `pgrep` fails or times out
 it finds no children, and only the app is killed; if `ps` times out, no groups are
-known and every unspared child is killed singly (a viewer's workers, in its own group,
+known and every unspared child is killed singly (a child's workers, in its own group,
 are then not reached). On macOS, `ps -p a,b` prints the rows
 of the pids still alive and exits 0 (it exits 1 only when none matches, and the app's own
 pid is always in the list). The rows of a `ps` that exits non-zero are read as well, for a
@@ -1713,13 +1379,11 @@ variant that reports a vanished pid as a failure while still printing what it fo
 variant has been measured on Linux. A quit that finishes
 on its own — half a second without WebGL —
 gives it nothing to do. On Windows there is no spare list: the deadline runs
-`taskkill /PID <app> /T /F`, which follows the parent pid through `detached`, so
-a quit that reaches the deadline ends the warm daemon too and it is cold-started
-by the next launch. (A quit that finishes on its own leaves it running.)
+`taskkill /PID <app> /T /F`, which follows the parent pid through `detached`.
 
 `before-quit` in `src/main/index.ts` calls `markQuitting()` first, before any
 step that can throw; the listener in `src/main/menu.ts` is registered later
-and keeps a mark of its own. Every teardown step after it (updater, CAD,
+and keeps a mark of its own. Every teardown step after it (updater,
 integrations, ACP, agents, settings effects, browser, explorer, window state,
 database, children) runs under its own `try`, so one that throws is logged and
 the rest still run, the database close among them, and the deadline is armed
@@ -1741,116 +1405,20 @@ to spawn) comes back as the updater's `error`, which puts back the scheduled
 checks `installUpdate` stopped (`src/main/updater.ts`), so the session goes on
 checking.
 
-## CAD runtime
-
-The runtime ships inside the app. Every cadgen process the app runs — the
-viewer per project, the probe that reads the cadgen version — uses one
-interpreter, resolved in this order (`src/main/cad/runtime.ts`):
-
-1. `CAD_DESKTOP_PYTHON` in the environment, then the `cadPythonOverride`
-   setting (no UI; a developer's and the e2e suite's knob);
-2. the bundled runtime beside the app — `Resources/runtime/<os>-<arch>/` in
-   a packaged app, `resources/runtime/<os>-<arch>/` in a checkout that has
-   run `npm run bundle:runtime` — recognised by the `runtime.json` the
-   bundler writes last;
-3. a development checkout's `.venv` — the app is running from inside this
-   repository (found by `VERSION` and `packages/cadgen/pyproject.toml` above
-   it), which is what `npm run dev` has;
-4. nothing: the status is *Missing* and says where it looked.
-
-Inside a checkout, whichever interpreter wins runs with
-`PYTHONPATH=<checkout>/packages/cadgen/src`, so the cadgen it imports is the
-checkout's own — a `.venv` on a developer's machine points at one checkout
-and the app may be running from a worktree of another. The bundled
-interpreter runs closed to the shell's Python variables (`PYTHONHOME`,
-`PYTHONPATH`, `PYTHONSTARTUP`, `PYTHONUSERBASE` dropped; `PYTHONNOUSERSITE`)
-and with `PYTHONDONTWRITEBYTECODE`, because a signed bundle must not be
-written into — its pycs were compiled by the bundler. Every cadgen process
-also gets `CADGEN_NODE`: cadgen's DXF and mesh-export builders run in Node,
-an app launched from the Finder has no `node` on its PATH, and the one Node
-a packaged app is sure to have is its own Electron binary run as Node.
-
-There is nothing to install and no CAD-runtime install state. Settings › About and
-updates carries a read-only block — the runtime (source and interpreter),
-cadgen's version against the app's, the viewer backend, the skills root
-every session is handed — and Repair, which forgets the probe and looks again.
-The probe is cadgen's own report, `python -m cadgen.cli doctor --json`, which
-runs cadgen's kernel check (the one the STEP path runs). A kernel that fails
-to load is *Failed*; one that is missing, that the check refuses, or whose
-check did not finish in time is *Ready — CAD kernel: <state>* with the check's
-words beneath, because the viewer never imports the kernel and GLB, STL and
-DXF still open — and a STEP build that fails then quotes those words in its
-recovery line. Only `missing` and `unsupported` keep the build daemon from
-being warmed on it (`DAEMON_BLOCKING_KERNEL` in `src/main/cad/runtime.ts`); a
-`timeout` says nothing about the kernel, so the daemon is still warmed, and
-that probe is not cached — the next status asks again. A probe that *fails*
-(no interpreter, cadgen not importable, a kernel that fails to load) is
-remembered for a minute, because `cad.warm` asks on every session bind and a
-broken interpreter would otherwise run a doctor per bind; Repair and an
-override change clear it at once, and so does the runtime card's Try again in a
-CAD tab, which calls `runtime.repair()` and then reloads the viewer.
-A CAD tab whose runtime did not start shows the failure's words — for a
-missing runtime, "This copy of text-to-cad has no CAD runtime … Reinstall the
-app" in a packaged build and the list of interpreters it looked for in a
-checkout (`missingMessage`) — with Try
-again, and Reveal log — `runtime.revealLog` shows the log
-(`userData/cad-runtime.log`: every failed probe, every viewer launch that did
-not come up, the viewer's stderr; cut back in place to its last 1 MB whenever it passes 4 MB) in the file manager. The request carries no
-path: main names the one file, and answers `{ revealed: false }` when it does
-not exist yet. The tab never asks the person to set anything up.
-
-`src/main/cad/viewer.ts` runs one `python -m cadgen.viewer --api-only --host
-127.0.0.1 --json` per project root (cwd = the root, the launcher's contract),
-parses its JSON line, keeps the child, restarts it on a crash with backoff
-(1 s doubling to 30 s), and gives up after five crashes in a row; an instance
-that stays up five minutes resets the count, and a viewer asked for again after
-giving up launches afresh. Every launch, restart and stop shares a generation
-per root: a stop bumps it, a launch or restart checks it after each await, so a
-stop during the backoff or the launch stays a stop, and `stopAll` also stops
-roots still launching. A worktree's viewer stops when the last open session in
-that worktree is archived or deleted (`forgetCadSession` in
-`src/main/cad/index.ts`, asking `sessionsUsing` over the other sessions). At
-most three of its own run: opening a fourth stops the least recently asked-for
-one whose root has no CAD tab open (`openCadRoots`: the persisted strips of
-sessions that are not archived), and when every other has one the bound is
-exceeded rather than a tab's viewer stopped. All stop on quit. It never kills an
-instance the launcher reported as `reused`, because that one is somebody
-else's. The manager's injectables are `spawn`, `probe`, `delay`, `now`,
-`inUse` and `maxLive`. `cad.viewerOrigin` is how the file tab gets the origin.
-
-The viewer does not wait for the first CAD file. When the explorer binds to
-a project (or a session's worktree), the renderer calls `cad.warm`, and main
-starts what the first CAD file would have paid for on its own clock. The
-runtime probe and the daemon are global, so every bind runs them, whatever the
-root holds; the viewer is per root, so it starts only if the root holds a
-`.step`/`.stp`/`.stl`/`.3mf`/`.glb`/`.gltf`/`.dxf`/`.urdf`/`.srdf`/`.sdf` file
-within three folders (`hasCadFile`: a breadth-first scan of at most 400 directory
-listings, skipping `node_modules` and dot folders, and not cached, so every
-bind repeats it; any other root gets its viewer when a CAD tab opens). The daemon is cadgen's warm build daemon
-(`src/main/cad/daemon.ts` spawns `python -m cadgen.daemon`, the registered
-command a cadgen client spawns for itself, detached and never stopped — it is
-the person's daemon, shared with every terminal, and it retires on its own
-idle timeout; it starts in `userData`, so it holds no project folder open). Once per interpreter per app run, and never when
-`CADGEN_DAEMON=0`. Measured with `scripts/perf-cad.mjs`: the first STEP open
-after launch had paid 0.9 s for the probe and the viewer and ~3 s for the
-daemon's start inside its first compile; warmed at project open both are done
-before the click, and `viewerOrigin` shares the launch already in flight.
-
 ## Skills and tools in a session
 
 The app gives each session focused skills and independent domain MCP servers.
 `src/main/integrations/registry.mjs` is their shared composition point; the
-[workspace integration guide](docs/integrations.md) defines resource scopes,
+[workspace integration guide](integrations.md) defines resource scopes,
 lifetimes, prompt handoff and the recipe for adding a domain. Nothing installs
 into an agent's own configuration: no plugin, marketplace or copy into
-`~/.claude/skills`, and no mandatory umbrella `text-to-cad-app-use` skill.
+`~/.claude/skills`, and no mandatory umbrella skill. Plugins ([plugins](plugins.md))
+are how a session gets anything beyond these domains.
 
-**Skills.** `scripts/build-skills.mjs` composes repository skills plus the
-registry's app skills into `resources/skills/`. The standalone `cad-viewer`
-skill is replaced by the focused embedded-viewer handoff. Browser, PDF,
-documents, terminals and drawings supply their own instructions; upstream
-skills retain licenses and provenance. The app supplies cadgen/Python on PATH,
-and the embedded CAD skill directs agents to that runtime.
+**Skills.** `scripts/build-skills.mjs` composes the registry's app skills
+(`skills/<name>`) into `resources/skills/`. Browser, PDF, documents and
+terminals supply their own instructions; upstream skills retain licenses and
+provenance.
 
 At launch `src/main/integrations/skills.ts` materializes real copies into both
 native loader layouts:
@@ -1885,8 +1453,8 @@ answer; a resumed session's history has it.
 These are discovery options, not a requirement to load every skill on a turn.
 
 **MCP servers.** The registry supplies separate `app-workspace`,
-`app-browser`, `app-pdf`, `app-cad`, `app-documents`,
-`app-terminals` and `app-drawings` entries. Each runs the shared
+`app-browser`, `app-pdf`, `app-documents` and
+`app-terminals` entries. Each runs the shared
 `resources/app-mcp/server.mjs` executable with its domain selected in the
 environment, using this app's Electron binary as Node. Packaging bundles it
 in `out/app-mcp/`, including Playwright's upstream packages/runtime assets.
@@ -1908,20 +1476,14 @@ Background reads do not change focus. A capture tool returns an image; an
 Add to prompt action separately binds a compatible draft and never sends it.
 
 Provider-owned filesystem/shell tools still access disk and their own process
-IDs. They do not read unsaved editor buffers or control text-to-cad's terminals.
+IDs. They do not read unsaved editor buffers or control elastic's terminals.
 Use the app's document and terminal integrations for those live resources.
 Existing disk watchers reconcile changes made by ordinary repository tools.
 
-**Runtime.** `CadRuntime.sessionPath` puts the app's pinned CAD runtime ahead
-of the login-shell PATH. With the bundled runtime that is `<userData>/bin` and
-nothing else: `cadgen` (invokes `python -m cadgen.cli`, independent of a
-build-machine pip shebang), `python3` and `python` launchers for the bundled
-interpreter. The bundle's own `bin/` is not on the PATH, and the interpreter is
-PEP 668 externally managed, so an agent's `pip install` is refused with a
-pointer to a `--system-site-packages` venv (resources/README.md, "The
-runtime"). A checkout's `.venv/bin` is put on the PATH as it is.
-Python discovery, daemon startup and CAD viewer backend lifetime stay in
-`src/main/cad/`, separate from generic integration plumbing.
+**Runtime.** `sessionRuntimePath` (`src/main/runtime-path.ts`) puts the
+directories an enabled plugin ships for its agents to run ahead of the
+login-shell PATH. Adapters, agent-opened terminals and the terminals
+integration all read that one list.
 
 The unit suites cover the registry, skill composition/materialization, MCP
 registration, authenticated loopback bridge and domain ownership/conflicts.
@@ -1929,14 +1491,14 @@ Browser/PDF integration tests exercise the actual page/renderer; live-document
 tests cover retained drafts, revision conflicts and stale capability cleanup.
 `tests/e2e/integrations.spec.ts` runs a hidden Electron app with the opt-in fake
 ACP scenario: it spawns the actual session-supplied stdio servers with the MCP
-SDK, validates all seven registrations and token isolation, and exercises live
-text/PDF/drawing/terminal resources without spending model credits.
+SDK, validates the registrations and token isolation, and exercises live
+text, PDF and terminal resources without spending model credits.
 
 ## Layout
 
 ```
-electron.vite.config.ts   main / preload / renderer, path aliases, the viewer's JSX-in-.js loader
-electron-builder.yml      packaging and the GitHub Releases updater feed
+electron.vite.config.ts   main / preload / renderer, path aliases, the shared packages' JSX-in-.js loader
+electron-builder.yml      packaging (no updater feed configured)
 tsconfig.node.json        main + preload + shared + node-side tests
 tsconfig.web.json         renderer + renderer tests
 src/main/                 the Electron main process: everything with a side effect
@@ -1951,10 +1513,9 @@ src/main/                 the Electron main process: everything with a side effe
                           Reload Page (Mod+R) reloads the focused browser page and nothing else
                           (`browserService.forwardFromFocused` / `reloadFocused`)
   window-state.ts         persisted geometry, checked against the displays that exist now
-  telemetry.ts            Aptabase, inert without a key and off without the setting
   settings-effects.ts     the settings that are instructions to the OS: login item, menu-bar
                           item, macOS vibrancy — applied at boot and on every settings write
-  updater.ts              electron-updater against GitHub Releases; a no-op in dev
+  updater.ts              electron-updater; a no-op in dev and with no feed configured
   app-paths.ts            appVersion, appRoot, resourcesDir (checkout vs packaged)
   children.ts             every child process main spawns, tracked so `before-quit` can end them
   quit-deadline.ts        a watchdog process that ends the app if Chromium's shutdown hangs
@@ -1963,7 +1524,9 @@ src/main/                 the Electron main process: everything with a side effe
                           update), so the unsaved-draft guard lets the unload through
   test-door.ts            the e2e suite's folder choice from main's side (`__workbenchE2E`),
                           installed only under `NODE_ENV=test` in a development build
-  onboarding.ts           whether this run shows onboarding, and the sample project copy
+  onboarding.ts           whether this run shows onboarding
+  runtime-path.ts         directories put in front of every session's `PATH` (what plugins ship)
+  plugins/                the plugin host: manifest, registry, service, the app:// protocol
   db/                     sqlite: migrations.ts (runner + schema), repositories.ts (rows <-> types)
   ipc/                    register.ts (validating registration) + index.ts (the handlers)
   agents/                 registry.ts (the provider table), detect.ts (login-shell PATH, which,
@@ -1976,15 +1539,15 @@ src/main/                 the Electron main process: everything with a side effe
                           with, cached between them — see The model and the effort)
   ipc/{acp,agents}.ts     the P1 handler branches, spread into ipc/index.ts
   ipc/agent-options.ts    agentOptions.*: the cache, the probe and the stored defaults
-  ipc/{skills,runtime}.ts   the skills root and CAD runtime branches (P5's bodies, P6's shape)
+  ipc/{skills,plugins}.ts   the skills root and plugin branches
   ipc/dialogs.ts          the native folder and file choosers Settings' path rows use
   ipc/settings-fallbacks.ts
                           settings.fallbacks: { refused, gone } — stored values read as defaults
-  ipc/{explorer,cad}.ts   files, terminals; cad.viewerOrigin + cad.warm
+  ipc/explorer.ts         files and terminals
   ipc/integrations.ts    scoped integration command/reply relay
   ipc/browser.ts          browser.*: the embedded browser's pages, scoped to a live session
   ipc/clipboard.ts        clipboard.*: plain text and validated PNGs to and from the OS
-  ipc/onboarding.ts       onboarding.status and onboarding.createSample
+  ipc/onboarding.ts       onboarding.status
   ipc/git.ts              P7's: the review's reads in a session's directory, the
                           commit, the pull request, and the worktree list
   explorer/               fs.ts (complete listings, read/write, scoped watchers),
@@ -1993,9 +1556,6 @@ src/main/                 the Electron main process: everything with a side effe
                           project and root), connections.ts + cdp.ts (the scoped CDP endpoint
                           the Playwright MCP drives), harness.ts + vendor/ (Browser Use's
                           CDP bindings) — see docs/browser.md
-  cad/                    runtime.ts (which Python: override, bundled, checkout), viewer.ts (one viewer per project root),
-                          daemon.ts (the warm build daemon, started at project open),
-                          index.ts (CAD runtime wiring)
   integrations/           registry.mjs + domain/module.mjs (tools and focused skills),
                           manager.ts, skills.ts, mcp-bridge.ts + actions.ts (generic relay),
                           domain services/actions and lifecycle policy
@@ -2013,17 +1573,18 @@ src/shared/               types.ts (domain types as zod schemas)
   ipc/agent-options.ts    agentOptions.* — the model and effort chips before a session exists
   acp/options.ts          which option is the model, which is the effort, which mode is
                           the agent's own auto preset (both processes read this one file)
-  ipc/skills.ts, ipc/runtime.ts, ipc/dialogs.ts  the skills, CAD runtime and chooser branches (P6)
+  ipc/skills.ts, ipc/plugins.ts, ipc/dialogs.ts  the skills, plugin and chooser branches
+  file-refs.ts            the `<file>#<fragment>` reference grammar and the formats enabled
+                          plugins open (pure)
   agents.ts               provider and status schemas
   acp/types.ts, acp/reduce.ts  SessionState and the pure session/update reducer
   ipc/explorer.ts         explorer.* terminal.* and their events (P3)
   ipc/git.ts              git.* — the review's reads plus P7's worktrees
-  ipc/cad.ts              cad.viewerOrigin and cad.warm
   ipc/integrations.ts    integrations.command / integrations.reply for domain MCP tools
   ipc/browser.ts          browser.* — the embedded browser's pages (browser.ts beside ipc/
                           holds the page and input schemas)
   ipc/clipboard.ts        clipboard.* — plain text up to 1 MiB, PNGs up to 16 MiB
-  ipc/onboarding.ts       onboarding.* — whether onboarding shows, and the sample project
+  ipc/onboarding.ts       onboarding.status — whether onboarding shows
   ipc/errors.ts           errorMessage: the handler's own words out of Electron's invoke wrapper
 src/renderer/
   app/                    Shell (three panes in a flex row), App, CommandPalette
@@ -2043,14 +1604,14 @@ src/renderer/
     ComposerChips.tsx     project / git mode / mode / model / effort chips
     ContextMeter.tsx      the context ring at the end of the composer's row, and the
                           panel behind it: the window, the plan limits, the tokens
-  features/explorer       the one tab strip and its five kinds of tab
-    drawing/              temporary Excalidraw host and prompt attachment action
+  features/explorer       the one tab strip and its five kinds of tab (file, review, browser,
+                          terminal, plugin tool)
     host/                 the `ViewerHost` ports this app hands FileViewer: prompt delivery
-                          (promptContext.ts), the native clipboard, CAD commands, load failures
+                          (promptContext.ts), the native clipboard, load failures
     adapters/fileSource.ts  this app's file/navigation service: the listings, read a
                           directory at a time over IPC, and the crumb entry menus
-    renderers/            the file-tab renderers: index.tsx composes the shared viewer
-                          renderers with this app's own, which live here —
+    renderers/            the file-tab renderers: index.tsx composes this app's own,
+                          which live here, with the ones enabled plugins register —
       code/               Monaco, self-hosted, and its worker setup (code/editor)
       markdown/           the document editor and its `View source` panel
       markdown/document.ts  markdown <-> the editor's document, keeping every block the
@@ -2061,6 +1622,9 @@ src/renderer/
       unsupported/        the fallback: “Not supported”, and Open externally
   features/onboarding     Welcome.tsx (the first-run welcome over the window) and
                           GettingStarted.tsx (the sidebar checklist after it) — see Onboarding
+  plugins/                the renderer side of plugins: the store, MCP App frames, file
+                          renderers, the Open with… menu
+  features/plugins        the Plugins page
   features/settings       the Settings route, the card-grouped rows, the agent drawer, and
                           pages/ — one module per page; search is done by the rows themselves
     settings-value.ts     the page's read and write path over the store, and useSettingsFallbacks
@@ -2075,21 +1639,19 @@ src/renderer/
                           integration-commands.ts for an agent's tool calls against the stores
     history.ts            back and forward over the top level, recorded from the selection
     workspace-root.ts     `explorerRootFor`: the explorer root the selected session names
-  styles/globals.css      stock shadcn neutral tokens — the same ones apps/web uses
+  styles/globals.css      stock shadcn neutral tokens
 tests/unit/               vitest
 tests/e2e/                playwright, against the built app
 tests/fake-agent/         a scripted ACP agent on stdio (SDK agent side), also replays fixtures
 tests/fixtures/acp/       recorded adapter transcripts (jsonl), written by the harness
 scripts/acp-harness.mjs   run a real ACP session from the terminal; --record writes a fixture
 scripts/build.mjs         npm run build: build-skills.mjs + electron-vite + build-mcp.mjs
-scripts/cad-resources.mjs the cadgen wheel and constraints into resources/cadgen, from a checkout
-scripts/bundle-runtime.mjs the CAD runtime into resources/runtime/<os>-<arch>: the pinned Python
-                          (scripts/python-build.json) with cadgen's closure installed, per target
-scripts/make-brand.mjs    npm run brand: the wordmark into resources/brand
-scripts/make-icons.mjs    npm run icons: the sidebar star onto its tile -> build/icon.png
-resources/brand/          the committed marks, and the JetBrains Mono face they are set in
-resources/app-mcp/   the MCP server's source (bundled into out/app-mcp by the build)
-skills/                  focused domain instructions and licensed upstream skills,
+scripts/make-brand.mjs    npm run brand: renders resources/brand
+scripts/make-icons.mjs    npm run icons: the sidebar mark onto its tile -> build/icon.png
+resources/brand/          the committed brand images and their typeface
+resources/app-mcp/        the MCP server's source (bundled into out/app-mcp by the build)
+resources/plugins/        the example plugins and their marketplace
+skills/                   focused domain instructions and licensed upstream skills,
                           selected by the integration registry for resources/skills
 ```
 
@@ -2346,7 +1908,7 @@ beside `sessions.ts`:
   the launch — and one spawned before any of those changed is closed rather
   than adopted. There are no sessions in the index on a
   first launch, so this does nothing until the second — and it is gated the
-  way the CAD pre-warm is (`WORKBENCH_PREWARM=1` under `NODE_ENV=test`).
+  way the agents' pre-warm is (`WORKBENCH_PREWARM=1` under `NODE_ENV=test`).
 
 What is left of the seconds is the `session/load` replay itself, which is
 the agent's own work and is now behind a transcript rather than in front of
@@ -2379,14 +1941,14 @@ cost is the mounting, not the layout.
 
 ## Git modes and worktrees
 
-Every session has a working directory, and a git mode is how it got one
-(plan §9). No mode is ever forced.
+Every session has a working directory, and a git mode is how it got one.
+No mode is ever forced.
 
 | Mode | `cwd` | `branch` | `worktreePath` |
 | --- | --- | --- | --- |
 | `none` | the project directory | — | — |
 | `checkout` | the project directory | whatever it is on | — |
-| `worktree` | a new worktree | a new `text-to-cad/<slug>` | the same directory |
+| `worktree` | a new worktree | a new `elastic/<slug>` | the same directory |
 
 `worktree` is the only one that can fail — a project that is not a repository,
 or one with no commits — and it fails with a sentence rather than git's words.
@@ -2397,7 +1959,7 @@ Worktrees live outside the project, one folder per project, whichever agent
 made them:
 
 ```
-~/.text-to-cad/worktrees/<project-slug>-<8hex>/<slug>       branch text-to-cad/<slug>
+~/.elastic/worktrees/<project-slug>-<8hex>/<slug>       branch elastic/<slug>
 ```
 
 The eight hex digits are a hash of the project's path, so two projects that
@@ -2413,11 +1975,11 @@ lists what exists per project). The slug comes from the session's first prompt
 when there is one, so a directory can be matched to a thread without opening
 anything. That directory is also the session's *identity* in the agent's own
 store — both `codex resume` and `claude --resume` key their threads by cwd —
-so a text-to-cad worktree session is resumable from a terminal later.
+so an elastic worktree session is resumable from a terminal later.
 
 A branch prefix git would refuse cannot be typed in: the field says why and
 writes nothing. One stored before that check existed is read as the default
-(`text-to-cad/`), and `settings.fallbacks()` (`src/shared/ipc/index.ts`,
+(`elastic/`), and `settings.fallbacks()` (`src/shared/ipc/index.ts`,
 handler in `src/main/ipc/settings-fallbacks.ts`) returns `{ refused, gone }`:
 `refused` holds the stored text of every top-level field that failed its own
 parse, `gone` the remembered `defaultProjectFolder` or `worktreeRoot` that is no
@@ -2466,12 +2028,12 @@ The review's scopes are the other half of this. Main records a snapshot
 of the working tree when a session is created and again at the start of every
 turn (`sessions.sessionHead` and `turnHead`: a tree made from a throwaway copy
 of the index with `add -A`, so untracked files are in and `.gitignore` applies,
-and pinned under `refs/text-to-cad/<session id>/` so `gc` cannot prune it; the
+and pinned under `refs/elastic/<session id>/` so `gc` cannot prune it; the
 refs go when the session is deleted). An untracked file over 8 MiB
-(`SNAPSHOT_MAX_BYTES`) is left out of the tree, so a large CAD export beside the
+(`SNAPSHOT_MAX_BYTES`) is left out of the tree, so a large build output beside the
 source is not hashed into `.git/objects` every turn; under `Last turn` it reads
 as untracked, as if added since the mark. The pinned refs are ordinary refs:
-`git push --mirror` would send `refs/text-to-cad/*`, and with them the trees of
+`git push --mirror` would send `refs/elastic/*`, and with them the trees of
 untracked, non-ignored files not yet pushed, so anything that must not leave the
 machine belongs in `.gitignore`. `Last turn` / `This session` compare that
 tree with a snapshot of the working tree as it is now, so an edit the agent has
@@ -2534,9 +2096,9 @@ stdout when stderr is blank (a commit hook's reason, "nothing to commit").
 
 A worktree is outside the project directory, so the explorer cannot be
 rooted at the project alone: a session working in
-`~/.text-to-cad/worktrees/text-to-cad-1a2b3c4d/model-the-wrist` writes its STEP there,
-and `open_file` on it has to open *that* file, in a tree that lists *that*
-directory, served by a viewer run from it. The **root** is the concept that
+`~/.elastic/worktrees/elastic-1a2b3c4d/model-the-wrist` writes its files there,
+and `open_file` on one has to open *that* file, in a tree that lists *that*
+directory. The **root** is the concept that
 carries this (`ExplorerRoot` in `src/shared/types.ts`): `null` for the
 project directory, else the absolute path of one of the project's own
 worktrees.
@@ -2553,10 +2115,7 @@ worktrees.
   worktree's name with a branch glyph, before the crumbs and without a menu
   of its own. A terminal opened while a worktree
   thread is active starts there (`TerminalTab.cwd`). A review's
-  `All changes` uses its owning session's directory. The CAD tab
-  asks `cad.viewerOrigin` for its root, and main runs one `cadgen viewer`
-  per root — a worktree gets its own, stopped when its last open session is
-  archived or deleted.
+  `All changes` uses its owning session's directory.
 - Every filesystem `explorer.*` request names `{ projectId, root? }`, and main's
   `rootOf` (`src/main/ipc/explorer.ts`) resolves the pair: first any `cwd` or
   `worktreePath` a session of the project records (handed on in the recorded
@@ -2581,27 +2140,12 @@ inside the workspace (`climbsOut`, so a folder named `..keep` is fine) and name
 the file the handle holds (same device and inode); a path swapped for a link out
 of the root between the check and the open is refused.
 
-The captures the app makes itself (`capture_view`, `capture_drawing`,
-`capture_pdf`) all pass through `imageResult` (`src/renderer/state/image-result.ts`):
+The captures the app makes itself (`capture_pdf` and the captures plugins
+return) all pass through `imageResult` (`src/renderer/state/image-result.ts`):
 one over the same limit is redrawn smaller (up to six passes, a side never
-below 64 px), or refused when it cannot fit. `capture_view` also rejects with
-"the viewer's WebGL context is lost; try again once it restores" while the
-GPU context is gone. A shrunk result carries `scaled: true`, `scale` (how
+below 64 px), or refused when it cannot fit. A shrunk result carries `scaled: true`, `scale` (how
 much each side shrank) and, for a PNG source, `scaledFrom: {width, height}`, so
 an agent can map a pixel it reads off the picture back to the original.
-
-### CAD references and session drafts
-
-Viewer references and captures always enter the draft of the session that owns
-that viewer tab. The host carries the owner ID before any asynchronous work,
-and checks that the session still exists, is unarchived, and shares the file's
-workspace before accepting context. It never chooses a different destination
-from the currently selected session. The same rule applies to files, CAD, PDFs,
-drawings, browsers, terminals and review selections.
-
-New-session text drafts remain separate per directory. They have no explorer until
-a session is created. An ordinary new session sends only its Git mode; main
-chooses and validates its working directory.
 
 ## How a change moves through the app
 
@@ -2636,9 +2180,9 @@ Browser tabs borrow persistent native pages owned by the browser domain. UI and
 agent tools share the same Chromium target, partitioned by session, project
 and root (`browserScopeKey` in `src/main/browser/service.ts`): one session's
 tabs share storage, two sessions in the same directory do not.
-The [browser guide](docs/browser.md) documents the pinned Playwright MCP runtime,
+The [browser guide](browser.md) documents the pinned Playwright MCP runtime,
 scoped native CDP adapter, compact responses, supported operations, packaging and
-validation. The upstream package owns browser tools; text-to-cad owns native pages
+validation. The upstream package owns browser tools; elastic owns native pages
 and their tabs. No second browser is installed.
 
 ## Shared package integration
@@ -2646,27 +2190,10 @@ and their tabs. No second browser is installed.
 `@workbench/ui/file-viewer` owns the whole file-tab interface. Desktop's thin
 FileTab binds IPC, persisted explorer state and host commands. Renderer
 registrations load shared implementations lazily. The package supplies compiled
-ESM, declarations, CSS and workers; consumer source aliases, copied tokens,
-JSX loaders and handwritten viewer declarations are removed.
+ESM, declarations, CSS and workers.
 
-The explorer owns one lazy CAD connection per root with open file tabs; the
-client module behind it is imported when the connection is first acquired. Tab
-switches borrow that connection, preserving catalog and bounded cache work while
-the inactive viewport is unmounted. Closing the root's last file tab or leaving
-the project disposes the connection and cancels its pending work. Each acquisition
-checks main's current viewer origin; a restarted backend replaces the old client.
-
-The STEP renderer separately retains completed STEP CPU geometry in a
-bounded cache, including assemblies larger than the component LRU. Returning
-to a warm file restores that geometry without reloading its components; the
-file's camera, display settings and motion state remain separate. Reuse requires
-the same root, backend origin and revision. Eviction or an edited file takes
-the normal load path. No inactive WebGL scene is retained.
-
-Root workspace installation keeps React, ReactDOM, Three.js and Radix identities
-consistent. `viewer-peers.test.ts` verifies the installed package graph; real
-Electron tests verify the rendered integration. Packaging still bundles the
-complete Python runtime and native Node dependency closure.
+Workspace installation keeps React, ReactDOM and Radix identities
+consistent; real Electron tests verify the rendered integration.
 
 - `src/renderer/components/ai-elements/types.ts` holds local copies of the
   handful of types those components take from Vercel's `ai` package. All twelve
@@ -2682,27 +2209,3 @@ complete Python runtime and native Node dependency closure.
   older deep path resolves to `esm/vs/esm/vs/…` and the build fails with a
   message that names the file rather than the map.
 
-### STEP inspection and replay experiment
-
-Scripted inspection uses the bundled cadgen Python API: `read_step` for native
-geometry, `read_scene` for revision-scoped selections, and `cadgen.geometry`
-for exact queries. Copied viewer references resolve through `scene.resolve()`;
-the retired inspect CLI is not part of the desktop agent workflow. The app's
-handoff skill defers validation policy to the bundled `cad` skill. These queries
-require no viewer, tessellation or inferred feature tree.
-
-The shared Model tree infers read-only features from existing SURF geometry
-when a visible part is expanded. Expansion also controls viewport selection and
-exact topology loading; desktop supplies no separate tree or inference backend.
-It does not consult Python source or run kernel reconstruction. See the shared
-[model-tree contract](../../packages/ui/docs/cad-renderer.md#step-panel)
-for isolation, reveal and selection granularity. The client-side
-[feature detection guide](../../packages/ui/docs/feature-detection.md) covers
-rules, cancellation and the versioned memory cache shared by the UI in both apps.
-Completed results survive file switches within the renderer, but not app
-restarts. Recognition is separate from cadgen compilation and Python inspection;
-desktop adds no recognition service or persistent store.
-
-Replay and GIF/video export live separately on
-[`amy/step-reconstruction-playback`](https://github.com/earthtojake/text-to-cad/tree/amy/step-reconstruction-playback).
-On that branch only, launch with `CADGEN_RECONSTRUCTION_EXPERIMENT=1` to test them.

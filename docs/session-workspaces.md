@@ -13,9 +13,8 @@ New folder choices resolve symlinks, while existing session directory spellings
 remain stable. Choosing an alias of an existing directory reuses that group.
 
 `projects.list` and the renderer's `projectsFromSessions` derive directory
-descriptors from sessions. `projects.add` (the chooser channel) and
-`onboarding.createSample` only validate a folder choice and select a transient
-new-session draft. They create no database row: both hand the directory to the
+descriptors from sessions. `projects.add` (the chooser channel) only validates a folder choice and selects a transient
+new-session draft. It creates no database row: it hands the directory to the
 repository's `projects.choose` (`src/main/db/repositories.ts`, not a channel),
 which resolves it and remembers it in `chosen`, a map for this run that is
 never persisted. Beside it, `projects.get` answers only for a directory a
@@ -56,10 +55,9 @@ draft has no explorer until a session exists.
 Persisted tabs are keyed by `session_id`, with a foreign key to sessions.
 `explorer.loadTabs` and `saveTabs` name that session; saving checks every tab's
 owner and directory before replacing anything. A failed write is atomic.
-Drawings stay in memory and are never included in the persisted strip.
 `loadTabs` releases a saved terminal `ptyId` that no live pty of the session
 answers to (ptys die with the app), so the tab starts a fresh shell; an
-`agent: true` tab respawns with the runtime `PATH`.
+`agent: true` tab respawns with the session's runtime directories on `PATH`.
 
 MCP credentials bind the immutable session id and working directory. Renderer
 commands, browser/CDP targets and terminals enforce that same owner. An agent
@@ -68,11 +66,6 @@ sessions use the same directory. Background tool calls update their owner's
 retained strip without selecting a different session for the user. Files on
 disk may of course be shared by sessions using the same checkout; unsaved
 editor buffers and tab UI state are separate.
-
-The renderer window shares bounded CAD geometry caches by directory/root while
-any retained file tab owns that root. Switching sessions or collapsing the pane
-unmounts the viewport without discarding those caches. Closing the last owner or
-discarding its session releases the client; camera and selection remain per tab.
 
 Archive writes the session row first, then closes live session resources; it
 retains the session row and its persisted tabs. Delete removes that session and its children only. A

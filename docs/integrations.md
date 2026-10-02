@@ -26,8 +26,8 @@ CDP connection; subsequent browser actions run through the upstream MCP and that
 adapter, rather than the HTTP action relay. Closing a session revokes its tokens.
 
 The generic relay, bridge and skill materialization belong to
-`src/main/integrations/`. CAD runtime startup, Python discovery, warm daemons
-and viewer backend lifetime remain under `src/main/cad/`. Main owns native
+`src/main/integrations/`. Anything a plugin adds beyond these built-in domains
+is a plugin, not an integration (see [plugins](plugins.md)). Main owns native
 services and filesystem effects. Renderer commands act on app resource stores;
 shared UI supplies platform-independent, explicitly bound capabilities. Shared
 UI never imports Electron, IPC, session stores or native filesystem code.
@@ -39,14 +39,13 @@ UI never imports Electron, IPC, session stores or native filesystem code.
 | Any scoped tab | `workspace` | Open files, reveal paths, list/show/close tabs, inspect an existing image; discover supplied skills |
 | File / `code` or `markdown` | `documents` | Read the editor buffer, replace against a live revision, explicitly save against disk revision |
 | File / `pdf` | `pdf` | Read page state/text, select visible page, capture a page from the same PDF.js document |
-| File / `cad` | `cad` | Read actual model/selection/camera state, select/clear topology references, control camera/mode, capture the mounted viewport |
 | File / `image` or unsupported | `workspace` | Open/reveal the file; image renderer or explicit unsupported presentation |
 | Browser | `browser` | Navigate and inspect the actual embedded page, input through its accessibility/CDP nodes, capture it |
 | Terminal | `terminals` | Create/read/write/stop an app-owned PTY using the same terminal identity as the tab |
-| Drawing | `drawings` | Open/name/rename a sketch, read its identity/element count, capture it for visual context |
+| Plugin tool tab (`tool`) | the plugin's own MCP server | See [plugins](plugins.md) |
 | Review | Workspace navigation | Existing git review workflow; it does not create a separate review MCP integration |
 
-File kind remains `file`. CAD and PDF are renderer choices, not sibling tab
+File kind remains `file`. PDF and the other renderers are choices, not sibling tab
 kinds. `list_open_tabs` returns the tab ID and renderer where applicable. IDs
 are scoped by the authenticated session, directory and workspace root, and a reused file tab must also match
 the resource path before a live capability or retained snapshot is accepted.
@@ -77,10 +76,8 @@ Browser targets/storage partitions and PTYs carry the same session owner.
 | --- | --- | --- |
 | Text | Unsaved buffers remain in per-tab window memory; read returns a retained snapshot with `active: false`. Editing/saving requires reactivation. | Dirty tabs refuse ordinary/tool close. The UI offers explicit discard; clean closure releases records. |
 | PDF | Retains the last page/selection snapshot, marked inactive; page extraction/capture/navigation requires the mounted document. | Releases worker, loading task, text layer and capability. |
-| CAD | Retains serializable last-view state, marked inactive; viewport changes and capture require the mounted model. | Releases controller registration and inactive snapshot; shared CAD cache policy remains separate. |
 | Browser | Main retains the actual page and its navigation state; presentation can detach without destroying it. Tools address that page even in the background. | Destroys the app-owned page. |
 | Terminal | The PTY and bounded output buffer continue independently of the mounted xterm view. A session holds at most 16 PTYs, the person's own and stopped ones included; `create_terminal` refuses past that. | Releases the app-owned process and terminal resources. Stop keeps its output available until close. |
-| Drawing | Renderer memory retains the serialized scene. | Discards the sketch. Drawings are also discarded on reload or app exit. |
 
 Text's live revision is an opaque buffer token, separate from `diskRevision`.
 An edit compares the live token synchronously, including two commands arriving
@@ -103,26 +100,14 @@ two seconds for it to exit: it returns `exited: true` with the `exitCode`, or
 
 Commands the renderer performs are relayed (`RendererCommands` in
 `src/main/integrations/actions.ts`) and wait ten seconds for the window's
-reply, twelve for the viewer's live commands (`select-reference`,
-`cad-clear-selection`, `cad-camera`, `cad-reset-camera`, `cad-render-mode`; the
-clock starts before the IPC send, so they need more than the viewer's own ten),
-thirty for the slow ones: `document-save`, `capture-view`,
-`drawing-capture` and `pdf-capture`, which wait on the disk or on a frame and
-an encode. A relayed command reports that it may have completed when the wait
+reply, thirty for the slow ones: `document-save` and `pdf-capture`, which wait
+on the disk or on a frame and an encode. A relayed command reports that it may
+have completed when the wait
 ends without a reply: a timeout says "the command may still complete, so check
 before retrying", and an abort after the command was sent says it "may already
 have been applied". A handler that finished before the abort reports "was
-applied, but the request was aborted before the reply".
-
-The window's reply is itself made only once the effect is on screen, and a
-viewer command that cannot get there says "The viewer did not finish applying
-this command." after ten seconds. The relay's tiers nest around that bound:
-`capture-view` waits for the camera to rest inside the viewer's ten seconds and
-then encodes, all inside the relay's thirty; the other viewer commands have
-twelve so the viewer's sentence arrives first. "The elastic window did not
-answer within 12 s" means no window replied at all. What each command waits for
-is stated once, in
-[Live commands](../../../packages/ui/docs/cad-renderer.md#live-commands).
+applied, but the request was aborted before the reply". "The elastic window did
+not answer" means no window replied at all.
 
 The PDF renderer and its agent tools share one real Mozilla PDF.js document,
 worker and text layer. Page reads are bounded to 50 pages/one million
@@ -144,10 +129,9 @@ creating or selecting another session.
 
 Code and Markdown source selections carry zero-based UTF-16 ranges and selected
 text. PDF context includes a page image and any selected text. Browser context
-preserves its URL/generation; CAD context preserves model/selection identity.
-Terminal context contains the frozen selected output and its working directory.
-Drawing context is a temporary sketch description and PNG. See the shared
-[viewer host contract](../../../packages/ui/docs/viewer-host.md) for portable
+preserves its URL/generation. Terminal context contains the frozen selected
+output and its working directory. See the shared
+[viewer host contract](../packages/ui/docs/viewer-host.md) for portable
 bundles, delivery receipts and capability limits.
 
 ## Skills and provider tools
@@ -155,9 +139,7 @@ bundles, delivery receipts and capability limits.
 Skills are focused instructions, composed as real files into the session's
 additional skills root. There is no required umbrella `elastic-app-use` skill,
 plugin install, marketplace entry or edit to an agent's global configuration.
-The registry supplies browser, PDF, documents, terminals, drawings and the
-embedded `cad-viewer` skill. Other repository CAD authoring skills still ship;
-the standalone viewer-launching skill is replaced by the embedded handoff.
+The registry supplies browser, PDF, documents and terminals skills.
 Native skill loaders receive the root on session creation/load, while other
 adapters receive the concise existing skill preamble, kept until a
 `session/prompt` is taken (a rejected first prompt restores it, and
@@ -167,18 +149,18 @@ A provider's built-in filesystem and shell tools still work on disk. They are
 not the live-document API and cannot observe an unsaved editor buffer. Likewise,
 a provider-owned terminal/process ID is not an app-owned PTY ID. A restored
 terminal tab whose saved PTY id no live PTY answers to starts a fresh shell, and
-one the agent opened (`agent: true`) respawns with the runtime on `PATH`. Use document
+one the agent opened (`agent: true`) respawns with the session's runtime directories on `PATH`. Use document
 integration tools when the task concerns the person's live draft; use the
 provider's disk tools for ordinary repository work, then open completed results
 through workspace tools. Watchers reconcile changed disk artifacts with views.
-The bundled CAD runtime remains on session PATH; integrations do not install
-another runtime or replace the person's agent configuration.
+Integrations do not install a runtime or replace the person's agent
+configuration.
 
 ## Adding a domain
 
 1. Add `src/main/integrations/<domain>/module.mjs` using `definition.mjs`'s
    `tool` helper. Declare strict bounded schemas, JSON/image result kind and
-   unique method names. Supply focused skill paths relative to `apps/desktop`,
+   unique method names. Supply focused skill paths relative to the repository root,
    or an empty list when the domain needs no skill.
 2. Import the module in `registry.mjs`. The manager then supplies its own MCP
    server identity; the server and skill build consume the same registration.
@@ -197,8 +179,8 @@ another runtime or replace the person's agent configuration.
    need conflict/ownership policy and truthful completion receipts.
 6. Add tests for scope, wrong path/revision, background reads, cleanup and late
    results. Exercise the real underlying renderer/service in an integration
-   test. Rebuild shared exports, the desktop and composed skills/MCP bundle;
-   run the dependency boundary check and affected test runners.
+   test. Rebuild the workspace packages and the composed skills/MCP bundle
+   (`npm run build`), then run the affected test runners.
 
 New integrations do not require a new tab kind or a new sidebar section.
 Expose user-facing controls only where that domain's existing view needs them.

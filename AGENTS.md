@@ -1,38 +1,38 @@
-# AGENTS.md — apps/desktop
+# AGENTS.md — elastic
 
 Read `README.md` first: dev, checks, packaging and the layout tree are there.
 
-## The plan is not in this repository
+## Where the design lives
 
-elastic's design document lives outside the checkout, at
-`~/robots/elastic-notes/design/desktop-app.md` (user policy: design notes
-are never committed). Section numbers in the comments here — "plan §3", "plan
-§9" — point at it. If you cannot read it, ask; do not reconstruct it from the
-code and do not write a copy into this tree.
+[`docs/design.md`](docs/design.md) is the long-form design record: layout,
+keyboard, explorer, ACP, git. [`docs/plugins.md`](docs/plugins.md) is the guide
+to plugins, which carry everything beyond chat. Comments that cite "plan §N"
+predate this repository; read the matching topic in `docs/design.md`.
 
-## Directory ownership per phase
+## Directory ownership
 
-One phase owns a directory. A folder that is a stub with a comment naming its
-phase is not an oversight — it is the seam.
 
-| Phase | Owns |
+
+One area owns a directory. A folder that is a stub with a comment naming its
+area is not an oversight — it is the seam.
+
+| Area | Owns |
 | --- | --- |
 | P0 (done) | the project itself, `src/preload`, `src/shared/{index,types,titlebar,globals.d}.ts`, `src/shared/ipc/{index,define,errors}.ts`, `src/main/{index,menu,window-state}.ts`, `src/main/db`, `src/main/ipc/{index,register}.ts`, `src/renderer/app` — the shell's frame and the command palette — Settings' frame, and `tests/` where no row below names the file |
 | Shell & lifecycle | `src/main/{app-paths,children,quit-deadline,quitting,settings-effects,test-door}.ts`, `src/renderer/features/sidebar`, `src/renderer/lib/sidebar.ts`, `src/renderer/state/{history,workspace-root}.ts` |
 | P1 (done) | `src/main/agents`, `src/main/acp` (but `acp/agent-options.ts`), `src/shared/acp` (but `acp/options.ts`), `src/shared/agents.ts`, `src/{shared,main}/ipc/{acp,agents}.ts`, `src/renderer/state/{acp,agents}.ts`, `scripts/{acp-harness,fetch-agent-icons}.mjs`, `tests/fake-agent`, `tests/fixtures/acp` |
-| P2 | `src/renderer/features/session` — the transcript, activity rows, composer chips, permissions, plan card — and its path links and reference grammar, `src/renderer/state/path-links.ts`, `src/shared/cad-refs.ts`; plus what the model and effort chips are drawn from before a session exists: `src/shared/acp/options.ts`, `src/{shared,main}/ipc/agent-options.ts`, `src/main/acp/agent-options.ts`, `src/renderer/state/agent-options.ts` |
-| P3 (done) | `src/main/explorer`, `src/{shared,main}/ipc/explorer.ts`, `src/shared/terminal-replies.ts`, `src/renderer/features/explorer` (but `drawing/`, `DrawingTab.tsx`, `host/` and `BrowserTab.tsx`) — file tab, tree, Monaco, review, browser, terminal — `src/renderer/state/live-documents.ts`, `scripts/{monaco-workers,pdf-assets}.mjs` |
-| P4 (done) | `@workbench/ui` CAD renderer and explicit `@workbench/core/client`; FileTab hosts the shared FileViewer through `src/renderer/features/explorer/host/` and `src/renderer/state/{live-cad,cad-draft}.ts` |
-| P5 (done) | `src/main/cad`, `src/main/integrations` (but `integrations/drawings/`), `src/{shared,main}/ipc/{cad,integrations,runtime,skills}.ts`, `resources/{cadgen,runtime,skills,app-mcp}`, `skills/`, `scripts/{build,build-skills,build-mcp,cad-resources,bundle-runtime,perf-cad}.mjs`, `src/renderer/state/integration-commands.ts`, the `reveal` field of the explorer store and tree |
-| Drawings | the drawing tab kind: `src/renderer/features/explorer/DrawingTab.tsx`, `src/renderer/features/explorer/drawing/`, `src/renderer/state/drawings.ts`, `src/main/integrations/drawings/` |
+| P2 | `src/renderer/features/session` — the transcript, activity rows, composer chips, permissions, plan card — and its path links and reference grammar, `src/renderer/state/path-links.ts`, `src/shared/file-refs.ts`; plus what the model and effort chips are drawn from before a session exists: `src/shared/acp/options.ts`, `src/{shared,main}/ipc/agent-options.ts`, `src/main/acp/agent-options.ts`, `src/renderer/state/agent-options.ts` |
+| P3 (done) | `src/main/explorer`, `src/{shared,main}/ipc/explorer.ts`, `src/shared/terminal-replies.ts`, `src/renderer/features/explorer` (but `host/` and `BrowserTab.tsx`) — file tab, tree, Monaco, review, browser, terminal — `src/renderer/state/live-documents.ts`, `scripts/{monaco-workers,pdf-assets}.mjs` |
+| P5 (done) | `src/main/integrations`, `src/{shared,main}/ipc/{integrations,skills}.ts`, `resources/{skills,app-mcp}`, `scripts/{build,build-skills,build-mcp}.mjs`, `src/renderer/state/integration-commands.ts`, the `reveal` field of the explorer store and tree |
+| Plugins | `src/main/plugins`, `src/renderer/plugins`, `src/renderer/features/plugins`, `src/shared/plugins.ts`, `src/{shared,main}/ipc/plugins.ts`, `resources/plugins`, `docs/plugins.md` |
 | P6 | `src/renderer/features/settings` — the pages' contents — and the choosers its path rows use, `src/{shared,main}/ipc/dialogs.ts`, `src/main/ipc/settings-fallbacks.ts` |
 | P7 (done) | `src/main/projects` (`git.ts`, `workspace.ts`, `index.ts`), `src/{shared,main}/ipc/git.ts`, `src/renderer/lib/git-mode.ts`, the review tab's scopes and commit strip, Git and worktrees' per-project cards, `tests/e2e/git.spec.ts` |
-| P8 (done) | `electron-builder.yml`, `build/`, `resources/brand`, `scripts/{package,make-icons,make-brand,app-version}.mjs`, `src/main/{updater,telemetry}.ts`, `src/{shared,main}/ipc/app.ts`, the CI jobs |
+| P8 (done) | `electron-builder.yml`, `build/`, `resources/brand`, `scripts/{package,make-icons,make-brand,app-version}.mjs`, `src/main/updater.ts`, `src/{shared,main}/ipc/app.ts` |
 | Browser | the embedded browser P3's tab kind grew into: `src/main/browser/`, `src/shared/browser.ts`, `src/{shared,main}/ipc/browser.ts`, `features/explorer/BrowserTab.tsx`, `docs/browser.md` |
 | Clipboard | `src/{shared,main}/ipc/clipboard.ts` — the one door to Electron's native clipboard (main-side text and PNG reads and writes, validated); renderer callers of that go through `window.workbench.clipboard`. A copy button on the page — the vendored `terminal.tsx`, `code-block.tsx` and Streamdown's, Copy path, the terminal's selection — writes plain text with the web `navigator.clipboard.writeText`, which `clipboard-sanitized-write` in `src/main/index.ts` permits; that is not a second door to the native clipboard, and the vendored components are not rewritten to use the IPC one |
-| P9 (onboarding) | `src/main/onboarding.ts`, `src/{shared,main}/ipc/onboarding.ts`, `src/renderer/features/onboarding`, `src/renderer/state/onboarding.ts`, `resources/sample/`, the `onboarding*` settings fields |
+| P9 (onboarding) | `src/main/onboarding.ts`, `src/{shared,main}/ipc/onboarding.ts`, `src/renderer/features/onboarding`, `src/renderer/state/onboarding.ts`, the `onboarding*` settings fields. The welcome offers "Open a folder" and "Browse plugins" |
 
-Work outside your phase's directories only where the seam requires it — a new
+Work outside your area's directories only where the seam requires it — a new
 IPC branch in `src/shared/ipc/<branch>.ts`, spread into `src/shared/ipc/index.ts`,
 with its handlers in `src/main/ipc/<branch>.ts` spread into
 `src/main/ipc/index.ts`, is expected; reshaping the shell to fit one feature is
@@ -65,11 +65,12 @@ not.
 Where a test holds a rule, it is named beside it; run it after touching what
 the rule is about.
 
-- **Pure refactor:** package moves preserve all app UI/UX and functionality.
-  FileTab hosts `@workbench/ui/file-viewer`; the viewer renderers both apps
-  register live in UI, the file renderers only this app registers (Markdown,
-  code, image, PDF, unsupported) live in `features/explorer/renderers/`, and
-  IPC/native services and app state stay here. Never import web app source.
+- **Package boundaries:** `packages/ui` and `packages/core` are workspace
+  packages of this repository. FileTab hosts `@workbench/ui/file-viewer`; the
+  file renderers this app registers (Markdown, code, image, PDF, unsupported)
+  live in `features/explorer/renderers/`, plugin-provided ones in
+  `src/renderer/plugins/file-renderers.tsx`, and IPC/native services and app
+  state stay here.
 
 - **The renderer imports from `src/main` never, and from `src/shared` only
   types and pure, dependency-free modules** (zod aside) — never anything that
@@ -90,10 +91,6 @@ the rule is about.
   the tree by real path: a symlinked `node_modules` resolves every transitive
   dependency to `undefined`, packages an app missing half its modules, and does
   not fail while doing it. Use root `npm ci` and explicit `npm run native:rebuild --workspace elastic`.
-- **Nothing reads `process.env` for a build-time secret.** The Aptabase key is
-  compiled in as `__APTABASE_KEY__` (`electron.vite.config.ts`); a packaged app
-  has no build environment, and a key the launcher can set is a key anyone can
-  redirect. (`tests/unit/main/build-secrets.test.ts`.)
 - **Every path from the renderer arrives with the project it is relative to,
   and optionally a root within it.** Main resolves the pair against that
   project's directory — or, when the request names a `root`, against one of
@@ -105,7 +102,7 @@ the rule is about.
   (`tests/unit/main/explorer-fs.test.ts` aims links out of the root;
   `tests/unit/main/git-paths.test.ts` does the same for a review's paths.)
 - **No channel takes a directory by name.** A folder becomes a project only
-  through a chooser main opened, the sample main copied, or a session that
+  through a chooser main opened or a session that
   already records it, so no request under `projects.*` has a `path` or
   `directory` field (`tests/unit/shared/projects-no-paths.test.ts`). The one
   exception is the e2e suite's door, `src/main/test-door.ts`
@@ -141,7 +138,7 @@ the rule is about.
   text with a formula in it, so KaTeX is not in the window's first chunk. Re-vendoring a component means
   redoing those.
 - **The renderer's first chunk stays small.** Monaco (the review tab), xterm
-  (the terminal tab), the CAD client, Mermaid and KaTeX load with their first
+  (the terminal tab), Mermaid and KaTeX load with their first
   use; do not import them statically from the shell. A failed Mermaid or KaTeX
   import is retried by the next diagram or formula (`src/renderer/lib/mermaid.ts`,
   `math.ts`), never remembered as the window's answer. A lazy tab's fallback
@@ -198,16 +195,6 @@ the rule is about.
   recipe: `npm view <package> version`, change the constant, run
   `scripts/acp-harness.mjs` for that agent in a scratch directory, re-record
   its fixture (README, "ACP").
-- **The CAD runtime ships inside the app.** `resources/runtime/<os>-<arch>/`
-  is a complete Python with cadgen installed (`scripts/bundle-runtime.mjs`),
-  resolved right after an explicit override; a packaged app downloads and
-  installs nothing, and `scripts/package.mjs` refuses to package without it.
-  Do not add a first-launch install, a progress state, or a Settings page for
-  it back: a runtime that is not there is a failure the CAD tab reports, not a
-  state the person is asked to fix. A packaged build says "This copy of
-  elastic has no CAD runtime … Reinstall the app"; a checkout keeps the
-  list of interpreters it looked for (`missingMessage` in
-  `src/main/cad/runtime.ts`).
 - **The updater's Restart is a pushed `installing` state with a deadline.**
   `installUpdate` (`src/main/updater.ts`) pushes `installing` before it asks
   Electron to quit and sets `INSTALL_DEADLINE_MS`; past it the status is an
@@ -216,13 +203,13 @@ the rule is about.
   overwrites a downloading, downloaded or installing state, and an updater that
   is inactive for the install (development, an AppImage without `APPIMAGE`, a
   snap) is `unsupported`, never `idle`.
-- **`package.json` stays at version `0.0.0`.** The repository's `VERSION` is
-  the canonical release version; `scripts/app-version.mjs` reads it and both
+- **`package.json` stays at version `0.0.0`.** This repository's `VERSION` (at the root) is
+  the canonical version; `scripts/app-version.mjs` reads it and both
   the build and `scripts/package.mjs` stamp it. Do not hand-edit it.
-- **Exact dependency versions, no ranges.** Everything the later phases need is
-  already installed, so a phase should not have to touch `package.json`. The
+- **Exact dependency versions, no ranges.** Everything the build needs is
+  already installed, so a change should not have to touch `package.json`. The
   one exception is the workspace links, `"@workbench/core": "*"` and
-  `"@workbench/ui": "*"`: those resolve to the root workspace's packages,
+  `"@workbench/ui": "*"`: those resolve to this repository's `packages/*` workspaces,
   not to a registry, and `*` is how npm workspaces spell that.
   (`tests/unit/main/package-json.test.ts` holds this and the version above.)
 - **No symlinks, ever** (repo-wide law: installers disagree about them and one
@@ -364,8 +351,8 @@ the rule is about.
 - **"In use" for a worktree is one function, `sessionsUsing`**
   (`src/main/projects/git.ts`): sessions that are not archived and run in the
   worktree, under it, or record it. Settings' count, Delete's refusal, the
-  keep-limit sweep, a session's release and the CAD viewer's stop (archive and
-  delete, `forgetCadSession`) all ask it; an archived session holds no worktree.
+  keep-limit sweep, and a session's release (archive and
+  delete) all ask it; an archived session holds no worktree.
   Delete from Settings is kept on four grounds, and the row says which
   (`keptBecause`, `features/settings/pages/GitPage.tsx`): locked
   (`git worktree lock`), git could not check it for unsaved work, unsaved
@@ -386,46 +373,14 @@ the rule is about.
   that is a file is `gone` with the reason `file`, and a path with nothing at
   it with `missing` — the row says "a file, not a folder" for the one and
   "no longer exists" for the other.
-- **The viewer warm is gated by a model in the root; the daemon is not.**
-  `warmCad` starts a root's viewer only when `hasCadFile` finds a model in it,
-  and warms the build daemon on every bind (unless the kernel is `missing` or
-  `unsupported`). At most three viewers run, and the least recently asked-for
-  is stopped for a fourth unless a CAD tab is open on its root (`openCadRoots`,
-  non-archived sessions), so the bound is exceeded rather than a tab's viewer
-  evicted.
-- **A viewer launch checks its generation after every await, and every stop
-  bumps it.** `ViewerManager` compares the root's stop generation after the
-  runtime resolves, when the launcher announces and when a restart's backoff
-  ends; `stop` and `stopAll` bump it, so a stop that lands mid-launch is
-  never overtaken by the launch or the restart that was already under way
-  (`tests/unit/main/viewer.test.ts`).
-- **A live viewer command replies only once its effect is committed, and the
-  predicate compares against what the runtime records, not the request.**
-  `attachLiveBinding` waits a settled frame and the command's predicate, at
-  most ten seconds, then "The viewer did not finish applying this command."
-  (what each command waits for: [Live commands](../../packages/ui/docs/cad-renderer.md#live-commands)).
-  That sentence reaches the agent because main's relay waits 12 s
-  (`VIEWER_REPLY_TIMEOUT_MS`) for the viewer commands, its clock starting before
-  the IPC send; "the elastic window did not answer within 12 s" means no
-  window replied. A reply on the call returning would hand an agent a state the
-  command had not produced yet.
 - **Every capture goes through `imageResult`.** It redraws an image over
   `MAX_IMAGE_BYTES` smaller and refuses it only when it cannot be made to fit,
   so no tool result larger than the model takes enters a transcript
   (`src/renderer/state/image-result.ts`).
-- **The quit deadline spares the warm daemon by pid, never by process group.**
-  The app-owned viewer is `detached` too, so a group spare would spare it; the
-  watchdog gets `daemonPids()` (a daemon's pid leaves it when it exits, so a
-  reused pid is never spared), and both of its probes run under a timeout so a
-  hung `ps` cannot stall the final kill. Windows has no spare list and its tree
-  kill takes the daemon (`src/main/quit-deadline.ts`, README "Quitting").
 - **A browser harness gets a fresh dependency cache per run.** A Vite server
   under `tests/browser` takes a new temp `cacheDir`, names what its scan cannot
   see in `optimizeDeps.include`, and asserts the page loaded once
   (`tests/browser/pdf-renderer.test.mjs`).
-- **A pass that touches `packages/ui` runs the kit boundary check.**
-  `node scripts/test/check-kit-boundaries.mjs` from the root: the kit is
-  format-blind in its comments too.
 - **A git write child is signalled at quit, never killed first.**
   `endTrackedChildren` sends a commit, push or worktree add/remove SIGTERM so
   git drops its `index.lock`; `will-quit` kills what is left
@@ -456,7 +411,7 @@ the rule is about.
 - **A deduped tab is disposed like a close.** `dedupeFileTabs` returns the tabs
   it drops, and the two writers of a strip (`commit` and `updateSessionStrip`,
   `state/explorer.ts`) run `disposeTab` on them, the function `close` uses, so
-  a dropped duplicate's document record, CAD state and tab store are released
+  a dropped duplicate's document record and tab store are released
   as a close releases them.
 - **Path containment is `climbsOut`/`isInside`** (`src/main/explorer/fs.ts`),
   never a `startsWith("..")` on a `path.relative`: a folder named `..keep` is an
@@ -507,9 +462,6 @@ the rule is about.
   pty of the session owns, because ptys die with the app
   (`tests/unit/main/terminal-ipc.test.ts`).
 - **Nothing lands on its final path until it is complete.** A save writes a
-  temporary sibling and renames it (`src/main/explorer/fs.ts`); the onboarding
-  sample is copied to `<target>.copying` and renamed into place, so a copy that
-  dies leaves staging for the next run to discard, never a half-sample that
-  reads as the person's own (`tests/unit/main/onboarding.test.ts`).
+  temporary sibling and renames it (`src/main/explorer/fs.ts`).
 
 Domain MCP servers and focused skills are composed by `src/main/integrations/registry.mjs`. Read [the integration contract](docs/integrations.md) before adding session-to-app capabilities.

@@ -16,8 +16,8 @@ import { selectFixtureSession } from "./session-fixture";
  * files — because that is where the interesting failures are. Anything that
  * writes gets a scratch directory of its own.
  *
- * The file viewer's own chrome — the breadcrumb, the panel toggles, the CAD
- * surface — is `packages/ui`'s and tested there; a CAD file is `cad.spec.ts`.
+ * The file viewer's own chrome — the breadcrumb and the panel toggles — is
+ * `packages/ui`'s and tested there.
  * The review is `git.spec.ts`.
  */
 
@@ -30,7 +30,7 @@ declare const window: {
 
 const MARKDOWN = "AGENTS.md";
 const IMAGE = "apps/desktop/build/icon.png";
-const STEP = "tests/fixtures/cad/import-smoke.step";
+const STEP = "tests/fixtures/sample.step";
 
 let app: ElectronApplication;
 let page: Page;
@@ -252,97 +252,6 @@ test("lists every file, refreshes ignored folders and opens unknown types as Not
 });
 
 /**
- * A drawing tab: real canvas ink becomes a PNG in the composer without sending anything, the
- * drawing never touches the disk or opens a dialog, and it is not one of the tabs a reload
- * restores. The editor's own controls are `packages/ui`'s.
- */
-test("a drawing attaches a PNG without sending, writes nothing, and is not restored", async () => {
-  const sketchDir = path.join(allFilesDir, "sketch");
-  fs.mkdirSync(sketchDir);
-  const session = await switchProject(sketchDir);
-  const externalRequests: string[] = [];
-  let downloads = 0;
-  const onDownload = () => { downloads += 1; };
-  page.on("download", onDownload);
-  // Offline: the editor, its fonts and its PNG export are all local.
-  await page.route(/^https?:\/\//, (route) => {
-    const hostname = new URL(route.request().url()).hostname;
-    if (hostname === "localhost" || hostname === "127.0.0.1") return route.continue();
-    externalRequests.push(route.request().url());
-    return route.abort();
-  });
-  await app.evaluate(({ dialog }) => {
-    dialog.showSaveDialog = async () => { throw new Error("Drawing attempted to open a save dialog"); };
-    dialog.showOpenDialog = async () => { throw new Error("Drawing attempted to open a load dialog"); };
-  });
-  try {
-    await newTab("Drawing");
-    const surface = page.locator("[data-drawing-tab]");
-    const addToPrompt = surface.getByRole("button", { name: "Add to prompt", exact: true });
-    await expect(addToPrompt).toBeDisabled();
-    await surface.getByRole("textbox", { name: "Drawing name" }).fill("Bracket concept");
-    await surface.getByRole("textbox", { name: "Drawing name" }).press("Enter");
-    const canvas = surface.locator(".elastic-drawing-editor canvas.excalidraw__canvas.interactive");
-    await expect(canvas).toBeVisible();
-    const box = (await canvas.boundingBox())!;
-    const tools = surface.getByRole("group", { name: "Drawing tools" });
-    await tools.getByRole("button", { name: "Rectangle", exact: true }).click();
-    const x = box.x + box.width * 0.55;
-    const y = box.y + box.height * 0.45;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.move(x + 90, y + 65, { steps: 12 });
-    await page.mouse.up();
-    await expect(addToPrompt).toBeEnabled();
-
-    const composer = page.getByPlaceholder("Do anything", { exact: true });
-    await composer.fill("Keep this existing prompt text.");
-    await addToPrompt.click();
-    const png = page.locator('[data-composer] img[alt="Bracket_concept.png"]').first();
-    // The CSP excludes blob URLs from fetch, so decoding is checked through the image itself.
-    await expect.poll(() => png.evaluate((image) => {
-      const decoded = image as unknown as { complete: boolean; naturalWidth: number; naturalHeight: number };
-      return decoded.complete && decoded.naturalWidth > 100 && decoded.naturalHeight > 100;
-    })).toBe(true);
-    await expect(composer).toContainText("Keep this existing prompt text.");
-    await expect(composer).toContainText("Drawing: Bracket concept.");
-    await expect(page.locator("[data-turn][data-role=user]")).toHaveCount(0);
-    await shoot("drawing-with-prompt.png");
-
-    // The editor's own save, open and export shortcuts reach nothing, and a scene file cannot
-    // load itself through a drop or a paste.
-    await canvas.click({ position: { x: box.width * 0.8, y: box.height * 0.6 } });
-    for (const keys of ["Shift+S", "O", "Shift+E"]) await page.keyboard.press(`${mod}+${keys}`);
-    await surface.locator(".elastic-drawing-editor").evaluate((element) => {
-      const file = new File([JSON.stringify({ type: "excalidraw", version: 2, elements: [] })], "scene.excalidraw", { type: "application/json" });
-      const data = new window.DataTransfer();
-      data.items.add(file);
-      element.dispatchEvent(new window.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: data }) as Parameters<typeof element.dispatchEvent>[0]);
-      element.dispatchEvent(new window.ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: data }) as Parameters<typeof element.dispatchEvent>[0]);
-    });
-    await expect(surface.getByRole("dialog")).toHaveCount(0);
-    await expect(addToPrompt).toBeEnabled();
-    expect(fs.readdirSync(sketchDir)).toEqual([]);
-
-    // Ephemeral: the tabs main keeps for this session do not include it, so a reload brings
-    // back the strip without it.
-    await newTab("Browser");
-    await expect.poll(async () => (await page.evaluate((id) => window.workbench.explorer.loadTabs({ sessionId: id }), session.id))
-      .map((tab) => tab.kind)).toEqual(["browser"]);
-    await page.reload();
-    await page.waitForLoadState("domcontentloaded");
-    await switchProject(sketchDir);
-    await expect(page.getByRole("tab", { name: /^New tab/ })).toBeVisible();
-    await expect(page.locator("[data-drawing-tab]")).toHaveCount(0);
-    expect(downloads).toBe(0);
-    expect(externalRequests).toEqual([]);
-  } finally {
-    page.off("download", onDownload);
-    await page.unrouteAll({ behavior: "ignoreErrors" });
-  }
-});
-
-/**
  * A browser tab is a native page main owns. The explorer and the app tools reach the same
  * one through IPC; it survives tab and session switches, belongs to its session alone, puts a
  * screenshot and a selection in the prompt, and is gone when its tab closes.
@@ -481,7 +390,7 @@ function occurrences(haystack: string, needle: string): number {
 }
 
 /** `+` is a menu of the tab kinds; a closing Radix menu can swallow the next click, so wait it out. */
-async function newTab(label: "File" | "Browser" | "Terminal" | "Drawing") {
+async function newTab(label: "File" | "Browser" | "Terminal") {
   await newTabIn(page, label);
   if (label === "File") await expect(page.getByText("No file open", { exact: true })).toBeVisible();
 }
