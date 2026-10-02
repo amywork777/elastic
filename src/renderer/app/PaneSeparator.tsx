@@ -140,7 +140,7 @@ export function PaneSeparator({
   };
 
   return (
-    // Named and hinted without a native `title` (the kit's rule, packages/ui/docs/settings-ui.md):
+    // Named and hinted without a native `title` (the kit's rule, packages/ui/README.md):
     // a title is no name to a screen reader that reads the separator's value, and it ignores the
     // hint delay. The collapse past the minimum is in the hint.
     <TooltipHint content={`Drag to resize; ${PANE_LIMITS.overshoot}px past its minimum closes it`}>

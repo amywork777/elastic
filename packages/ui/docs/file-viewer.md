@@ -2,9 +2,9 @@
 
 `@workbench/ui/file-viewer` exports the complete file tab: breadcrumbs, entry
 menus, the file tree, one panel column, renderer loading, and the text editing
-session. It imports no concrete renderer. Applications compose registrations
-from the separate `@workbench/ui/renderers/*` entry points and their own
-`defineFileRenderer` definitions ([renderers](renderers.md)).
+session. It imports no concrete renderer. Applications compose their own
+`defineFileRenderer` definitions (the app's built-in ones and the ones enabled
+plugins contribute).
 
 ```tsx
 <FileViewer
@@ -62,10 +62,8 @@ A definition's `panels({ open, ready, file, data })` returns the nav row's
 panels for one prepared document, so it can read what `prepare` found (`data`).
 Panel declarations use stable IDs and `content: "slot" | "body"`; FileViewer
 appends the file tree (`content: "tree"`) last. The nav row holds one toggle per
-panel, and one panel is open at a time. A CAD file declares none: its controls are
-panels of its own tool stack, over the viewport, shown by the tool they belong to
-([the design system](settings-ui.md#the-tool-stack)); nothing it does opens or turns
-this column. A renderer that declares a slot panel portals it into `panelSlot`; a
+panel, and one panel is open at a time. A renderer that draws its own controls
+(a plugin's view) declares none. A renderer that declares a slot panel portals it into `panelSlot`; a
 body panel (the desktop markdown's source view) replaces its own content. `openPanel` and `onPanelOpen` keep every renderer panel exclusive
 with the file tree. `onReady(false)` suppresses panels whose surface could not
 start. `FileViewerState.panel` is `null` until someone chooses, which opens the

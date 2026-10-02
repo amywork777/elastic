@@ -10,11 +10,7 @@ The host contains `files`, optional native `fileActions`, `clipboard`,
 `promptContext`, `navigation`, `environment` and the optional live-document
 bindings `documents` and `pdf`. `environment` carries the resolved `colorScheme`,
 the keyboard `platform` (`darwin` shows ⌘, anything else Ctrl) and the app's own
-`reducedMotion`, honoured beside the system's `prefers-reduced-motion`. CAD is a separate registration supplied with a
-`CadWorkspaceService`; the generic FileViewer does not import CAD. The HTTP CAD
-adapter can serve both apps, while desktop owns native runtime startup/recovery.
-See [workspace resources](../../core/docs/workspace-resources.md) for resource
-tickets and cache identity.
+`reducedMotion`, honoured beside the system's `prefers-reduced-motion`.
 
 Apps create services for the workspace lifetime. File tabs borrow them, while
 mounted renderers own scenes, document controllers and temporary resource leases.
@@ -32,49 +28,14 @@ are for reading and maintaining the contracts.
 | `ViewerHost`, `ClipboardPort` | [Host types](../src/host/types.ts) | `@workbench/ui/host` |
 | `FileSource`, `FileActions`, mutation receipts, `FileViewerState` | [File viewer types](../src/file-viewer/types.ts) | `@workbench/ui/file-viewer` |
 | `PromptContextPort`, bundles, references and delivery receipts | [Prompt types](../../core/src/prompt/types.ts) | `@workbench/core/prompt` |
-| `CadWorkspaceService`, `CadResourceProvider`, worker tickets | [CAD service types](../../core/src/client/types.ts) | `@workbench/core/client` |
-| `StepRendererSlots`, selection props, `CadLiveBinding` | [STEP registration](../src/renderers/step/index.ts) | `@workbench/ui/renderers/step` |
 | `TabStore`, `TabRecordStorage`, `createTabStore`, `useTabViewerState` (the tab's one store: its settings, its file views, and `FileViewer`'s state from both) | [Tab store](../src/tab-store/tabStore.ts), [the record](../src/tab-store/tabRecord.ts) | `@workbench/ui/tab-store` |
-| `CadPreferenceSource`, `createCadPreferences` (the tab's settings as renderers read them) | [Viewer preferences](../src/renderers/workspace/preferences.ts) | `@workbench/ui/renderers/workspace` |
-| `DxfRendererOptions` (2D drawings; declares no panel, and declines every camera, display and selection command) | [DXF registration](../src/renderers/dxf/index.ts) | `@workbench/ui/renderers/dxf` |
-| `GlbRendererOptions`, `LiveViewBinding`, `LiveViewController` | [GLB registration](../src/renderers/glb/index.ts), [live binding](../src/renderers/kit/shell/liveBinding.ts) | `@workbench/ui/renderers/glb` |
-| `MeshRendererOptions` (STL, 3MF), `LiveViewBinding`, `LiveViewController` | [Mesh registration](../src/renderers/mesh/index.ts) | `@workbench/ui/renderers/mesh` |
-| `RobotRendererOptions` (URDF, SRDF, SDF), `RobotLiveController`, `RobotLiveState` (`selectedLinks`, `selectedPartIds`) | [Robot registration](../src/renderers/robot/index.ts) | `@workbench/ui/renderers/robot` |
-| `ViewerCommands`, `ViewerCommandSource` (the host requests every viewer renderer takes) | [Viewer commands](../src/renderers/workspace/commands.ts) | `@workbench/ui/renderers/workspace` |
 
-Start with the actual composition in [web App](../../../apps/web/src/App.tsx)
-or [desktop FileTab](../../../apps/desktop/src/renderer/features/explorer/FileTab.tsx).
-Their imports lead to the app-owned `host/`, `adapters/` and persistence
-implementations. [Web storage](../../../apps/web/docs/storage.md) documents
-browser lifetimes; [desktop README](../../../apps/desktop/README.md) documents
-native IPC, draft delivery and project persistence. Shared component tests can
-use the [explicit fake host](../src/host/testing/host.ts).
+Start with the actual composition in the app's
+[FileTab](../../../src/renderer/features/explorer/FileTab.tsx). Its imports lead
+to the app-owned `host/`, `adapters/` and persistence implementations. Shared
+component tests can use the [explicit fake host](../src/host/testing/host.ts).
 
-## What a CAD renderer does not use
-
-A CAD renderer (STEP, GLB, mesh, robot, DXF) declares no `panels`, and reads none of
-`RendererViewProps.openPanel`, `panelSlot` or `onPanelOpen`: its controls are panels of
-its own tool stack over the viewport (`settings-ui.md#the-tool-stack`), and nothing it
-does opens, closes or turns the host's panel column. FileViewer still hands every
-renderer those props — they are the generic panel contract, which the file tree and
-the desktop markdown's source view use. A host's stored `panel` naming the retired CAD
-Settings panel (`cad-file`) resolves as nothing open. The tool stack's layout — the
-sizes a person dragged the tree and Position panels to, and the folded panels — is one
-of the tab's settings (`settings.toolStack` of the tab record, `@workbench/ui/tab-store`),
-beside the orbit speed and playback.
-
-## Preview and renderer navigation actions
-
-Preview is the shared shell's own state (`previewing`); there is no host prop
-for it and a host cannot start or observe it. It fills the scene below the
-host's navbar and beside its panel column, which both stay as they are (the column can
-still be opened and shut). It never uses the browser Fullscreen API. The shell saves the tools view's camera, fits a preview camera and restores
-the tools view's exact pose on exit; nothing of preview is persisted. Orbit
-starts by default, with its speed, unless the file's Playback settings say otherwise:
-they are the file's view's `playback` — orbit on or off and its speed, Autoplay, the
-routine's chosen speed and loop — kept between previews and across a reload, and a
-file's routine plays on entry only when its Autoplay is on. The rules are in
-[settings-ui.md](settings-ui.md#camera-animation-and-preview).
+## Renderer navigation actions
 
 A renderer can publish `FileNavigationAction[]` through
 `RendererViewProps.onNavigationActionsChange`. The shared navbar shows these
@@ -266,7 +227,7 @@ tests remain required for resource changes.
 Monaco keeps its editor-local save binding. Viewer shortcuts consume only events
 from their own viewer, or from the page background after a pointer press in it,
 so another viewer or the composer never receives Escape, copy or orbit keys on
-its behalf ([settings-ui.md](settings-ui.md#keyboard)). The standalone
+its behalf. The standalone
 `DrawingEditor` takes the host's keyboard `platform` as a prop for its undo and
 redo keys.
 

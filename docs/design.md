@@ -1085,7 +1085,7 @@ Markdown, code,
 image, PDF and the unsupported fallback are this app's own renderers: `features/explorer/renderers/{markdown,code,image,pdf,unsupported}`,
 each a `defineFileRenderer` registration from `@workbench/ui/file-viewer` over the
 package's public exports only (the contract a host renderer may rely on is
-`@workbench/ui`'s [renderer contracts](../packages/ui/docs/renderers.md)).
+`@workbench/ui`'s [file viewer contract](../packages/ui/docs/file-viewer.md)).
 Monaco, TipTap, remark and PDF.js are this app's dependencies, not the package's.
 
 They keep the Markdown document and source views, Monaco's configuration and
