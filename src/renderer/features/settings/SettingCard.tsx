@@ -10,7 +10,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ChevronRight, Folder } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "cn";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { Button } from "@renderer/components/ui/button";
 import { Input } from "@renderer/components/ui/input";

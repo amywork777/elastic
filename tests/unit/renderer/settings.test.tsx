@@ -11,7 +11,7 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { SettingCard, SettingRow } from "@renderer/features/settings/SettingCard";
 import { SettingsRoute } from "@renderer/features/settings/SettingsRoute";
 import { AgentsPage } from "@renderer/features/settings/pages/AgentsPage";
@@ -291,8 +291,8 @@ describe("the Agents page's rows", () => {
   } as unknown as AgentStatus;
 
   beforeEach(() => {
-    vi.mocked(window.textToCad.agents.list).mockResolvedValue([opencode]);
-    vi.mocked(window.textToCad.shell.openExternal).mockClear();
+    vi.mocked(window.workbench.agents.list).mockResolvedValue([opencode]);
+    vi.mocked(window.workbench.shell.openExternal).mockClear();
     useAgents.setState({ agents: [opencode], ready: true, loadError: null });
   });
 
@@ -302,7 +302,7 @@ describe("the Agents page's rows", () => {
     const docs = await screen.findByRole("button", { name: "OpenCode documentation" });
     docs.focus();
     await user.keyboard("{Enter}");
-    expect(window.textToCad.shell.openExternal).toHaveBeenCalledWith({ url: "https://example.com/docs" });
+    expect(window.workbench.shell.openExternal).toHaveBeenCalledWith({ url: "https://example.com/docs" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -361,7 +361,7 @@ describe("the Agents page's rows", () => {
       adapter: { package: "@agentclientprotocol/claude-agent-acp", version: "0.84.0" },
     } as unknown as AgentStatus;
     useAgents.setState({ agents: [claude], ready: true, loadError: null });
-    vi.mocked(window.textToCad.agents.list).mockResolvedValue([claude]);
+    vi.mocked(window.workbench.agents.list).mockResolvedValue([claude]);
     const user = userEvent.setup();
     wrap(<AgentsPage />);
     const row = await screen.findByRole("button", { name: "Claude Code" });
@@ -374,7 +374,7 @@ describe("the Agents page's rows", () => {
 describe("a settings text field", () => {
   it("keeps what is being typed when an earlier write's answer lands late", async () => {
     const replies: ((settings: Settings) => void)[] = [];
-    vi.mocked(window.textToCad.settings.set).mockImplementation(
+    vi.mocked(window.workbench.settings.set).mockImplementation(
       () => new Promise<Settings>((resolve) => replies.push(resolve)),
     );
     const user = userEvent.setup();
@@ -393,19 +393,19 @@ describe("a settings text field", () => {
   });
 
   it("writes a finished edit once, not once per keystroke", async () => {
-    vi.mocked(window.textToCad.settings.set).mockReset();
-    vi.mocked(window.textToCad.settings.set).mockImplementation(async (patch) => ({ ...defaultSettings(), ...(patch as Partial<Settings>) }));
+    vi.mocked(window.workbench.settings.set).mockReset();
+    vi.mocked(window.workbench.settings.set).mockImplementation(async (patch) => ({ ...defaultSettings(), ...(patch as Partial<Settings>) }));
     const user = userEvent.setup();
     wrap(<GitPage />);
     await user.type(screen.getByRole("textbox", { name: "Branch prefix" }), "{Control>}a{/Control}me/{Enter}");
-    expect(window.textToCad.settings.set).toHaveBeenCalledTimes(1);
-    expect(window.textToCad.settings.set).toHaveBeenCalledWith({ branchPrefix: "me/" });
+    expect(window.workbench.settings.set).toHaveBeenCalledTimes(1);
+    expect(window.workbench.settings.set).toHaveBeenCalledWith({ branchPrefix: "me/" });
   });
 });
 
 describe("the branch prefix row", () => {
   it("says why git would refuse a prefix, and does not write it", async () => {
-    vi.mocked(window.textToCad.settings.set).mockReset();
+    vi.mocked(window.workbench.settings.set).mockReset();
     const user = userEvent.setup();
     wrap(<GitPage />);
     const box = screen.getByRole("textbox", { name: "Branch prefix" });
@@ -414,7 +414,7 @@ describe("the branch prefix row", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Git refuses spaces in a branch name.");
     expect(box).toHaveAccessibleDescription(/^Git refuses spaces in a branch name\./);
     await user.tab();
-    expect(window.textToCad.settings.set).not.toHaveBeenCalled();
+    expect(window.workbench.settings.set).not.toHaveBeenCalled();
   });
 });
 
@@ -440,7 +440,7 @@ describe("the Agents page under the Settings search", () => {
 
   it("counts the rows the search leaves, not the ones it hides", async () => {
     const agents = [agent("codex", "Codex"), agent("claude-code", "Claude Code"), agent("goose", "Goose"), agent("amp", "Amp")];
-    vi.mocked(window.textToCad.agents.list).mockResolvedValue(agents);
+    vi.mocked(window.workbench.agents.list).mockResolvedValue(agents);
     useAgents.setState({ agents, ready: true, loadError: null });
     wrap(
       <SettingsSearchProvider query="codex" reportCard={() => {}} section="agents">
@@ -455,7 +455,7 @@ describe("the Agents page under the Settings search", () => {
 describe("the Agents page when the list cannot be read", () => {
   it("shows the handler's words in an alert, not Electron's invoke wrapper", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(window.textToCad.agents.list).mockRejectedValue(
+    vi.mocked(window.workbench.agents.list).mockRejectedValue(
       new Error("Error invoking remote method 'text-to-cad:agents.list': Error: the registry is unreadable"),
     );
     useAgents.setState({ agents: [], ready: false, loadError: null });

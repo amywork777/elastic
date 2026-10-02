@@ -1,8 +1,8 @@
 /** Native/menu effects belong to the host, separate from FileSource mutations. */
-import { createPromptContext, referencePart } from "@text-to-cad/core/prompt";
-import type { PromptContextPort } from "@text-to-cad/core/prompt";
-import type { ExternalEntryAction, FileEntry } from "@text-to-cad/ui/file-viewer";
-import type { ClipboardPort } from "@text-to-cad/ui/host";
+import { createPromptContext, referencePart } from "@workbench/core/prompt";
+import type { PromptContextPort } from "@workbench/core/prompt";
+import type { ExternalEntryAction, FileEntry } from "@workbench/ui/file-viewer";
+import type { ClipboardPort } from "@workbench/ui/host";
 import { openSessionTab } from "@renderer/state/explorer";
 import type { ExplorerRoot } from "@shared/types";
 
@@ -22,11 +22,11 @@ export function requestAt(ctx: Pick<EntryActionContext, "projectId" | "root">) {
 export async function performEntryAction(action: ExternalEntryAction, entry: Pick<FileEntry, "path" | "kind">, ctx: EntryActionContext): Promise<void> {
   const at = { ...requestAt(ctx), path: entry.path };
   switch (action) {
-    case "open-default": await window.textToCad.explorer.openDefault(at); return;
-    case "open-with": await window.textToCad.explorer.openWith(at); return;
-    case "reveal": await window.textToCad.explorer.reveal(at); return;
+    case "open-default": await window.workbench.explorer.openDefault(at); return;
+    case "open-with": await window.workbench.explorer.openWith(at); return;
+    case "reveal": await window.workbench.explorer.reveal(at); return;
     case "copy-path": {
-      const { path } = await window.textToCad.explorer.absolutePath(at);
+      const { path } = await window.workbench.explorer.absolutePath(at);
       await ctx.clipboard.writeText(path); return;
     }
     case "copy-relative-path": await ctx.clipboard.writeText(entry.path); return;
@@ -43,7 +43,7 @@ export async function performEntryAction(action: ExternalEntryAction, entry: Pic
       return;
     }
     case "open-terminal": {
-      const { path } = await window.textToCad.explorer.absolutePath(at);
+      const { path } = await window.workbench.explorer.absolutePath(at);
       await openSessionTab(ctx.sessionId, ctx.projectId, ctx.root, "terminal", { cwd: path });
       return;
     }

@@ -20,10 +20,10 @@ import {
 import {
   clampSceneModelRadius,
   getSceneScaleSettings
-} from "@text-to-cad/core/lib/viewer/sceneScale.js";
+} from "@workbench/core/lib/viewer/sceneScale.js";
 import {
   toNumber
-} from "@text-to-cad/core/lib/viewer/modelRuntime.js";
+} from "@workbench/core/lib/viewer/modelRuntime.js";
 import {
   originalModelCameraFrame,
   interactiveViewportFitScale,
@@ -33,13 +33,13 @@ import {
   normalizeCameraProjection,
   CAMERA_PROJECTION,
   clonePerspectiveSnapshot
-} from "@text-to-cad/core/lib/perspective.js";
+} from "@workbench/core/lib/perspective.js";
 import {
   mergeBoundsList
-} from "@text-to-cad/core/lib/viewer/autoZoom.js";
+} from "@workbench/core/lib/viewer/autoZoom.js";
 import {
   annotatePerspectiveSnapshot
-} from "@text-to-cad/core/lib/perspective.js";
+} from "@workbench/core/lib/perspective.js";
 
 export const DEFAULT_DAMPING_FACTOR = 0.14;
 

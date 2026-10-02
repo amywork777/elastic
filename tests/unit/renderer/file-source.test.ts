@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { PromptContextPort } from "@text-to-cad/core/prompt";
-import type { FileChanges } from "@text-to-cad/ui/file-viewer";
+import type { PromptContextPort } from "@workbench/core/prompt";
+import type { FileChanges } from "@workbench/ui/file-viewer";
 import type { FileMutationResult } from "@shared/ipc/explorer";
 import { createDesktopFileActions, createDesktopFileSource } from "@renderer/features/explorer/adapters/fileSource";
 import { readSessionStrip, useExplorer, treeKey } from "@renderer/state/explorer";
@@ -22,7 +22,7 @@ test("reads reject cancellation, while an already committed rename reconciles ev
   useExplorer.getState().setTreeOpen(null, () => new Set(["", "old", "old/deep"]));
   useExplorer.getState().setTreeListing(null, "old/deep", [row("old/deep/note.txt")]);
   let finish!: (result: FileMutationResult) => void;
-  vi.mocked(window.textToCad.explorer.rename).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  vi.mocked(window.workbench.explorer.rename).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const pending = files.rename!("old", { name: "new", signal: controller.signal });
   controller.abort();
   finish({ status: "committed", path: "new", change: { kind: "moved", previousPath: "old", path: "new", directory: true, mutationId: "move-1" } });
@@ -41,22 +41,22 @@ test("duplicate mutation broadcasts are idempotent and late receipts cannot alte
   const receipt: FileMutationResult = { status: "committed", path: "new", change: { kind: "moved", previousPath: "old", path: "new", directory: true, mutationId: "move-2" } };
   useExplorer.getState().receiveChanges("p", null, [receipt.change]);
   const replacement = useExplorer.getState().openFile("old/newly-created.txt")!;
-  vi.mocked(window.textToCad.explorer.rename).mockResolvedValueOnce(receipt);
+  vi.mocked(window.workbench.explorer.rename).mockResolvedValueOnce(receipt);
   await files.rename!("old", { name: "new", signal: signal() });
   expect(useExplorer.getState().tabs.find(tab => tab.id === replacement.id)).toMatchObject({ path: "old/newly-created.txt" });
   useExplorer.setState({ projectId: "another" });
-  vi.mocked(window.textToCad.explorer.rename).mockResolvedValueOnce({ ...receipt, change: { ...receipt.change, mutationId: "late-other-project" } });
+  vi.mocked(window.workbench.explorer.rename).mockResolvedValueOnce({ ...receipt, change: { ...receipt.change, mutationId: "late-other-project" } });
   await files.rename!("old", { name: "new", signal: signal() });
   expect(useExplorer.getState().tabs.find(tab => tab.id === replacement.id)).toMatchObject({ path: "old/newly-created.txt" });
 });
 
 test("write conflict semantics are typed and subscription leases stay balanced", async () => {
   const files = source();
-  vi.mocked(window.textToCad.explorer.writeText).mockResolvedValueOnce({ status: "conflict", message: "any locale", actualRevision: "r2" });
+  vi.mocked(window.workbench.explorer.writeText).mockResolvedValueOnce({ status: "conflict", message: "any locale", actualRevision: "r2" });
   expect(await files.writeText!("note", { content: "draft", expectedRevision: "r1", signal: signal() })).toEqual({ status: "conflict", message: "any locale", actualRevision: "r2" });
   const changes: FileChanges[] = [];
-  const watch = vi.mocked(window.textToCad.explorer.watch).mockClear();
-  const unwatch = vi.mocked(window.textToCad.explorer.unwatch).mockClear();
+  const watch = vi.mocked(window.workbench.explorer.watch).mockClear();
+  const unwatch = vi.mocked(window.workbench.explorer.unwatch).mockClear();
   const off1 = files.subscribe!(change => changes.push(change)), off2 = files.subscribe!(() => {});
   useExplorer.getState().receiveChanges("p", null, [{ kind: "changed", path: "ignored.unknown", directory: false, revision: "r2" }]);
   expect(changes).toEqual([{ sourceId: files.id, changes: [{ kind: "content", path: "ignored.unknown", revision: "r2" }] }]);
@@ -67,11 +67,11 @@ test("write conflict semantics are typed and subscription leases stay balanced",
 test("a tab gives back the files it opened when it leaves, follows their moves, and holds them again on a remount", async () => {
   const files = source();
   const stat = (path: string) => ({ path, name: path, kind: "file" as const, size: 1, modifiedAt: 0, symlink: false, fileKind: "text" as const, mime: "text/plain", extension: "txt" });
-  vi.mocked(window.textToCad.explorer.stat).mockResolvedValueOnce(stat("a.txt")).mockResolvedValueOnce(stat("b.txt"));
+  vi.mocked(window.workbench.explorer.stat).mockResolvedValueOnce(stat("a.txt")).mockResolvedValueOnce(stat("b.txt"));
   await files.stat("a.txt", { signal: signal() });
   await files.stat("b.txt", { signal: signal() });
-  const watch = vi.mocked(window.textToCad.explorer.watch).mockClear();
-  const unwatch = vi.mocked(window.textToCad.explorer.unwatch).mockClear();
+  const watch = vi.mocked(window.workbench.explorer.watch).mockClear();
+  const unwatch = vi.mocked(window.workbench.explorer.unwatch).mockClear();
   const off = files.subscribe!(() => {});
   expect(watch).toHaveBeenLastCalledWith({ projectId: "p" });
   useExplorer.getState().receiveChanges("p", null, [{ kind: "moved", previousPath: "b.txt", path: "c.txt", directory: false }]);
@@ -86,9 +86,9 @@ test("a tab gives back the files it opened when it leaves, follows their moves, 
 test("a file restatted on every reload is given back once, however many times it was opened", async () => {
   const files = source();
   const stat = { path: "a.txt", name: "a.txt", kind: "file" as const, size: 1, modifiedAt: 0, symlink: false, fileKind: "text" as const, mime: "text/plain", extension: "txt" };
-  vi.mocked(window.textToCad.explorer.stat).mockResolvedValue(stat);
+  vi.mocked(window.workbench.explorer.stat).mockResolvedValue(stat);
   for (let index = 0; index < 10_001; index += 1) await files.stat("a.txt", { signal: signal() });
-  const unwatch = vi.mocked(window.textToCad.explorer.unwatch).mockClear();
+  const unwatch = vi.mocked(window.workbench.explorer.unwatch).mockClear();
   files.subscribe!(() => {})();
   expect(unwatch.mock.calls[0]![0].paths!.length).toBeLessThanOrEqual(1);
 });
@@ -96,10 +96,10 @@ test("a file restatted on every reload is given back once, however many times it
 test("only the first stat of a path is an open: main holds once, and one unwatch path gives it back", async () => {
   const files = source();
   const stat = { path: "a.txt", name: "a.txt", kind: "file" as const, size: 1, modifiedAt: 0, symlink: false, fileKind: "text" as const, mime: "text/plain", extension: "txt" };
-  const statCall = vi.mocked(window.textToCad.explorer.stat).mockClear().mockResolvedValue(stat);
+  const statCall = vi.mocked(window.workbench.explorer.stat).mockClear().mockResolvedValue(stat);
   for (let index = 0; index < 3; index += 1) await files.stat("a.txt", { signal: signal() });
   expect(statCall.mock.calls.filter(([request]) => request.intent === "open")).toHaveLength(1);
-  const unwatch = vi.mocked(window.textToCad.explorer.unwatch).mockClear();
+  const unwatch = vi.mocked(window.workbench.explorer.unwatch).mockClear();
   files.subscribe!(() => {})();
   expect(unwatch).toHaveBeenCalledTimes(1);
   expect(unwatch.mock.calls[0]![0].paths).toEqual(["a.txt"]);
@@ -134,8 +134,8 @@ test("managed binary leases keep workspace identity and bytes without extra meta
     static override revokeObjectURL = revokeObjectURL;
   });
   try {
-    const stat = vi.mocked(window.textToCad.explorer.stat).mockClear();
-    vi.mocked(window.textToCad.explorer.readBinary).mockResolvedValueOnce({ path: "images/sample.png", size: 3, mime: "image/png", dataUrl: "data:image/png;base64,AQID" });
+    const stat = vi.mocked(window.workbench.explorer.stat).mockClear();
+    vi.mocked(window.workbench.explorer.readBinary).mockResolvedValueOnce({ path: "images/sample.png", size: 3, mime: "image/png", dataUrl: "data:image/png;base64,AQID" });
     const files = source();
     const lease = await files.readAsset!("images/sample.png", { signal: signal() });
     expect(lease).toMatchObject({ url: "blob:fixture", mime: "image/png" });
@@ -150,7 +150,7 @@ test("managed binary leases keep workspace identity and bytes without extra meta
 test("a delayed file duplicate reveals only in its original session after switching within a directory", async () => {
   const files = source();
   let finish!: (result: FileMutationResult) => void;
-  vi.mocked(window.textToCad.explorer.duplicate).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  vi.mocked(window.workbench.explorer.duplicate).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const pending = files.duplicate!("part.step", { signal: signal() });
   await useExplorer.getState().bindSession("duplicate-other-session", "p", null);
   finish({ status: "committed", path: "part-copy.step", change: { kind: "added", path: "part-copy.step", directory: false } });
@@ -167,7 +167,7 @@ test("opening a terminal after async path resolution cannot target a different s
     clipboard: { writeText: async () => {}, readText: async () => "", writeImage: async () => {} },
     promptContext: { deliver: async () => ({ status: "added", partIds: [] }), getSnapshot: () => ({ kind: "composer", available: true }), subscribe: () => () => {} } });
   let finish!: (value: { path: string }) => void;
-  vi.mocked(window.textToCad.explorer.absolutePath).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  vi.mocked(window.workbench.explorer.absolutePath).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const pending = actions.perform!["open-terminal"]!({ path: "src", kind: "directory" });
   await useExplorer.getState().bindSession("terminal-other-session", "p", null);
   finish({ path: "/workspace/src" });

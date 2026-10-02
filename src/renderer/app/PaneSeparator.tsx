@@ -16,7 +16,7 @@
  * pane's toggle (`useFocusSurvivesCollapse`).
  */
 import { useEffect, useRef } from "react";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { KEYBOARD_STEP_PX, dragOutcome, type SidePane } from "@renderer/lib/panes";
 import { PANE_LIMITS } from "@shared/types";

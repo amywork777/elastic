@@ -1,5 +1,5 @@
-import type { FileActions, FileSource, FileMutationResult, ManagedFileAsset } from "@text-to-cad/ui/file-viewer";
-import type { ExternalEntryAction } from "@text-to-cad/ui/file-viewer";
+import type { FileActions, FileSource, FileMutationResult, ManagedFileAsset } from "@workbench/ui/file-viewer";
+import type { ExternalEntryAction } from "@workbench/ui/file-viewer";
 import { closeSessionTab, readSessionStrip, revealSessionPath, useExplorer } from "@renderer/state/explorer";
 import { desktopSourceId } from "@renderer/state/live-documents";
 import type { FileMutationResult as NativeMutationResult } from "@shared/ipc/explorer";
@@ -60,17 +60,17 @@ export function createDesktopFileSource({ sessionId, projectId, projectName, roo
       // Only the first stat of a path says so: main takes one hold per open-stat and this
       // record gives back one per path, so a reload's restat is a plain stat.
       signal.throwIfAborted();
-      const stat = await window.textToCad.explorer.stat({ ...at, path, ...(opened.has(path) ? {} : { intent: "open" as const }) });
+      const stat = await window.workbench.explorer.stat({ ...at, path, ...(opened.has(path) ? {} : { intent: "open" as const }) });
       // Counted before the abort check: main counted it when it answered.
       if (stat.kind === "file") opened.add(stat.path);
       signal.throwIfAborted();
       return { ...stat, mediaType: stat.fileKind };
     },
-    list: (path, { signal }) => checked(signal, () => window.textToCad.explorer.list({ ...at, path })),
-    paths: ({ signal }) => checked(signal, async () => (await window.textToCad.explorer.paths({ ...at, path: "" })).paths),
-    readText: (path, { signal }) => checked(signal, () => window.textToCad.explorer.readText({ ...at, path })),
+    list: (path, { signal }) => checked(signal, () => window.workbench.explorer.list({ ...at, path })),
+    paths: ({ signal }) => checked(signal, async () => (await window.workbench.explorer.paths({ ...at, path: "" })).paths),
+    readText: (path, { signal }) => checked(signal, () => window.workbench.explorer.readText({ ...at, path })),
     async readAsset(path, { signal }): Promise<ManagedFileAsset> {
-      const binary = await checked(signal, () => window.textToCad.explorer.readBinary({ ...at, path }));
+      const binary = await checked(signal, () => window.workbench.explorer.readBinary({ ...at, path }));
       // IPC returns a base64 data URL. Decode locally: Electron's connect-src
       // permits no data: fetch, even though its image policy permits the asset.
       const encoded = binary.dataUrl.slice(binary.dataUrl.indexOf(",") + 1);
@@ -83,24 +83,24 @@ export function createDesktopFileSource({ sessionId, projectId, projectName, roo
     async writeText(path, { content, expectedRevision, signal }) {
       if (signal.aborted) return { status: "cancelled" };
       try {
-        const result = await window.textToCad.explorer.writeText({ ...at, path, content, expectedRevision });
+        const result = await window.workbench.explorer.writeText({ ...at, path, content, expectedRevision });
         if (result.status === "saved") useExplorer.getState().receiveChanges(projectId, root, [{ kind: "changed", path, directory: false, revision: result.document.revision }]);
         return result;
       } catch (error) { return { status: "error", code: "error", message: messageOf(error) }; }
     },
-    rename: (path, { name, signal }) => mutate(signal, () => window.textToCad.explorer.rename({ ...at, path, name })),
+    rename: (path, { name, signal }) => mutate(signal, () => window.workbench.explorer.rename({ ...at, path, name })),
     create: (directory, { kind, name, signal }) => mutate(signal, () => kind === "file"
-      ? window.textToCad.explorer.createFile({ ...at, path: directory, name })
-      : window.textToCad.explorer.createDirectory({ ...at, path: directory, name }), kind === "directory" ? "reveal" : undefined),
-    duplicate: (path, { signal }) => mutate(signal, () => window.textToCad.explorer.duplicate({ ...at, path }), "reveal"),
-    trash: (path, { signal }) => mutate(signal, () => window.textToCad.explorer.trash({ ...at, path }), "trash"),
+      ? window.workbench.explorer.createFile({ ...at, path: directory, name })
+      : window.workbench.explorer.createDirectory({ ...at, path: directory, name }), kind === "directory" ? "reveal" : undefined),
+    duplicate: (path, { signal }) => mutate(signal, () => window.workbench.explorer.duplicate({ ...at, path }), "reveal"),
+    trash: (path, { signal }) => mutate(signal, () => window.workbench.explorer.trash({ ...at, path }), "trash"),
     subscribe(listener) {
       listeners.add(listener);
       if (!unsubscribe) {
         const again = [...released];
         for (const path of released) opened.add(path);
         released = new Set();
-        void window.textToCad.explorer.watch({ ...at, ...(again.length ? { paths: again } : {}) }).catch(() => {});
+        void window.workbench.explorer.watch({ ...at, ...(again.length ? { paths: again } : {}) }).catch(() => {});
         unsubscribe = useExplorer.subscribe((next, previous) => {
           if (next.projectId === projectId && next.fsRevision !== previous.fsRevision && next.changedRoot === root) {
             // Main moves its holds with a moved file; so does this record.
@@ -120,7 +120,7 @@ export function createDesktopFileSource({ sessionId, projectId, projectName, roo
           const paths = [...opened];
           released = opened;
           opened = new Set();
-          void window.textToCad.explorer.unwatch({ ...at, ...(paths.length ? { paths } : {}) }).catch(() => {});
+          void window.workbench.explorer.unwatch({ ...at, ...(paths.length ? { paths } : {}) }).catch(() => {});
         }
       };
     },

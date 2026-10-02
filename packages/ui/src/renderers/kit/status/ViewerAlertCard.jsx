@@ -1,8 +1,8 @@
 import { useContext, useId, useRef, useState, useSyncExternalStore } from "react";
 import { CircleAlert, X } from "lucide-react";
-import { Button } from "@text-to-cad/ui/primitives/button";
-import { ScrollArea } from "@text-to-cad/ui/primitives/scroll-area";
-import { cn } from "@text-to-cad/ui/utils";
+import { Button } from "@workbench/ui/primitives/button";
+import { ScrollArea } from "@workbench/ui/primitives/scroll-area";
+import { cn } from "@workbench/ui/utils";
 import { useViewerMobile } from "../../../file-viewer/responsive.js";
 import { ViewerHostContext } from "../../../host/context.js";
 

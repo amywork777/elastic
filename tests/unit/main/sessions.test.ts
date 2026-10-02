@@ -1371,16 +1371,6 @@ describe("SessionManager", () => {
     expect(row.turnHead).toBe("the-session-starts-here");
   });
 
-  it("counts a created session by its registry id, and nothing else about it", async () => {
-    const track = vi.fn();
-    const { manager, cwd } = await setup({ track });
-    await expect(manager.create({ projectId: "p1", agentId: "nope", cwd, gitMode: "none" })).rejects.toThrow(/unknown agent/);
-    expect(track).not.toHaveBeenCalled();
-    await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none", name: "a secret prompt" });
-    // No path, project, title or prompt: the README's Telemetry table.
-    expect(track.mock.calls).toEqual([[{ name: "session_created", agent: "claude-code" }]]);
-  });
-
   it("refuses a mode its workspace cannot satisfy, and writes no row for it", async () => {
     const { repo, manager } = await setup({
       workspace: async () => {

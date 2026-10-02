@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { MAX_DOCUMENT_CHARS } from '@main/integrations/documents/module.mjs';
 import { MAX_BRIDGE_DOCUMENT_CHARS, desktopLiveDocuments, performDocumentCommand, performPdfCommand, hasDirtyDocument, releaseDocumentTab, discardDocumentTab } from '@renderer/state/live-documents';
-import type { LiveTextSnapshot } from '@text-to-cad/ui/host';
+import type { LiveTextSnapshot } from '@workbench/ui/host';
 
 test('inactive documents preserve unsaved reads, isolate worktrees, and cannot silently close', async () => {
   const scope = { projectId: 'project', root: '/worktree' };

@@ -75,8 +75,8 @@ const DEFAULT_TIMEOUT_MS = 20_000;
 const SLOW_MS = 4_000;
 
 /** The lines the capture prints around `env`; exported for the tests. */
-export const ENV_BEGIN = "__TEXT_TO_CAD_ENV_BEGIN__";
-export const ENV_END = "__TEXT_TO_CAD_ENV_END__";
+export const ENV_BEGIN = "__WORKBENCH_ENV_BEGIN__";
+export const ENV_END = "__WORKBENCH_ENV_END__";
 const CAPTURE_COMMAND = [
   `printf '\\n%s\\n' ${ENV_BEGIN}`,
   // `command env -0` sidesteps any alias; plain `env` where -0 is unsupported.

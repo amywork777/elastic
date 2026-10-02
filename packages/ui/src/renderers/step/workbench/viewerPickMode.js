@@ -1,4 +1,4 @@
-import { VIEWER_PICK_MODE } from "@text-to-cad/core/lib/viewer/constants.js";
+import { VIEWER_PICK_MODE } from "@workbench/core/lib/viewer/constants.js";
 
 export function viewerSelectorRuntimeForRenderPane({
   hasTopology = false,

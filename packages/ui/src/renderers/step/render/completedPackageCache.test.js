@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildComposedPackageMeshData } from "@text-to-cad/core/lib/assembly/meshData.js";
-import { surfTessellationCacheKey } from "@text-to-cad/core/lib/renderAssetClient.js";
-import { lodTessellationForLevel } from "@text-to-cad/core/lib/surf/lodPolicy.js";
+import { buildComposedPackageMeshData } from "@workbench/core/lib/assembly/meshData.js";
+import { surfTessellationCacheKey } from "@workbench/core/lib/renderAssetClient.js";
+import { lodTessellationForLevel } from "@workbench/core/lib/surf/lodPolicy.js";
 import { completedPackages, createCompletedPackageCache, renderAssetCacheStatsWithPackages } from "./completedPackageCache.js";
 import { renderMemoryAccounting } from "./renderMemoryAccounting.js";
 

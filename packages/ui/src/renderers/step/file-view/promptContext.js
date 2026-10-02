@@ -1,4 +1,4 @@
-import { annotationPart, createPromptContext, referencePart, textPart } from '@text-to-cad/core/prompt';
+import { annotationPart, createPromptContext, referencePart, textPart } from '@workbench/core/prompt';
 
 /** A selector in a CAD file as a prompt reference; no selector is the whole file. */
 function cadPromptReference(resource, { selector, label }) {

@@ -40,7 +40,7 @@ it("lets go of everything held for a deleted session, and keeps an archived one'
 });
 
 it("puts nothing back for a session whose row went while its queued prompt was out and was then refused", async () => {
-  const bridge = window.textToCad as unknown as { sessions: object };
+  const bridge = window.workbench as unknown as { sessions: object };
   const saved = bridge.sessions;
   let refuse!: (reply: { stopReason: string; refused: string }) => void;
   bridge.sessions = { ...saved, prompt: () => new Promise((resolve) => (refuse = resolve)) };

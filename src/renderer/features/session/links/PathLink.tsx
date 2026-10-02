@@ -1,11 +1,11 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { Box, FileText, Folder } from "lucide-react";
 import { createContext, useContext, useEffect, type AnchorHTMLAttributes, type ReactNode } from "react";
 
 import { cn } from "@renderer/lib/utils";
 import { useExplorer } from "@renderer/state/explorer";
 import { usePathKind, usePathLinks } from "@renderer/state/path-links";
-import { isCadFile, isSelectorList } from "@shared/cad-refs";
+import { isReferenceFile, isFragment } from "@shared/file-refs";
 import type { ExplorerRoot } from "@shared/types";
 
 /**
@@ -49,7 +49,7 @@ export function pathTarget(href: string | undefined): PathTarget | null {
   if (!path || path.split(/[\\/]/).includes("..")) {
     return null;
   }
-  return { path, selector: selector && isSelectorList(selector) ? selector : "" };
+  return { path, selector: selector && isFragment(selector) ? selector : "" };
 }
 
 /**
@@ -104,8 +104,8 @@ function FileLink({ scope, target, children }: { scope: TranscriptScope; target:
     return <span data-path-text={target.path}>{children}</span>;
   }
 
-  const reference = kind === "file" && target.selector && isCadFile(target.path) ? target.selector : "";
-  const Icon = kind === "directory" ? Folder : isCadFile(target.path) ? Box : FileText;
+  const reference = kind === "file" && target.selector && isReferenceFile(target.path) ? target.selector : "";
+  const Icon = kind === "directory" ? Folder : isReferenceFile(target.path) ? Box : FileText;
   const open = () => {
     const explorer = useExplorer.getState();
     if (kind === "directory") {
@@ -114,7 +114,7 @@ function FileLink({ scope, target, children }: { scope: TranscriptScope; target:
     }
     const tab = explorer.openFile(target.path, scope.root);
     if (tab && reference) {
-      explorer.selectCadReference(tab.id, reference);
+      explorer.selectReference(tab.id, reference);
     }
   };
   return (

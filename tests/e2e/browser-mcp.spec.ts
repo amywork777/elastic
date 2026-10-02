@@ -21,7 +21,7 @@ let scratch: string, application: ElectronApplication, origin: string, server: h
 let client: Client;
 async function connect() {
   const mcp = await application.evaluate(() => browserMcpFixture.mcp);
-  const next = new Client({ name: "text-to-cad-browser-test", version: "1" });
+  const next = new Client({ name: "app-browser-test", version: "1" });
   const transport = new StdioClientTransport({ command: mcp.command, args: mcp.args, cwd: scratch,
     env: Object.fromEntries(Object.entries({ ...process.env, ...Object.fromEntries(mcp.env.map(e => [e.name, e.value])) }).filter((entry): entry is [string, string] => typeof entry[1] === "string")), stderr: "pipe" });
   let stderr = "";
@@ -35,7 +35,7 @@ async function tool(name: string, args = {}) {
   return (result.content as { type: string; text?: string }[]).filter(c => c.type === "text").map(c => c.text).join("\n");
 }
 test.beforeAll(async () => {
-  scratch = await fs.mkdtemp(path.join(os.tmpdir(), "text-to-cad-browser-mcp-"));
+  scratch = await fs.mkdtemp(path.join(os.tmpdir(), "app-browser-mcp-"));
   server = http.createServer((request, response) => {
     response.setHeader("content-type", "text/html");
     if (request.url === "/frame") { response.end('<label>Frame name<input></label>'); return; }
@@ -55,7 +55,7 @@ test.beforeAll(async () => {
   const entry = path.join(scratch, "app.cjs");
   await build({ entryPoints: [path.join(appRoot, "tests/fixtures/browser/mcp-app.ts")], outfile: entry, bundle: true, platform: "node", format: "cjs", external: ["electron"], target: "node22" });
   application = await electron.launch({ args: [entry, `--user-data-dir=${path.join(scratch, "profile")}`], env: { ...process.env,
-    TEXT_TO_CAD_E2E_HIDDEN: "1", BROWSER_FIXTURE_ROOT: scratch, BROWSER_FIXTURE_ORIGIN: origin, BROWSER_FIXTURE_MCP: path.join(packed, "server.mjs") } });
+    WORKBENCH_E2E_HIDDEN: "1", BROWSER_FIXTURE_ROOT: scratch, BROWSER_FIXTURE_ORIGIN: origin, BROWSER_FIXTURE_MCP: path.join(packed, "server.mjs") } });
   application.process().stderr?.on("data", chunk => { void fs.appendFile(test.info().outputPath("electron.log"), chunk).catch(() => {}); });
   await application.firstWindow();
   // The test driver's separate CDP client must not auto-dismiss the MCP's dialog.

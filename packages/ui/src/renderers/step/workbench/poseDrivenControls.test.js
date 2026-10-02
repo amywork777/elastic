@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { stepModuleFromKinematics } from "@text-to-cad/core/common/kinematicsModule.js";
-import { normalizeStepModuleDefinition } from "@text-to-cad/core/common/stepModule.js";
+import { stepModuleFromKinematics } from "@workbench/core/common/kinematicsModule.js";
+import { normalizeStepModuleDefinition } from "@workbench/core/common/stepModule.js";
 
 import {
   poseControlDisplayValue,

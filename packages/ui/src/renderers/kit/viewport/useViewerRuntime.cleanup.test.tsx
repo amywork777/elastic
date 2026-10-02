@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 // A renderer that does nothing: the hook only needs its canvas and somewhere to call.
 const renderers: any[] = [];
-vi.mock('@text-to-cad/core/common/webglRenderer.js', () => ({
+vi.mock('@workbench/core/common/webglRenderer.js', () => ({
   createCadWebGlRenderer: () => {
     const domElement = document.createElement('canvas');
     const target: any = { domElement, shadowMap: {}, dispose: vi.fn(), getPixelRatio: () => 1 };

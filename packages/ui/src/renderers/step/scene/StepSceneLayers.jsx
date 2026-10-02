@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { normalizeStepClipSettings } from "@text-to-cad/core/lib/viewer/clipPlane.js";
-import { syncRuntimeStepClipPlane } from "@text-to-cad/core/lib/viewer/modelRuntime.js";
+import { normalizeStepClipSettings } from "@workbench/core/lib/viewer/clipPlane.js";
+import { syncRuntimeStepClipPlane } from "@workbench/core/lib/viewer/modelRuntime.js";
 import JointHandleOverlay from "../../kit/tools/pose/JointHandleOverlay.jsx";
 import { createStaticSceneReset, staticSceneResetEligible } from "../render/staticSceneReset.js";
 import { renderMemoryAccounting } from "../render/renderMemoryAccounting.js";

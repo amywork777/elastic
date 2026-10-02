@@ -1,5 +1,5 @@
 import { Code2, Eye } from "lucide-react";
-import type { FilePanel } from "@text-to-cad/ui/navigation";
+import type { FilePanel } from "@workbench/ui/navigation";
 
 /**
  * The markdown source view's panel id. A tab persists it as its open panel

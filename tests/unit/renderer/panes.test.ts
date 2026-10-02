@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PANEL_DEFAULT_WIDTH } from "@text-to-cad/ui/navigation";
+import { PANEL_DEFAULT_WIDTH } from "@workbench/ui/navigation";
 import { dragOutcome, maxWidthOf, resolvePanes } from "@renderer/lib/panes";
 import { PANE_LIMITS, WindowStateSchema } from "@shared/types";
 
@@ -94,7 +94,7 @@ describe("resolvePanes", () => {
 
 describe("the explorer's default width", () => {
   // The file viewer lays out for a phone below 720px of its own width
-  // (`VIEWER_MOBILE_BREAKPOINT` in @text-to-cad/ui), and the viewer fills the pane.
+  // (`VIEWER_MOBILE_BREAKPOINT` in @workbench/ui), and the viewer fills the pane.
   const VIEWER_WIDE_MIN = 720;
   const defaults = {
     sidebar: open(PANE_LIMITS.sidebar.default),

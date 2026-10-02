@@ -1,8 +1,8 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
-import LoadingIcon from "@text-to-cad/ui/loading-icon";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
+import LoadingIcon from "@workbench/ui/loading-icon";
 import { useContext, useEffect, useState } from "react";
 import { ViewerHostContext } from "../../../host/context.js";
-import { Progress } from "@text-to-cad/ui/primitives/progress";
+import { Progress } from "@workbench/ui/primitives/progress";
 import { prolongedLoadingMessage } from "./loadingMessage.js";
 
 // Shared by file opening and graphics initialization. Time is elapsed, never an ETA.

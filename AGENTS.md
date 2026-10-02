@@ -22,14 +22,14 @@ phase is not an oversight — it is the seam.
 | P1 (done) | `src/main/agents`, `src/main/acp` (but `acp/agent-options.ts`), `src/shared/acp` (but `acp/options.ts`), `src/shared/agents.ts`, `src/{shared,main}/ipc/{acp,agents}.ts`, `src/renderer/state/{acp,agents}.ts`, `scripts/{acp-harness,fetch-agent-icons}.mjs`, `tests/fake-agent`, `tests/fixtures/acp` |
 | P2 | `src/renderer/features/session` — the transcript, activity rows, composer chips, permissions, plan card — and its path links and reference grammar, `src/renderer/state/path-links.ts`, `src/shared/cad-refs.ts`; plus what the model and effort chips are drawn from before a session exists: `src/shared/acp/options.ts`, `src/{shared,main}/ipc/agent-options.ts`, `src/main/acp/agent-options.ts`, `src/renderer/state/agent-options.ts` |
 | P3 (done) | `src/main/explorer`, `src/{shared,main}/ipc/explorer.ts`, `src/shared/terminal-replies.ts`, `src/renderer/features/explorer` (but `drawing/`, `DrawingTab.tsx`, `host/` and `BrowserTab.tsx`) — file tab, tree, Monaco, review, browser, terminal — `src/renderer/state/live-documents.ts`, `scripts/{monaco-workers,pdf-assets}.mjs` |
-| P4 (done) | `@text-to-cad/ui` CAD renderer and explicit `@text-to-cad/core/client`; FileTab hosts the shared FileViewer through `src/renderer/features/explorer/host/` and `src/renderer/state/{live-cad,cad-draft}.ts` |
-| P5 (done) | `src/main/cad`, `src/main/integrations` (but `integrations/drawings/`), `src/{shared,main}/ipc/{cad,integrations,runtime,skills}.ts`, `resources/{cadgen,runtime,skills,text-to-cad-mcp}`, `skills/`, `scripts/{build,build-skills,build-mcp,cad-resources,bundle-runtime,perf-cad}.mjs`, `src/renderer/state/integration-commands.ts`, the `reveal` field of the explorer store and tree |
+| P4 (done) | `@workbench/ui` CAD renderer and explicit `@workbench/core/client`; FileTab hosts the shared FileViewer through `src/renderer/features/explorer/host/` and `src/renderer/state/{live-cad,cad-draft}.ts` |
+| P5 (done) | `src/main/cad`, `src/main/integrations` (but `integrations/drawings/`), `src/{shared,main}/ipc/{cad,integrations,runtime,skills}.ts`, `resources/{cadgen,runtime,skills,app-mcp}`, `skills/`, `scripts/{build,build-skills,build-mcp,cad-resources,bundle-runtime,perf-cad}.mjs`, `src/renderer/state/integration-commands.ts`, the `reveal` field of the explorer store and tree |
 | Drawings | the drawing tab kind: `src/renderer/features/explorer/DrawingTab.tsx`, `src/renderer/features/explorer/drawing/`, `src/renderer/state/drawings.ts`, `src/main/integrations/drawings/` |
 | P6 | `src/renderer/features/settings` — the pages' contents — and the choosers its path rows use, `src/{shared,main}/ipc/dialogs.ts`, `src/main/ipc/settings-fallbacks.ts` |
 | P7 (done) | `src/main/projects` (`git.ts`, `workspace.ts`, `index.ts`), `src/{shared,main}/ipc/git.ts`, `src/renderer/lib/git-mode.ts`, the review tab's scopes and commit strip, Git and worktrees' per-project cards, `tests/e2e/git.spec.ts` |
 | P8 (done) | `electron-builder.yml`, `build/`, `resources/brand`, `scripts/{package,make-icons,make-brand,app-version}.mjs`, `src/main/{updater,telemetry}.ts`, `src/{shared,main}/ipc/app.ts`, the CI jobs |
 | Browser | the embedded browser P3's tab kind grew into: `src/main/browser/`, `src/shared/browser.ts`, `src/{shared,main}/ipc/browser.ts`, `features/explorer/BrowserTab.tsx`, `docs/browser.md` |
-| Clipboard | `src/{shared,main}/ipc/clipboard.ts` — the one door to Electron's native clipboard (main-side text and PNG reads and writes, validated); renderer callers of that go through `window.textToCad.clipboard`. A copy button on the page — the vendored `terminal.tsx`, `code-block.tsx` and Streamdown's, Copy path, the terminal's selection — writes plain text with the web `navigator.clipboard.writeText`, which `clipboard-sanitized-write` in `src/main/index.ts` permits; that is not a second door to the native clipboard, and the vendored components are not rewritten to use the IPC one |
+| Clipboard | `src/{shared,main}/ipc/clipboard.ts` — the one door to Electron's native clipboard (main-side text and PNG reads and writes, validated); renderer callers of that go through `window.workbench.clipboard`. A copy button on the page — the vendored `terminal.tsx`, `code-block.tsx` and Streamdown's, Copy path, the terminal's selection — writes plain text with the web `navigator.clipboard.writeText`, which `clipboard-sanitized-write` in `src/main/index.ts` permits; that is not a second door to the native clipboard, and the vendored components are not rewritten to use the IPC one |
 | P9 (onboarding) | `src/main/onboarding.ts`, `src/{shared,main}/ipc/onboarding.ts`, `src/renderer/features/onboarding`, `src/renderer/state/onboarding.ts`, `resources/sample/`, the `onboarding*` settings fields |
 
 Work outside your phase's directories only where the seam requires it — a new
@@ -47,18 +47,18 @@ not.
   — only the dev instance, never a packaged text-to-cad.app), `npm run build`,
   then relaunch. Close every Playwright or debugging instance you started
   first, so the one window left is the current build.
-- **Launch in the background.** `TEXT_TO_CAD_LAUNCH_INACTIVE=1 npx electron .`
+- **Launch in the background.** `WORKBENCH_LAUNCH_INACTIVE=1 npx electron .`
   shows the window without taking focus (`showInactive` in
   `src/main/index.ts`), so the relaunch does not interrupt whatever they are
   doing. Run it detached (`nohup … &`) with stdout to a log file. Never a bare
   `npx electron .`: that one takes the screen.
 - **A test launch shows nothing at all.** `npm run e2e` sets
-  `TEXT_TO_CAD_E2E_HIDDEN=1` (`playwright.config.ts`) and main then skips `show()`
+  `WORKBENCH_E2E_HIDDEN=1` (`playwright.config.ts`) and main then skips `show()`
   entirely, so a suite run — a dozen windows — never appears over the person's
   screen. Playwright still drives the renderer over the DevTools protocol:
   screenshots, boxes, the mouse and the keyboard all work on an unshown
   window. Any scratch Playwright or Electron script you write sets the same
-  variable, or `TEXT_TO_CAD_LAUNCH_INACTIVE=1` if it has to be visible.
+  variable, or `WORKBENCH_LAUNCH_INACTIVE=1` if it has to be visible.
 
 ## Rules that are easy to break here
 
@@ -66,7 +66,7 @@ Where a test holds a rule, it is named beside it; run it after touching what
 the rule is about.
 
 - **Pure refactor:** package moves preserve all app UI/UX and functionality.
-  FileTab hosts `@text-to-cad/ui/file-viewer`; the viewer renderers both apps
+  FileTab hosts `@workbench/ui/file-viewer`; the viewer renderers both apps
   register live in UI, the file renderers only this app registers (Markdown,
   code, image, PDF, unsupported) live in `features/explorer/renderers/`, and
   IPC/native services and app state stay here. Never import web app source.
@@ -77,7 +77,7 @@ the rule is about.
   today: `types.ts` (the schemas, `PANE_LIMITS`), `acp/options.ts`,
   `acp/reduce.ts`, `cad-refs.ts`, `diff-counts.ts`, `image-cap.ts`, `terminal-replies.ts`, `titlebar.ts` and
   `ipc/errors.ts`. A shared module that grows a Node import stops
-  qualifying. Its one way off the page is `window.textToCad`, built from the
+  qualifying. Its one way off the page is `window.workbench`, built from the
   contract in `src/shared/ipc/index.ts`.
   (`tests/unit/main/renderer-shared-imports.test.ts` enforces this.)
 - **Every IPC channel is declared once**, as a request schema and a response
@@ -89,7 +89,7 @@ the rule is about.
 - **Root workspace dependencies are installed in this checkout, never borrowed.** electron-builder walks
   the tree by real path: a symlinked `node_modules` resolves every transitive
   dependency to `undefined`, packages an app missing half its modules, and does
-  not fail while doing it. Use root `npm ci` and explicit `npm run native:rebuild --workspace @text-to-cad/desktop`.
+  not fail while doing it. Use root `npm ci` and explicit `npm run native:rebuild --workspace elastic`.
 - **Nothing reads `process.env` for a build-time secret.** The Aptabase key is
   compiled in as `__APTABASE_KEY__` (`electron.vite.config.ts`); a packaged app
   has no build environment, and a key the launcher can set is a key anyone can
@@ -152,7 +152,7 @@ the rule is about.
   packages that must resolve to one copy are in `resolve.dedupe` in
   `electron.vite.config.ts`, and `tests/unit/main/renderer-bundle.test.ts`
   fails on duplicate chunks in a built bundle (CI runs it after the build with
-  `TEXT_TO_CAD_BUNDLE_CHECK=1`; a local run without a fresh build passes).
+  `WORKBENCH_BUNDLE_CHECK=1`; a local run without a fresh build passes).
   (README, "Development".)
 - **A chord that acts on a hidden tab never runs while the pane is collapsed.**
   `useExplorerShortcuts` (mounted by `Shell`) lets `Mod+W` and `Mod+1..9` fall
@@ -221,8 +221,8 @@ the rule is about.
   the build and `scripts/package.mjs` stamp it. Do not hand-edit it.
 - **Exact dependency versions, no ranges.** Everything the later phases need is
   already installed, so a phase should not have to touch `package.json`. The
-  one exception is the workspace links, `"@text-to-cad/core": "*"` and
-  `"@text-to-cad/ui": "*"`: those resolve to the root workspace's packages,
+  one exception is the workspace links, `"@workbench/core": "*"` and
+  `"@workbench/ui": "*"`: those resolve to the root workspace's packages,
   not to a registry, and `*` is how npm workspaces spell that.
   (`tests/unit/main/package-json.test.ts` holds this and the version above.)
 - **No symlinks, ever** (repo-wide law: installers disagree about them and one

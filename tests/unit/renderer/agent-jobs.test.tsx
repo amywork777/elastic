@@ -54,7 +54,7 @@ describe("a job that outlives the component that started it", () => {
 
 describe("a job that has printed nothing yet", () => {
   it("is still found running by a drawer remounted before the first chunk", async () => {
-    vi.mocked(window.textToCad.agents.install).mockResolvedValue({ jobId: "j1" });
+    vi.mocked(window.workbench.agents.install).mockResolvedValue({ jobId: "j1" });
     const drawer = (
       <TooltipProvider>
         <AgentDrawer agent={codex} onOpenChange={() => {}} open platform="macos" />
@@ -106,7 +106,7 @@ describe("a job that ended badly", () => {
   });
 
   it("does not bring back the failed run this mount started after a later run succeeded", async () => {
-    vi.mocked(window.textToCad.agents.install).mockResolvedValue({ jobId: "j1" });
+    vi.mocked(window.workbench.agents.install).mockResolvedValue({ jobId: "j1" });
     render(drawer(codex));
     fireEvent.click(screen.getByRole("button", { name: "Install" }));
     await screen.findByText("Waiting for output…");
@@ -138,7 +138,7 @@ describe("a row the last launch left", () => {
 describe("the Agents page's status dot", () => {
   it("is not green beside 'checking sign-in…' for a row the last launch left signed out", async () => {
     const row = { ...codex, installed: true, auth: "unauthenticated", probing: true } as AgentStatus;
-    vi.mocked(window.textToCad.agents.list).mockResolvedValue([row]);
+    vi.mocked(window.workbench.agents.list).mockResolvedValue([row]);
     useAgents.setState({ agents: [row], ready: true, loadError: null });
     render(
       <TooltipProvider>

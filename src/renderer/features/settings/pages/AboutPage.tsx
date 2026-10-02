@@ -1,13 +1,7 @@
 /**
- * About and updates (plan §10). The version, where it came from, the one
- * button the updater's current state allows — and the CAD runtime's status,
- * read-only: the runtime ships inside the app (plan §8, as revised), so what
- * used to be a page of its own is a block here that says whether it works,
- * with the one thing a person can do about it (Repair: look again).
+ * About and updates. The version, where it came from, the one button the
+ * updater's current state allows, and the skills every session is handed.
  */
-import { useEffect } from "react";
-import { RefreshCw } from "lucide-react";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
 
 import { Button } from "@renderer/components/ui/button";
 import { Progress } from "@renderer/components/ui/progress";
@@ -22,15 +16,13 @@ import {
   useSettingsPatch,
   useSettingsValue,
 } from "@renderer/features/settings/settings-value";
-import { StatusLabel, type Tone } from "@renderer/features/settings/StatusDot";
+import { StatusLabel } from "@renderer/features/settings/StatusDot";
 import { useAppInfo } from "@renderer/features/settings/use-app-info";
 import { useSkills } from "@renderer/features/settings/use-skills";
-import { useRuntime } from "@renderer/state/runtime";
 import { useUpdates } from "@renderer/state/updates";
-import type { RuntimeSource, RuntimeState } from "@shared/ipc/runtime";
+import { APP_NAME } from "@shared/brand";
 
-const REPOSITORY = "https://github.com/earthtojake/text-to-cad";
-const DOCS = "https://texttocad.dev";
+const REPOSITORY = "https://github.com/amywork777/elastic";
 const LICENSES = `${REPOSITORY}/blob/main/LICENSE`;
 
 const PLATFORMS: Record<string, string> = {
@@ -39,7 +31,7 @@ const PLATFORMS: Record<string, string> = {
   linux: "Linux",
 };
 
-const openExternal = (url: string) => () => void window.textToCad.shell.openExternal({ url });
+const openExternal = (url: string) => () => void window.workbench.shell.openExternal({ url });
 
 export function AboutPage() {
   const info = useAppInfo();
@@ -50,7 +42,6 @@ export function AboutPage() {
     <>
       <SettingCard title="About">
         <ValueRow
-          description="text-to-cad ships the cadgen release of the same number."
           keywords="build number release"
           title="Version"
           tone="strong"
@@ -80,16 +71,9 @@ export function AboutPage() {
         <UpdateRow />
       </SettingCard>
 
-      <RuntimeCard appVersion={info?.version ?? null} />
+      <SkillsCard />
 
       <SettingCard title="Links">
-        <ActionRow
-          description="The CAD skills, cadgen and this app."
-          keywords="documentation help guide"
-          label="Open docs"
-          onClick={openExternal(DOCS)}
-          title="Documentation"
-        />
         <ActionRow
           description="Issues, releases and the source of everything here."
           keywords="github source code"
@@ -98,7 +82,7 @@ export function AboutPage() {
           title="Repository"
         />
         <ActionRow
-          description="text-to-cad is MIT-licensed and built on other people's work."
+          description={`${APP_NAME} is MIT-licensed and built on other people's work.`}
           keywords="licences open source attribution mit"
           label="View licenses"
           onClick={openExternal(LICENSES)}
@@ -140,7 +124,7 @@ function UpdateRow() {
       // Also a release whose feed for this platform is still being uploaded:
       // nothing newer is published for this build. An inactive updater is
       // `unsupported`, not this.
-      description: "text-to-cad is up to date.",
+      description: `${APP_NAME} is up to date.`,
       action: { label: "Check now", onClick: check },
     },
     checking: { description: "Checking GitHub Releases…", action: null },
@@ -220,125 +204,22 @@ function UpdateRow() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* The CAD runtime block                                                       */
+/* Skills                                                                      */
 /* -------------------------------------------------------------------------- */
 
-const STATE_TONE: Record<RuntimeState, Tone> = {
-  missing: "bad",
-  ready: "ok",
-  error: "bad",
-};
-
-const STATE_LABEL: Record<RuntimeState, string> = {
-  missing: "Missing",
-  ready: "Ready",
-  error: "Failed",
-};
-
-const SOURCE_LABEL: Record<RuntimeSource, string> = {
-  bundled: "Bundled with the app",
-  checkout: "The checkout's .venv",
-  override: "Override interpreter",
-};
-
-/**
- * `cad:check` as four rows: the runtime, cadgen, the viewer, and the skills
- * every session is handed. Read-only apart from Repair, which is a fresh
- * probe — there is nothing to install.
- */
-function RuntimeCard({ appVersion }: { appVersion: string | null }) {
-  const status = useRuntime((state) => state.status);
-  const busy = useRuntime((state) => state.busy);
-  const load = useRuntime((state) => state.load);
-  const repair = useRuntime((state) => state.repair);
+/** The skills every session is handed: the app's own and every enabled plugin's. */
+function SkillsCard() {
   const skills = useSkills();
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const cadgenMatches =
-    status?.cadgenVersion != null && appVersion !== null && status.cadgenVersion === appVersion;
-
   return (
-    <SettingCard title="CAD runtime">
-      <SettingRow
-        control={
-          <>
-            <StatusLabel tone={status ? (status.kernel ? "warn" : STATE_TONE[status.state]) : "busy"}>
-              {status ? `${STATE_LABEL[status.state]}${status.kernel ? ` — CAD kernel: ${status.kernel.state}` : ""}` : "Checking…"}
-            </StatusLabel>
-            <Button
-              className="h-8 gap-1.5"
-              disabled={busy || status === null}
-              onClick={() => void repair()}
-              size="sm"
-              variant="secondary"
-            >
-              <RefreshCw className="size-3.5" />
-              Repair
-            </Button>
-          </>
-        }
-        description={
-          status?.state === "ready"
-            ? `${status.source ? SOURCE_LABEL[status.source] : "Interpreter"}: ${status.python ?? ""}`
-            : (status?.message ?? "The pinned Python and cadgen that ship inside text-to-cad.")
-        }
-        keywords="python cadgen runtime repair interpreter bundled"
-        title="Runtime"
-      >
-        {status?.kernel ? (
-          // Ready, but a STEP build may fail: cadgen's own words for why.
-          <p className="text-[11px] text-muted-foreground" data-runtime-kernel={status.kernel.state}>
-            CAD kernel: {status.kernel.state}: <span data-selectable>{status.kernel.message}</span>
-            {status.kernel.state === "timeout" ? ". That says nothing about whether the kernel loads; Repair checks again." : null}
-          </p>
-        ) : null}
-        {status?.log && (status.state !== "ready" || status.kernel) ? (
-          <TooltipHint content={status.log} overflowOnly side="top">
-            <p className="truncate text-[11px] text-muted-foreground">
-              Log: <span data-selectable>{status.log}</span>
-            </p>
-          </TooltipHint>
-        ) : null}
-      </SettingRow>
-
-      <SettingRow
-        control={
-          <StatusLabel tone={cadgenMatches ? "ok" : status?.cadgenVersion ? "warn" : "idle"}>
-            {status?.cadgenVersion
-              ? `${status.cadgenVersion}${cadgenMatches ? "" : ` · app is ${appVersion ?? "…"}`}`
-              : "—"}
-          </StatusLabel>
-        }
-        description="text-to-cad and cadgen are released from one commit and must be the same version."
-        keywords="wheel version pin occt build123d"
-        title="cadgen"
-      />
-
-      <SettingRow
-        control={
-          <StatusLabel tone={status?.viewerBuilt ? "ok" : "idle"}>
-            {status?.viewerBuilt ? "Ready" : "—"}
-          </StatusLabel>
-        }
-        description="cadgen's viewer backend, which the file tab runs per project."
-        keywords="viewer backend step glb render"
-        title="Viewer"
-      />
-
+    <SettingCard title="Skills">
       <SettingRow
         control={
           <StatusLabel tone={skills && skills.skills.length > 0 ? "ok" : "idle"}>
             {skills && skills.skills.length > 0 ? `${skills.skills.length} skills` : "—"}
           </StatusLabel>
         }
-        description={
-          skills?.root ??
-          "The CAD, drawing, mesh and robot-description skills every session in this app is handed."
-        }
-        keywords="skills cad browser pdf drawings documents terminals additional directories preamble"
+        description={skills?.root ?? "The skills every session in this app is handed: the app's own and its plugins'."}
+        keywords="skills plugins browser pdf documents terminals additional directories preamble"
         title="Skills"
       >
         {skills?.root ? (
@@ -351,4 +232,3 @@ function RuntimeCard({ appVersion }: { appVersion: string | null }) {
     </SettingCard>
   );
 }
-

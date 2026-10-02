@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Spinner } from "@renderer/components/ui/spinner";
 import { cn } from "cn";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { Button } from "@renderer/components/ui/button";
 import {

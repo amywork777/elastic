@@ -12,7 +12,7 @@ import { test } from 'vitest';
 /**
  * The PDF renderer in real Chromium, with PDF.js's real worker: a FileViewer on an
  * effect-free host (`pdf/index.tsx`), served by Vite from this app's root. The
- * renderer is this app's source; FileViewer is `@text-to-cad/ui`'s built export.
+ * renderer is this app's source; FileViewer is `@workbench/ui`'s built export.
  */
 test('PDF.js renders the same two-page document that live read, page, selection and capture use', { timeout: 120_000 }, async () => {
   const root = fileURLToPath(new URL('../..', import.meta.url));

@@ -1,4 +1,4 @@
-import type { FileViewerState } from "@text-to-cad/ui/file-viewer";
+import type { FileViewerState } from "@workbench/ui/file-viewer";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { useExplorer, useTree } from "@renderer/state/explorer";
 import type { ExplorerRoot } from "@shared/types";

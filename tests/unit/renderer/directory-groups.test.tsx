@@ -39,7 +39,7 @@ describe("session-derived directories", () => {
 
   it("opens the first folder as a usable draft without creating a phantom group", async () => {
     const directory = { id: "/new/robot", path: "/new/robot", name: "robot", createdAt: 0 };
-    vi.mocked(window.textToCad.projects.add).mockResolvedValueOnce(directory);
+    vi.mocked(window.workbench.projects.add).mockResolvedValueOnce(directory);
     await useProjects.getState().add();
     const active = renderHook(useActiveProject);
     expect(active.result.current).toEqual(directory);

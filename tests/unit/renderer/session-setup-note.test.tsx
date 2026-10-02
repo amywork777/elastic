@@ -25,7 +25,7 @@ const NOTE = "The session started, but setting it up failed: SQLITE_BUSY";
 const SESSION = { id: "s1", projectId: "p1", agentId: "claude", cwd: "/p", title: "t", status: "idle" } as unknown as Session;
 
 type Handler = (payload: unknown) => void;
-const bridge = window.textToCad as unknown as Record<string, unknown>;
+const bridge = window.workbench as unknown as Record<string, unknown>;
 const saved = { on: bridge.on, sessions: bridge.sessions };
 let handlers: Record<string, Handler>;
 let detach: () => void;

@@ -1,4 +1,4 @@
-import type { ClipboardPort } from "@text-to-cad/ui/host";
+import type { ClipboardPort } from "@workbench/ui/host";
 
 async function pngBase64(content: Blob | Promise<Blob>): Promise<string> {
   const blob = await content;
@@ -16,7 +16,7 @@ async function pngBase64(content: Blob | Promise<Blob>): Promise<string> {
 
 /** Native clipboard effects go through validated main/preload operations only. */
 export const desktopClipboard: ClipboardPort = {
-  writeText: text => window.textToCad.clipboard.writeText({ text }),
-  readText: () => window.textToCad.clipboard.readText(),
-  writeImage: async image => window.textToCad.clipboard.writeImage({ pngBase64: await pngBase64(image) }),
+  writeText: text => window.workbench.clipboard.writeText({ text }),
+  readText: () => window.workbench.clipboard.readText(),
+  writeImage: async image => window.workbench.clipboard.writeImage({ pngBase64: await pngBase64(image) }),
 };

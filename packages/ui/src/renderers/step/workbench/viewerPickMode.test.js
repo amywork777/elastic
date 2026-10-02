@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
 
-import { VIEWER_PICK_MODE } from "@text-to-cad/core/lib/viewer/constants.js";
-import { syncSelectorPickGroups } from "@text-to-cad/core/lib/viewer/selectorPickGroups.js";
-import { applySceneState } from "@text-to-cad/core/common/applySceneState.js";
-import { resetStepModuleRecordEffects } from "@text-to-cad/core/common/stepModuleEffects.js";
-import { loadTubeDeformation } from "@text-to-cad/core/common/tubeDeformationChunk.js";
+import { VIEWER_PICK_MODE } from "@workbench/core/lib/viewer/constants.js";
+import { syncSelectorPickGroups } from "@workbench/core/lib/viewer/selectorPickGroups.js";
+import { applySceneState } from "@workbench/core/common/applySceneState.js";
+import { resetStepModuleRecordEffects } from "@workbench/core/common/stepModuleEffects.js";
+import { loadTubeDeformation } from "@workbench/core/common/tubeDeformationChunk.js";
 
 // `deformTube` needs the lazy tube runtime, which production loads through
 // compileAnimationSource. This clip is built by hand, so load it here.

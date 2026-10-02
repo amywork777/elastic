@@ -28,7 +28,7 @@ Range.prototype.getBoundingClientRect ??= () => new DOMRect();
 const SESSION = "s1";
 const REASON = "Claude Code cannot take an image in a prompt. Remove the attachment to send.";
 const P: Project = { id: "p", name: "p", path: "/p", createdAt: 0 };
-const bridge = window.textToCad as unknown as Record<string, unknown>;
+const bridge = window.workbench as unknown as Record<string, unknown>;
 const saved = { sessions: bridge.sessions };
 let prompt: ReturnType<typeof vi.fn>;
 

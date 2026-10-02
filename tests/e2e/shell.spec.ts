@@ -52,7 +52,7 @@ declare const window: {
   localStorage: { getItem(key: string): string | null };
   __schemeSamples: { dark: boolean; colorScheme: string; prefersDark: boolean }[];
   __schemeFrames: number;
-  textToCad: {
+  workbench: {
     settings: { get(): Promise<{ theme: string }>; set(patch: Record<string, unknown>): Promise<unknown> };
     agents: { list(): Promise<{ installed: boolean }[]> };
     sessions: { delete(request: { id: string }): Promise<void> };
@@ -126,7 +126,7 @@ test.afterAll(async () => {
  * asserts the document never once disagreed with the resolved preference.
  */
 test("comes up dark on an OS in dark, with no light frame and nothing set", async () => {
-  expect((await page.evaluate(() => window.textToCad.settings.get())).theme).toBe("system");
+  expect((await page.evaluate(() => window.workbench.settings.get())).theme).toBe("system");
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
   await expectNeverMoved("dark", "boot");
   // The cache that made the first frame right, written from what main stored.
@@ -155,7 +155,7 @@ test("the scheme holds across Settings and a reload, follows the OS on System, a
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveClass(/\bdark\b/);
   await forgetSamples();
-  expect((await page.evaluate(() => window.textToCad.settings.get())).theme).toBe("system");
+  expect((await page.evaluate(() => window.workbench.settings.get())).theme).toBe("system");
   // A chosen theme detaches from the OS.
   await setTheme("light");
   await forgetSamples();
@@ -299,8 +299,8 @@ test("Settings: every page renders, and what it shows comes from main", async ()
     if (slug === "agents") {
       // The list is main's PATH probe. Empty groups are absent: a clean runner has no
       // installed CLI but still lists the registry's recommended agents.
-      await expect.poll(() => page.evaluate(async () => (await window.textToCad.agents.list()).length)).toBeGreaterThan(0);
-      const installed = await page.evaluate(async () => (await window.textToCad.agents.list()).filter((agent) => agent.installed).length);
+      await expect.poll(() => page.evaluate(async () => (await window.workbench.agents.list()).length)).toBeGreaterThan(0);
+      const installed = await page.evaluate(async () => (await window.workbench.agents.list()).filter((agent) => agent.installed).length);
       const installedGroup = page.getByText(/^Installed \(\d+\)$/);
       if (installed > 0) await expect(installedGroup).toHaveText(`Installed (${installed})`);
       else await expect(installedGroup).toHaveCount(0);
@@ -448,7 +448,7 @@ test("a session owns the explorer: its toggles, its strip and its shortcuts", as
   expect(await sessionWidth()).toBeLessThanOrEqual(PANE_LIMITS.session.min + 2);
   await expect(page.getByTestId("explorer")).toHaveCount(1);
 
-  await page.evaluate((id) => window.textToCad.sessions.delete({ id }), session.id);
+  await page.evaluate((id) => window.workbench.sessions.delete({ id }), session.id);
   await expect(page.getByText("Choose a folder to get started")).toBeVisible();
 });
 

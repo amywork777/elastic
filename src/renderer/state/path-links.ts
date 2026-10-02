@@ -102,7 +102,7 @@ export const usePathLinks = create<PathLinksState>((set, get) => ({
         const asked = [...paths];
         let answers: Record<string, PathKind>;
         try {
-          answers = await window.textToCad.explorer.exists({
+          answers = await window.workbench.explorer.exists({
             projectId: scope.projectId,
             ...(scope.root ? { root: scope.root } : {}),
             paths: asked,

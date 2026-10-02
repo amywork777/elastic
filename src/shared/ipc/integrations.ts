@@ -1,12 +1,12 @@
 /** Generic app command relay; domain capabilities remain in their own integrations. */
 import { z } from "zod";
 import { invoke } from "./define";
-/** What an agent can ask the explorer to do, through the text-to-cad MCP server. */
+/** What an agent can ask the explorer to do, through the app MCP server. */
 export const IntegrationCommandKindSchema = z.enum([
-  "open-file", "reveal", "open-url", "open-drawing", "drawing-state", "drawing-capture", "drawing-rename",
-  "list-tabs", "show-tab", "close-tab", "viewer-state", "select-reference", "capture-view",
+  "open-file", "reveal", "open-url", "open-tool",
+  "list-tabs", "show-tab", "close-tab",
   "document-read", "document-edit", "document-save", "pdf-state", "pdf-read", "pdf-page", "pdf-capture",
-  "terminal-open", "tab-resource", "cad-clear-selection", "cad-camera", "cad-reset-camera", "cad-render-mode",
+  "terminal-open", "tab-resource",
 ]);
 export type IntegrationCommandKind = z.infer<typeof IntegrationCommandKindSchema>;
 

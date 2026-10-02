@@ -60,24 +60,24 @@ export const useUpdates = create<UpdatesState>((set, get) => {
 
     load: async () => {
       try {
-        set({ status: await window.textToCad.app.updateStatus() });
+        set({ status: await window.workbench.app.updateStatus() });
       } catch (error) {
         fail(error);
       }
     },
 
-    check: () => run(() => window.textToCad.app.checkForUpdates()),
+    check: () => run(() => window.workbench.app.checkForUpdates()),
 
     // Resolves when the download finishes; the progress in between arrives as
     // pushes, which is why this store is not just a promise.
-    download: () => run(() => window.textToCad.app.downloadUpdate()),
+    download: () => run(() => window.workbench.app.downloadUpdate()),
 
     // Through `run` like the others. `busy` only spans the round trip, and main
     // answers as soon as it has asked Electron to quit, so the row is held by
     // `installing` — pushed by main, and set here for the case where the answer
     // wins the race. A refusal that has already been pushed is not overwritten.
     install: async () => {
-      await run(() => window.textToCad.app.installUpdate());
+      await run(() => window.workbench.app.installUpdate());
       const { status } = get();
       if (status.state === "downloaded" || (status.state === "error" && status.version !== undefined)) {
         set({ status: { state: "installing", version: status.version } });

@@ -23,7 +23,7 @@ session records or one in `chosen` — never for a path the renderer merely
 names, since an id is renderer input.
 
 The e2e suite chooses folders through a door, not a channel:
-`src/main/test-door.ts` (`installE2eDoor`) puts `globalThis.__textToCadE2E`
+`src/main/test-door.ts` (`installE2eDoor`) puts `globalThis.__workbenchE2E`
 on main's global only when `NODE_ENV=test` and the build is not packaged. Its
 `choose(dir)` calls `projects.choose` and broadcasts `ui.directorySelected`,
 as the chooser does; `chooseDirectory` in `tests/e2e/launch.ts` drives it

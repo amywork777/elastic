@@ -55,18 +55,18 @@ export const useAgentOptions = create<AgentOptionsState>((set) => ({
   ready: false,
 
   load: async () => {
-    set({ byAgent: index(await window.textToCad.agentOptions.list()), ready: true });
+    set({ byAgent: index(await window.workbench.agentOptions.list()), ready: true });
   },
 
   probe: (agentId, projectId) =>
-    window.textToCad.agentOptions.probe({ agentId, ...(projectId ? { projectId } : {}) }),
+    window.workbench.agentOptions.probe({ agentId, ...(projectId ? { projectId } : {}) }),
 
   setDefaults: async (agentId, defaults) => {
-    set({ byAgent: index(await window.textToCad.agentOptions.setDefaults({ agentId, ...defaults })) });
+    set({ byAgent: index(await window.workbench.agentOptions.setDefaults({ agentId, ...defaults })) });
   },
 
   setEffort: async (agentId, model, effort) => {
-    set({ byAgent: index(await window.textToCad.agentOptions.setEffort({ agentId, model, effort })) });
+    set({ byAgent: index(await window.workbench.agentOptions.setEffort({ agentId, model, effort })) });
   },
 
   receive: (all) => set({ byAgent: index(all), ready: true }),

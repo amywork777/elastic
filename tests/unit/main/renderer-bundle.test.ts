@@ -11,7 +11,7 @@
  * config it checks (a unit run before the build step sees the previous
  * build), logs why and passes. CI's Desktop job runs its unit tests before
  * it builds, so it runs this file again after the build with
- * `TEXT_TO_CAD_BUNDLE_CHECK=1`, under which a missing bundle fails instead:
+ * `WORKBENCH_BUNDLE_CHECK=1`, under which a missing bundle fails instead:
  * a check that can always stand aside is a check no job runs. The age guard
  * is not applied there — a build restored from cache keeps its old times
  * under a fresh checkout's, and the cache key is the build's inputs.
@@ -25,7 +25,7 @@ import { expect, it } from "vitest";
 const app = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const assets = path.join(app, "out", "renderer", "assets");
 const config = path.join(app, "electron.vite.config.ts");
-const required = process.env.TEXT_TO_CAD_BUNDLE_CHECK === "1";
+const required = process.env.WORKBENCH_BUNDLE_CHECK === "1";
 
 /** `abap-B7h4dtBh.js` → `abap.js`: Rollup's eight-character hash dropped. */
 const baseName = (file: string) => file.replace(/-[A-Za-z0-9_-]{8}(\.[a-z0-9]+)$/, "$1");

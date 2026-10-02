@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { CommandPalette } from "@renderer/app/CommandPalette";
 import { Shell } from "@renderer/app/Shell";
 import { useExplorer } from "@renderer/state/explorer";
@@ -115,7 +115,7 @@ it("Ctrl+W and Mod+2 leave a collapsed explorer's hidden tabs alone, and the men
   const tabs = [fileTab("f1", 0), terminal];
   useExplorer.setState({ collapsed: true, tabs, activeId: "t1" });
   const kill = vi.fn(async () => {});
-  (window.textToCad.terminal as unknown as Record<string, unknown>).kill = kill;
+  (window.workbench.terminal as unknown as Record<string, unknown>).kill = kill;
   pane();
   const press = (key: string) => {
     const event = new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true, cancelable: true });

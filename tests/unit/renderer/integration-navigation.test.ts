@@ -13,7 +13,7 @@ beforeEach(async () => {
   sessionA = `navigation-a-${++sequence}`; sessionB = `navigation-b-${sequence}`;
   useProjects.setState({ projects: [{ id: projectId, path: projectId, name: "workspace" }] as Project[], activeId: projectId });
   useSessions.setState({ activeId: sessionA, sessions: [sessionA, sessionB].map(id => ({ id, projectId, cwd: projectId, archived: false })) as Session[] });
-  vi.mocked(window.textToCad.explorer.loadTabs).mockResolvedValue([]);
+  vi.mocked(window.workbench.explorer.loadTabs).mockResolvedValue([]);
   await useExplorer.getState().bindSession(sessionA, projectId);
   useUi.setState({ route: "app" });
 });
@@ -54,7 +54,7 @@ it.each(["tab-resource", "show-tab", "close-tab", "drawing-state"] as const)("re
 });
 it("cancelled background loading never creates a tab", async () => {
   let resolve!: (tabs: PersistedExplorerTab[]) => void;
-  vi.mocked(window.textToCad.explorer.loadTabs).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  vi.mocked(window.workbench.explorer.loadTabs).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
   const controller = new AbortController();
   const result = open(sessionB, controller.signal);
   await vi.waitFor(() => expect(resolve).toBeDefined());
@@ -78,18 +78,18 @@ it('deduplicates filesystem receipts for inactive sessions even while a differen
   expect((await readSessionStrip(sessionA)).tabs).toMatchObject([{ path: 'old/new/file.txt' }]);
 });
 it('archive flushes the latest metadata before disposing ephemeral resources', async () => {
-  vi.mocked(window.textToCad.explorer.saveTabs).mockClear();
+  vi.mocked(window.workbench.explorer.saveTabs).mockClear();
   const file = useExplorer.getState().open('file', { path: 'keep.txt' })!;
   useExplorer.getState().open('drawing');
   useExplorer.getState().discardSessionResources(sessionA, { preserveTabs: true });
-  await vi.waitFor(() => expect(window.textToCad.explorer.saveTabs).toHaveBeenCalledWith({ sessionId: sessionA, tabs: [expect.objectContaining({ id: file.id, path: 'keep.txt' })] }));
+  await vi.waitFor(() => expect(window.workbench.explorer.saveTabs).toHaveBeenCalledWith({ sessionId: sessionA, tabs: [expect.objectContaining({ id: file.id, path: 'keep.txt' })] }));
 });
 it('a failed restore exposes retry without allowing an empty strip to overwrite saved tabs', async () => {
-  vi.mocked(window.textToCad.explorer.loadTabs).mockRejectedValueOnce(new Error('Storage unavailable'));
+  vi.mocked(window.workbench.explorer.loadTabs).mockRejectedValueOnce(new Error('Storage unavailable'));
   await useExplorer.getState().bindSession(sessionB, projectId);
   expect(useExplorer.getState()).toMatchObject({ ready: false, loadError: 'Storage unavailable' });
   expect(useExplorer.getState().open('file')).toBeNull();
-  vi.mocked(window.textToCad.explorer.loadTabs).mockResolvedValueOnce([]);
+  vi.mocked(window.workbench.explorer.loadTabs).mockResolvedValueOnce([]);
   await useExplorer.getState().bindSession(sessionB, projectId);
   expect(useExplorer.getState()).toMatchObject({ ready: true, loadError: null });
 });
@@ -100,7 +100,7 @@ it('archiving and restoring preserves an unsaved document while deletion discard
   host.documents!.drafts.put('same-root', 'draft.txt', { base: { content: 'disk' }, value: 'unsaved work', stale: false });
   useExplorer.getState().discardSessionResources(sessionA, { preserveTabs: true });
   expect(host.documents!.drafts.get('same-root', 'draft.txt')?.value).toBe('unsaved work');
-  vi.mocked(window.textToCad.explorer.loadTabs).mockResolvedValueOnce([tab as PersistedExplorerTab]);
+  vi.mocked(window.workbench.explorer.loadTabs).mockResolvedValueOnce([tab as PersistedExplorerTab]);
   await useExplorer.getState().bindSession(sessionA, projectId);
   const restored = desktopLiveDocuments(tab.id, { projectId, root: null });
   expect(restored.documents!.drafts.get('same-root', 'draft.txt')?.value).toBe('unsaved work');
@@ -110,7 +110,7 @@ it('archiving and restoring preserves an unsaved document while deletion discard
 
 it('preserves a background command admitted while watcher startup is still pending', async () => {
   let watched!: () => void;
-  vi.mocked(window.textToCad.explorer.watch).mockImplementationOnce(() => new Promise(resolve => { watched = resolve; }));
+  vi.mocked(window.workbench.explorer.watch).mockImplementationOnce(() => new Promise(resolve => { watched = resolve; }));
   const binding = useExplorer.getState().bindSession(sessionB, projectId);
   const opened = await open(sessionB) as { tabId: string };
   watched(); await binding;

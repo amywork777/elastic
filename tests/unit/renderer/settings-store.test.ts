@@ -17,7 +17,7 @@ beforeEach(() => {
 });
 
 it("puts the old value back and toasts when main refuses the write", async () => {
-  vi.mocked(window.textToCad.settings.set).mockRejectedValue(new Error("disk is full"));
+  vi.mocked(window.workbench.settings.set).mockRejectedValue(new Error("disk is full"));
   await useSettings.getState().patch({ launchAtLogin: true });
   expect(useSettings.getState().settings?.launchAtLogin).toBe(false);
   expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: "disk is full" });
@@ -25,7 +25,7 @@ it("puts the old value back and toasts when main refuses the write", async () =>
 
 it("keeps a newer optimistic write when an older reply lands, and builds the next layout write from it", async () => {
   const replies: ((settings: Settings) => void)[] = [];
-  vi.mocked(window.textToCad.settings.set).mockImplementation(
+  vi.mocked(window.workbench.settings.set).mockImplementation(
     () => new Promise<Settings>((resolve) => replies.push(resolve)),
   );
   const answer = (index: number, settings: Settings) => replies[index]?.(settings);
@@ -39,7 +39,7 @@ it("keeps a newer optimistic write when an older reply lands, and builds the nex
   expect(useSettings.getState().settings?.layout.sidebarCollapsed).toBe(true);
 
   const c = useSettings.getState().setLayout({ sidebarWidth: 300 });
-  expect(vi.mocked(window.textToCad.settings.set).mock.calls[2]?.[0]).toEqual({
+  expect(vi.mocked(window.workbench.settings.set).mock.calls[2]?.[0]).toEqual({
     layout: { sidebarWidth: 300, sidebarCollapsed: true },
   });
 

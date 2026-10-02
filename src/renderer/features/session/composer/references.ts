@@ -1,4 +1,4 @@
-import { isCadFile, referenceText, splitReference, type CadReference } from "@shared/cad-refs";
+import { isReferenceFile, referenceText, splitReference, type FileReference } from "@shared/file-refs";
 
 /**
  * The composer's reference grammar and its document (plan §2, item 4c).
@@ -18,13 +18,13 @@ import { isCadFile, referenceText, splitReference, type CadReference } from "@sh
  * `README.md` in a prompt stays words — the person is talking about it, not
  * pointing into it.
  */
-export type Segment = { type: "text"; text: string } | { type: "reference"; reference: CadReference };
+export type Segment = { type: "text"; text: string } | { type: "reference"; reference: FileReference };
 
 /** Punctuation a sentence hangs on a reference; kept as text after the chip. */
 const TRAILING_RE = /[.,;:!?)\]]+$/;
 
 /** Is this word, on its own, a reference? */
-export function parseReference(word: string): CadReference | null {
+export function parseReference(word: string): FileReference | null {
   if (!word || (!word.startsWith('"') && /\s/.test(word)) || word.includes("://")) {
     return null;
   }
@@ -42,12 +42,12 @@ export function parseReference(word: string): CadReference | null {
   return isReferenceHost(split.file, word.startsWith('"')) ? split : null;
 }
 
-/** A file a reference can name: a CAD file, or the generator that makes one. */
+/** A file a reference can name: one an enabled plugin renders and points into. */
 function isReferenceHost(file: string, quoted = false): boolean {
   if (!file || (!quoted && (file.startsWith("#") || /[<>"'`|]/.test(file)))) {
     return false;
   }
-  return isCadFile(file) || /\.(step|stp)\.py$/i.test(file);
+  return isReferenceFile(file);
 }
 
 /** Text into segments: words that are references become chips, the rest stays. */
@@ -98,7 +98,7 @@ export type DocNode = {
 
 export const REFERENCE_NODE = "reference";
 
-export function referenceNode(reference: CadReference): DocNode {
+export function referenceNode(reference: FileReference): DocNode {
   return { type: REFERENCE_NODE, attrs: { file: reference.file, selector: reference.selector } };
 }
 

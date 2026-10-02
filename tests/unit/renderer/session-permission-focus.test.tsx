@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { PermissionCard } from "@renderer/features/session/parts/PermissionCard";
 import { SessionView } from "@renderer/features/session/SessionView";
 import { useAcp } from "@renderer/state/acp";
@@ -53,7 +53,7 @@ describe("answering a permission card", () => {
   // focus fell to the page and the next key reached nothing. It goes to the composer's box instead.
   it("hands focus to the composer, not the page", async () => {
     const user = userEvent.setup();
-    (window.textToCad.sessions as unknown as { respondPermission: unknown }).respondPermission = vi.fn(async () => undefined);
+    (window.workbench.sessions as unknown as { respondPermission: unknown }).respondPermission = vi.fn(async () => undefined);
     render(<TooltipProvider><SessionView session={SESSION} /></TooltipProvider>);
     await user.click(screen.getByRole("button", { name: "Allow" }));
     await vi.waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox")));

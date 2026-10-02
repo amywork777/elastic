@@ -10,8 +10,8 @@ import { Button } from "@renderer/components/ui/button";
 import { cn } from "@renderer/lib/utils";
 import { useBrowser } from "@renderer/state/browser";
 
-import { EmptyState } from "@text-to-cad/ui/navigation";
-import { createPromptContext } from "@text-to-cad/core/prompt";
+import { EmptyState } from "@workbench/ui/navigation";
+import { createPromptContext } from "@workbench/core/prompt";
 import { createDesktopPromptContext } from "./host/promptContext";
 
 /** Chrome for a main-owned native page. Its document survives this component. */
@@ -137,7 +137,7 @@ export function BrowserTab({ sessionId, projectId, root, tabId, url }: { session
           disabled={!current}
           onClick={() => {
             if (current) {
-              void window.textToCad.shell.openExternal({ url: current }).catch(() => {});
+              void window.workbench.shell.openExternal({ url: current }).catch(() => {});
             }
           }}
           tooltip="Open in your browser"

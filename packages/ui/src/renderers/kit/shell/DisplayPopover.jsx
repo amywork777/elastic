@@ -1,8 +1,8 @@
 import { SlidersHorizontal, X } from "lucide-react";
-import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@text-to-cad/ui/primitives/popover";
-import { ScrollArea } from "@text-to-cad/ui/primitives/scroll-area";
-import { ToolbarButton } from "@text-to-cad/ui/primitives/toolbar-button";
-import { cn } from "@text-to-cad/ui/utils";
+import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@workbench/ui/primitives/popover";
+import { ScrollArea } from "@workbench/ui/primitives/scroll-area";
+import { ToolbarButton } from "@workbench/ui/primitives/toolbar-button";
+import { cn } from "@workbench/ui/utils";
 import { FLOATING_SURFACE_CLASS } from "../tools/floatingSurface.js";
 import { TOOL_PANEL_BUTTON_CLASS } from "../tools/ToolPanel.jsx";
 

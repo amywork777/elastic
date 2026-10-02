@@ -10,23 +10,23 @@ import {
   releaseRenderSurfLevel,
   releaseSurfWorkers,
   surfTessellationCacheKey
-} from "@text-to-cad/core/lib/renderAssetClient.js";
+} from "@workbench/core/lib/renderAssetClient.js";
 import {
   assemblyRootFromTopology,
   buildComposedPackageMeshData
-} from "@text-to-cad/core/lib/assembly/meshData.js";
+} from "@workbench/core/lib/assembly/meshData.js";
 import {
   applySourceAppearance,
   validateSourceSidecar
-} from "@text-to-cad/core/common/sourceSidecar.js";
-import { mapWithConcurrency } from "@text-to-cad/core/lib/async/concurrency.js";
+} from "@workbench/core/common/sourceSidecar.js";
+import { mapWithConcurrency } from "@workbench/core/lib/async/concurrency.js";
 import {
   lodTessellationForLevel,
   normalizeLodLevel
-} from "@text-to-cad/core/lib/surf/lodPolicy.js";
+} from "@workbench/core/lib/surf/lodPolicy.js";
 import {
   isTessellationCacheProbeMissError,
-} from "@text-to-cad/core/lib/surf/tessellationCache.js";
+} from "@workbench/core/lib/surf/tessellationCache.js";
 import {
   installRuntimePackageDescriptor,
   loadPackageDescriptor,
@@ -52,10 +52,10 @@ import {
   entrySelectorTopologyAssetUrl,
   entrySourceSidecarUrl,
   entryTopologyAssetUrl
-} from "@text-to-cad/core/lib/entryAssets.js";
-import { reclaimIdleSurfWorkers } from "@text-to-cad/core/lib/renderAssetClient.js";
-import { estimateMeshRenderCost } from "@text-to-cad/core/lib/render/meshCost.js";
-import { PERF_MEASURE_NAMES, perfMeasure, perfStart } from "@text-to-cad/core/lib/viewer/perfMarks.js";
+} from "@workbench/core/lib/entryAssets.js";
+import { reclaimIdleSurfWorkers } from "@workbench/core/lib/renderAssetClient.js";
+import { estimateMeshRenderCost } from "@workbench/core/lib/render/meshCost.js";
+import { PERF_MEASURE_NAMES, perfMeasure, perfStart } from "@workbench/core/lib/viewer/perfMarks.js";
 import {
   composePackageSelectorRuntime,
   compositionUsesComponent,

@@ -54,7 +54,7 @@ import { TerminalTab } from "@renderer/features/explorer/TerminalTab";
 import { useExplorer } from "@renderer/state/explorer";
 
 const project: Project = { id: "terminal-project", name: "Project", path: "/tmp/terminal-project", createdAt: 0 };
-const terminal = () => window.textToCad.terminal as unknown as Record<string, ReturnType<typeof vi.fn>>;
+const terminal = () => window.workbench.terminal as unknown as Record<string, ReturnType<typeof vi.fn>>;
 const info = (exitCode: number | null) => ({ id: "pty-old", cwd: project.path, shell: "/bin/zsh", cols: 80, rows: 24, exitCode });
 
 let update: ReturnType<typeof vi.fn>;
@@ -131,7 +131,7 @@ it("does not send the answer to a query replayed from scrollback, and still answ
   terminal().attach = vi.fn(async () => ({ info: info(null), scrollback: "$ \x1b[6n", seq: 1 }));
   terminal().write = vi.fn(async () => {});
   let live: (event: { id: string; data: string; seq: number }) => void = () => {};
-  const on = window.textToCad.on as unknown as ReturnType<typeof vi.fn>;
+  const on = window.workbench.on as unknown as ReturnType<typeof vi.fn>;
   on.mockImplementation((channel: string, listener: typeof live) => {
     if (channel === "terminal.data") live = listener;
     return () => {};

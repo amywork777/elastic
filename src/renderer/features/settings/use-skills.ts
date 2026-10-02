@@ -14,7 +14,7 @@ export function useSkills(): SkillsInfo | null {
 
   useEffect(() => {
     let live = true;
-    void window.textToCad.skills.info().then((next) => {
+    void window.workbench.skills.info().then((next) => {
       if (live) {
         setInfo(next);
       }

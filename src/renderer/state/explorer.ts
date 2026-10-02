@@ -1,18 +1,16 @@
-import { FILE_PANEL_TREE, PANEL_DEFAULT_WIDTH, clampPanelWidth } from "@text-to-cad/ui/navigation";
+import { FILE_PANEL_TREE, PANEL_DEFAULT_WIDTH, clampPanelWidth } from "@workbench/ui/navigation";
 import { create } from "zustand";
 import { toast } from "sonner";
 import { desktopSourceId, hasDirtyDocument, moveDocuments, releaseDocumentTab, discardDocumentTab } from "./live-documents";
-import { releaseCadTab } from "./live-cad";
 import { forgetSessionTabStores, forgetTabStore, pruneTabStores, rememberTabOwners } from "@renderer/features/explorer/adapters/tabStore";
 
-import { reconcileFileTree, movedFilePath } from "@text-to-cad/ui/file-viewer";
-import { deleteDrawingScene } from "@renderer/state/drawings";
+import { reconcileFileTree, movedFilePath } from "@workbench/ui/file-viewer";
 import { viewerFileChange } from "@renderer/features/explorer/file-changes";
 import type { DirEntry, FileChange } from "@shared/ipc/explorer";
 import { PANE_LIMITS } from "@shared/types";
 import type {
   BrowserTab,
-  DrawingTab,
+  ToolTab,
   PersistedExplorerTab,
   ExplorerRoot,
   ExplorerTab,
@@ -27,7 +25,7 @@ import { basename } from "@renderer/lib/paths";
 /**
  * Every session owns its own strip and pane state. Directory/root identity is
  * only for filesystem access, never for deciding which agent owns a tab.
- * Inactive strips remain in memory (including ephemeral drawings and drafts).
+ * Inactive strips remain in memory (including unsaved drafts).
  * Agent commands mutate their owner's strip without selecting another session.
  */
 
@@ -148,7 +146,7 @@ type TabInit = {
   review: Partial<Pick<ReviewTab, "scope">>;
   browser: Partial<Pick<BrowserTab, "url" | "root">>;
   terminal: Partial<Pick<TerminalTab, "cwd" | "readOnly" | "ptyId" | "agent">>;
-  drawing: Partial<Pick<DrawingTab, "root" | "title">>;
+  tool: Pick<ToolTab, "pluginId" | "toolId"> & Partial<Pick<ToolTab, "root" | "title">>;
 };
 
 type ExplorerState = {
@@ -208,21 +206,20 @@ type ExplorerState = {
    */
   reveal: { path: string; directory: boolean; root: ExplorerRoot } | null;
   /**
-   * A reference a CAD tab should select once its model is up: a link in the
-   * transcript said `bracket.step#o1.2`. The nonce makes clicking the same
-   * link twice a second selection. Consumed by `CadRenderer`, which hands it
-   * to the viewer's `selectReference` prop.
+   * A reference a file tab should select once its document is up: a link in
+   * the transcript said `part.step#o1.2` or `notes.md#L12`. The nonce makes
+   * clicking the same link twice a second selection. Consumed by the tab's
+   * renderer (a plugin's), which decides what the fragment points at.
    */
-  cadSelection: { projectId: string; tabId: string; path: string; root: ExplorerRoot; selector: string; nonce: number } | null;
+  fileSelection: { projectId: string; tabId: string; path: string; root: ExplorerRoot; selector: string; nonce: number } | null;
   /**
-   * A request for a CAD tab to send its viewport to the composer — the
-   * composer's `+` menu asking for the same picture the viewer's own camera
-   * button takes. Nonce-keyed like `cadSelection`, so asking twice is two
-   * captures, and consumed by `CadRenderer` as the viewer's `captureRequest`.
+   * A request for a file tab to send a capture of itself to the composer.
+   * Nonce-keyed like `fileSelection`, so asking twice is two captures, and
+   * consumed by a renderer that can capture.
    */
-  cadCapture: { projectId: string; tabId: string; path: string; root: ExplorerRoot; nonce: number } | null;
-  /** An annotation the composer asked a CAD tab to open (its entry there was pressed). Nonce-keyed like `cadSelection`. */
-  cadAnnotation: { projectId: string; tabId: string; path: string; root: ExplorerRoot; id: string; nonce: number } | null;
+  fileCapture: { projectId: string; tabId: string; path: string; root: ExplorerRoot; nonce: number } | null;
+  /** An annotation the composer asked a file tab to open (its entry there was pressed). Nonce-keyed like `fileSelection`. */
+  fileAnnotation: { projectId: string; tabId: string; path: string; root: ExplorerRoot; id: string; nonce: number } | null;
 
   bindSession: (sessionId: string | null, projectId: string | null, root?: ExplorerRoot) => Promise<void>;
   /**
@@ -267,12 +264,12 @@ type ExplorerState = {
    * of the same root, so one is brought forward or opened first.
    */
   revealPath: (path: string, directory: boolean, root: ExplorerRoot) => void;
-  selectCadReference: (tabId: string, selector: string) => void;
-  /** Ask a CAD tab for a capture of what it is showing. */
-  captureCad: (tabId: string) => void;
-  /** Ask a CAD tab to open one of its annotations and select its geometry. */
-  openCadAnnotation: (tabId: string, id: string) => void;
-  acknowledgeCadCommand: (kind: "selectReference" | "captureRequest" | "openAnnotation", nonce: string | number) => void;
+  selectReference: (tabId: string, selector: string) => void;
+  /** Ask a file tab for a capture of what it is showing. */
+  captureFile: (tabId: string) => void;
+  /** Ask a file tab to open one of its annotations. */
+  openAnnotation: (tabId: string, id: string) => void;
+  acknowledgeFileCommand: (kind: "selectReference" | "captureRequest" | "openAnnotation", nonce: string | number) => void;
 };
 
 // A committed mutation is broadcast and also returned to its caller. Bound
@@ -296,8 +293,8 @@ function blankTab(
       return { ...base, kind: "review", scope: "all" as const, ...init };
     case "browser":
       return { ...base, kind: "browser", url: null, root: null, ...init } as BrowserTab;
-    case "drawing":
-      return { ...base, kind: "drawing", root: null, title: "Drawing", ...init } as DrawingTab;
+    case "tool":
+      return { ...base, kind: "tool", root: null, title: "Tool", ...init } as ToolTab;
     case "terminal":
       return {
         ...base,
@@ -331,7 +328,7 @@ const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const pendingSaves = new Map<string, PersistedExplorerTab[]>();
 const savingSessions = new Map<string, Promise<void>>();
 let bindingSequence = 0;
-let cadCommandSequence = 0;
+let fileCommandSequence = 0;
 
 /** Serialize writes for each session; another session never blocks on them. */
 function flushTabSave(sessionId: string): void {
@@ -342,7 +339,7 @@ function flushTabSave(sessionId: string): void {
   if (!tabs || discardedSessions.has(sessionId)) return;
   rememberTabOwners(sessionId, tabs.filter(tab => tab.kind === "file").map(tab => tab.id));
   const write = async () => {
-    if (!discardedSessions.has(sessionId)) await window.textToCad.explorer.saveTabs({ sessionId, tabs });
+    if (!discardedSessions.has(sessionId)) await window.workbench.explorer.saveTabs({ sessionId, tabs });
   };
   const saving = (savingSessions.get(sessionId) ?? Promise.resolve()).then(write).catch(() => {});
   savingSessions.set(sessionId, saving);
@@ -352,7 +349,7 @@ function flushTabSave(sessionId: string): void {
 function saveStrip(sessionId: string, strip: Strip): void {
   retainedStrips.set(sessionId, strip);
   notifySessionTabs();
-  pendingSaves.set(sessionId, strip.tabs.filter((tab): tab is PersistedExplorerTab => tab.kind !== "drawing")
+  pendingSaves.set(sessionId, strip.tabs
     .map((tab, order) => ({ ...tab, order })));
   clearTimeout(saveTimers.get(sessionId));
   saveTimers.set(sessionId, setTimeout(() => flushTabSave(sessionId), SAVE_DEBOUNCE_MS));
@@ -400,13 +397,13 @@ function commit(
   const unique = dedupeFileTabs(tabs, activeId);
   const ordered = unique.tabs.map((tab, order) => ({ ...tab, order }) as ExplorerTab);
   const current = useExplorer.getState();
-  const stillTargets = (command: ExplorerState["cadCapture"]) => command && command.projectId === current.projectId
+  const stillTargets = (command: ExplorerState["fileCapture"]) => command && command.projectId === current.projectId
     && command.tabId === unique.activeId && ordered.some(tab => tab.kind === "file"
       && tab.id === command.tabId && tab.path === command.path && tab.root === command.root);
   set({ tabs: ordered, activeId: unique.activeId,
-    cadSelection: stillTargets(current.cadSelection) ? current.cadSelection : null,
-    cadCapture: stillTargets(current.cadCapture) ? current.cadCapture : null,
-    cadAnnotation: stillTargets(current.cadAnnotation) ? current.cadAnnotation : null });
+    fileSelection: stillTargets(current.fileSelection) ? current.fileSelection : null,
+    fileCapture: stillTargets(current.fileCapture) ? current.fileCapture : null,
+    fileAnnotation: stillTargets(current.fileAnnotation) ? current.fileAnnotation : null });
   if (sessionId) saveStrip(sessionId, { tabs: ordered, activeId: unique.activeId,
     trees: current.trees, reveal: current.reveal, collapsed: current.collapsed, width: current.width });
   for (const tab of unique.dropped) disposeTab(tab);
@@ -414,11 +411,11 @@ function commit(
 
 /** The watcher for one root, started and stopped with the binding. */
 function watch(projectId: string, root: ExplorerRoot): Promise<void> {
-  return window.textToCad.explorer.watch({ projectId, ...(root ? { root } : {}) }).catch(() => undefined);
+  return window.workbench.explorer.watch({ projectId, ...(root ? { root } : {}) }).catch(() => undefined);
 }
 
 function unwatch(projectId: string, root: ExplorerRoot): void {
-  void window.textToCad.explorer.unwatch({ projectId, ...(root ? { root } : {}) }).catch(() => {});
+  void window.workbench.explorer.unwatch({ projectId, ...(root ? { root } : {}) }).catch(() => {});
 }
 
 export const useExplorer = create<ExplorerState>((set, get) => ({
@@ -438,9 +435,9 @@ export const useExplorer = create<ExplorerState>((set, get) => ({
   changedEntries: [],
   changedRoot: null,
   reveal: null,
-  cadSelection: null,
-  cadCapture: null,
-  cadAnnotation: null,
+  fileSelection: null,
+  fileCapture: null,
+  fileAnnotation: null,
 
   bindSession: async (sessionId, projectId, root = null) => {
     if (get().sessionId === sessionId && get().ready) {
@@ -456,12 +453,11 @@ export const useExplorer = create<ExplorerState>((set, get) => ({
     const binding = ++bindingSequence;
     if (previous.projectId) unwatch(previous.projectId, previous.root);
     set({ sessionId, projectId: sessionId ? projectId : null, root, tabs: [], activeId: null, ready: false, loadError: null,
-      changedPaths: [], changedEntries: [], changedRoot: null, reveal: null, cadSelection: null, cadCapture: null, cadAnnotation: null,
+      changedPaths: [], changedEntries: [], changedRoot: null, reveal: null, fileSelection: null, fileCapture: null, fileAnnotation: null,
       collapsed: sessionId ? collapsedFor(sessionId) : true,
       width: sessionId ? widthFor(sessionId) : PANE_LIMITS.explorer.default, trees: {} });
     if (!sessionId || !projectId) { set({ ready: true }); return; }
     discardedSessions.delete(sessionId);
-    void window.textToCad.cad.warm({ projectId, ...(root ? { root } : {}) }).catch(() => {});
     try {
       const [strip] = await Promise.all([readSessionStrip(sessionId), watch(projectId, root)]);
       if (binding !== bindingSequence || get().sessionId !== sessionId) return;
@@ -519,10 +515,10 @@ export const useExplorer = create<ExplorerState>((set, get) => ({
     }
     // A tab nobody can see is not an open tab: every kind reveals the pane.
     get().show();
-    // Files, drawings and terminals open in the active root unless told otherwise —
+    // Files, tools and terminals open in the active root unless told otherwise —
     // the worktree of the thread being talked to, or the project.
     const rooted: Record<string, unknown> =
-      (kind === "file" || kind === "drawing" || kind === "browser")
+      (kind === "file" || kind === "tool" || kind === "browser")
         ? { root, ...(init as Record<string, unknown> | undefined) }
         : kind === "terminal"
           ? { cwd: root, ...(init as Record<string, unknown> | undefined) }
@@ -532,6 +528,15 @@ export const useExplorer = create<ExplorerState>((set, get) => ({
       const existing = tabs.find(
         (tab) => tab.kind === "file" && tab.path === rooted.path && tab.root === (rooted.root ?? null),
       );
+      if (existing) {
+        set({ activeId: existing.id });
+        return existing;
+      }
+    }
+    // So is a plugin's tool: one view of it per root.
+    if (kind === "tool") {
+      const existing = tabs.find((tab) => tab.kind === "tool" && tab.pluginId === rooted.pluginId
+        && tab.toolId === rooted.toolId && tab.root === (rooted.root ?? null));
       if (existing) {
         set({ activeId: existing.id });
         return existing;
@@ -604,9 +609,9 @@ export const useExplorer = create<ExplorerState>((set, get) => ({
   },
 
   setActive: (activeId) => set(state => ({ activeId,
-    cadSelection: state.cadSelection?.tabId === activeId ? state.cadSelection : null,
-    cadCapture: state.cadCapture?.tabId === activeId ? state.cadCapture : null,
-    cadAnnotation: state.cadAnnotation?.tabId === activeId ? state.cadAnnotation : null })),
+    fileSelection: state.fileSelection?.tabId === activeId ? state.fileSelection : null,
+    fileCapture: state.fileCapture?.tabId === activeId ? state.fileCapture : null,
+    fileAnnotation: state.fileAnnotation?.tabId === activeId ? state.fileAnnotation : null })),
 
   selectIndex: (index) => {
     const tab = get().tabs[index - 1];
@@ -714,28 +719,28 @@ export const useExplorer = create<ExplorerState>((set, get) => ({
     set({ reveal: { path, directory, root } });
   },
 
-  selectCadReference: (tabId, selector) => set(state => {
+  selectReference: (tabId, selector) => set(state => {
     const tab = state.tabs.find(tab => tab.id === tabId);
     if (!state.projectId || state.activeId !== tabId || tab?.kind !== "file" || !tab.path) return state;
-    return { cadSelection: { projectId: state.projectId, tabId, path: tab.path, root: tab.root, selector, nonce: ++cadCommandSequence } };
+    return { fileSelection: { projectId: state.projectId, tabId, path: tab.path, root: tab.root, selector, nonce: ++fileCommandSequence } };
   }),
 
-  captureCad: (tabId) => set(state => {
+  captureFile: (tabId) => set(state => {
     const tab = state.tabs.find(tab => tab.id === tabId);
     if (!state.projectId || state.activeId !== tabId || tab?.kind !== "file" || !tab.path) return state;
-    return { cadCapture: { projectId: state.projectId, tabId, path: tab.path, root: tab.root, nonce: ++cadCommandSequence } };
+    return { fileCapture: { projectId: state.projectId, tabId, path: tab.path, root: tab.root, nonce: ++fileCommandSequence } };
   }),
 
-  openCadAnnotation: (tabId, id) => set(state => {
+  openAnnotation: (tabId, id) => set(state => {
     const tab = state.tabs.find(tab => tab.id === tabId);
     if (!state.projectId || state.activeId !== tabId || tab?.kind !== "file" || !tab.path) return state;
-    return { cadAnnotation: { projectId: state.projectId, tabId, path: tab.path, root: tab.root, id, nonce: ++cadCommandSequence } };
+    return { fileAnnotation: { projectId: state.projectId, tabId, path: tab.path, root: tab.root, id, nonce: ++fileCommandSequence } };
   }),
 
-  acknowledgeCadCommand: (kind, nonce) => set(state => {
-    if (kind === "selectReference") return state.cadSelection?.nonce === nonce ? { cadSelection: null } : state;
-    if (kind === "openAnnotation") return state.cadAnnotation?.nonce === nonce ? { cadAnnotation: null } : state;
-    return state.cadCapture?.nonce === nonce ? { cadCapture: null } : state;
+  acknowledgeFileCommand: (kind, nonce) => set(state => {
+    if (kind === "selectReference") return state.fileSelection?.nonce === nonce ? { fileSelection: null } : state;
+    if (kind === "openAnnotation") return state.fileAnnotation?.nonce === nonce ? { fileAnnotation: null } : state;
+    return state.fileCapture?.nonce === nonce ? { fileCapture: null } : state;
   }),
 
   receiveChanges: (projectId, root, changes) => {
@@ -786,21 +791,6 @@ export const useExplorer = create<ExplorerState>((set, get) => ({
   },
 }));
 
-/** Read only the specified session's scratch tab. */
-export function getDrawingTab(tabId: string, sessionId: string): DrawingTab | null {
-  const tab = currentStrip(sessionId)?.tabs.find(tab => tab.id === tabId && tab.kind === "drawing");
-  return tab?.kind === "drawing" ? tab : null;
-}
-
-/** Rename only within the owning session, including an inactive sketch. */
-export function renameDrawingTab(tabId: string, sessionId: string, title: string): void {
-  const name = title.trim();
-  if (!name || name.length > 200) throw new Error("Use a drawing name between 1 and 200 characters.");
-  const strip = currentStrip(sessionId);
-  if (!strip?.tabs.some(tab => tab.id === tabId && tab.kind === "drawing")) throw new Error("This drawing is closed.");
-  updateSessionStrip(sessionId, { ...strip, tabs: strip.tabs.map(tab => tab.id === tabId ? { ...tab, title: name } : tab) });
-}
-
 /** One root's tree: its open folders and listings, or the empty tree. */
 export function useTree(root: ExplorerRoot): TreeState {
   return useExplorer((state) => state.trees[treeKey(root)] ?? EMPTY_TREE);
@@ -822,7 +812,7 @@ export function tabTitle(tab: ExplorerTab): string {
       return tab.url ? hostOf(tab.url) : "New tab";
     case "terminal":
       return "Terminal";
-    case "drawing":
+    case "tool":
       return tab.title;
   }
 }
@@ -857,9 +847,9 @@ export async function readSessionStrip(sessionId: string): Promise<Strip> {
     const generation = sessionGenerations.get(sessionId) ?? 0;
     pending = (async () => {
       await savingSessions.get(sessionId);
-      const persisted = await window.textToCad.explorer.loadTabs({ sessionId });
+      const persisted = await window.workbench.explorer.loadTabs({ sessionId });
       if (discardedSessions.has(sessionId) || (sessionGenerations.get(sessionId) ?? 0) !== generation) throw new Error("This session is no longer active.");
-      const tabs = (persisted as ExplorerTab[]).filter(tab => tab.sessionId === sessionId && tab.kind !== "drawing");
+      const tabs = (persisted as ExplorerTab[]).filter(tab => tab.sessionId === sessionId);
       rememberTabOwners(sessionId, tabs.filter(tab => tab.kind === "file").map(tab => tab.id));
       const strip = currentStrip(sessionId) ?? { tabs, activeId: tabs[0]?.id ?? null };
       retainedStrips.set(sessionId, strip);
@@ -877,7 +867,7 @@ function updateSessionStrip(sessionId: string, strip: Strip): void {
   const unique = dedupeFileTabs(strip.tabs, strip.activeId);
   const next = { ...strip, tabs: unique.tabs.map((tab, order) => ({ ...tab, order })), activeId: unique.activeId };
   const active = useExplorer.getState().sessionId === sessionId && useExplorer.getState().ready;
-  if (active) useExplorer.setState({ ...next, cadSelection: null, cadCapture: null, cadAnnotation: null });
+  if (active) useExplorer.setState({ ...next, fileSelection: null, fileCapture: null, fileAnnotation: null });
   saveStrip(sessionId, next);
   for (const tab of unique.dropped) disposeTab(tab);
 }
@@ -886,20 +876,18 @@ function disposeTab(tab: ExplorerTab, discard = false, preserveDocuments = false
   if (!preserveDocuments) {
     if (discard) discardDocumentTab(tab.id); else releaseDocumentTab(tab.id);
   }
-  releaseCadTab(tab.id);
   // A file tab that is gone for good takes its tab record — its viewer settings and file views —
   // with it; one retained for a later restore keeps it.
   if (tab.kind === "file" && !preserveDocuments) forgetTabStore(tab.id);
-  if (tab.kind === "drawing") deleteDrawingScene(tab.id);
-  if (tab.kind === "terminal" && tab.ptyId) void window.textToCad.terminal.kill({ id: tab.ptyId, sessionId: tab.sessionId }).catch(() => {});
-  if (tab.kind === "browser") void window.textToCad.browser.close({ sessionId: tab.sessionId, projectId: tab.projectId, root: tab.root, tabId: tab.id }).catch(() => {});
+  if (tab.kind === "terminal" && tab.ptyId) void window.workbench.terminal.kill({ id: tab.ptyId, sessionId: tab.sessionId }).catch(() => {});
+  if (tab.kind === "browser") void window.workbench.browser.close({ sessionId: tab.sessionId, projectId: tab.projectId, root: tab.root, tabId: tab.id }).catch(() => {});
 }
 
 export async function openSessionTab<K extends ExplorerTabKind>(sessionId: string, projectId: string, root: ExplorerRoot, kind: K, init?: TabInit[K], signal?: AbortSignal): Promise<ExplorerTab> {
   await readSessionStrip(sessionId);
   signal?.throwIfAborted();
   const strip = currentStrip(sessionId)!;
-  const rooted = { ...((kind === "file" || kind === "drawing" || kind === "browser") ? { root } : kind === "terminal" ? { cwd: root } : {}), ...init };
+  const rooted = { ...((kind === "file" || kind === "tool" || kind === "browser") ? { root } : kind === "terminal" ? { cwd: root } : {}), ...init };
   const path = kind === "file" ? (init as TabInit["file"])?.path : null;
   // A panel asked for is the panel the file shows, in whichever tab shows it; none asked for
   // leaves a tab already showing the file as it is.
@@ -966,11 +954,11 @@ export async function updateSessionTab(sessionId: string, tabId: string, patch: 
 /** Archive waits for the latest ordinary tab metadata before releasing live resources. */
 export function flushSessionTabs(sessionId: string): Promise<void> {
   const strip = currentStrip(sessionId);
-  const tabs = strip?.tabs.filter((tab): tab is PersistedExplorerTab => tab.kind !== "drawing").map((tab, order) => ({ ...tab, order }))
+  const tabs = strip?.tabs.map((tab, order) => ({ ...tab, order }))
     ?? pendingSaves.get(sessionId);
   clearTimeout(saveTimers.get(sessionId)); saveTimers.delete(sessionId); pendingSaves.delete(sessionId);
   if (!tabs) return savingSessions.get(sessionId) ?? Promise.resolve();
-  const saving = (savingSessions.get(sessionId) ?? Promise.resolve()).then(() => window.textToCad.explorer.saveTabs({ sessionId, tabs }));
+  const saving = (savingSessions.get(sessionId) ?? Promise.resolve()).then(() => window.workbench.explorer.saveTabs({ sessionId, tabs }));
   const settled = saving.catch(() => {});
   savingSessions.set(sessionId, settled);
   void settled.then(() => { if (savingSessions.get(sessionId) === settled) savingSessions.delete(sessionId); });

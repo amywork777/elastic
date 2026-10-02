@@ -31,7 +31,7 @@ export const useOnboarding = create<OnboardingState>((set) => ({
   step: 0,
   setStep: (step) => set({ step }),
   load: async () => {
-    const { enabled } = await window.textToCad.onboarding.status();
+    const { enabled } = await window.workbench.onboarding.status();
     set({ enabled });
   },
 }));

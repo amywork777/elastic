@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { entryMeshAssetHash, entryMeshAssetUrl } from "@text-to-cad/core/lib/entryAssets.js";
-import { isAbortError, loadRenderGlbDocument } from "@text-to-cad/core/lib/renderAssetClient.js";
-import { disposeGlbDocument } from "@text-to-cad/core/lib/render/glbMeshData.js";
-import { createGlbScene } from "@text-to-cad/core/lib/render/glbScene.js";
+import { entryMeshAssetHash, entryMeshAssetUrl } from "@workbench/core/lib/entryAssets.js";
+import { isAbortError, loadRenderGlbDocument } from "@workbench/core/lib/renderAssetClient.js";
+import { disposeGlbDocument } from "@workbench/core/lib/render/glbMeshData.js";
+import { createGlbScene } from "@workbench/core/lib/render/glbScene.js";
 
 const READING = Object.freeze({ phase: "read", label: "Reading model", done: 0, total: 0, determinate: false });
 const LOADING = Object.freeze({ phase: "geometry", label: "Loading geometry", done: 0, total: 1, determinate: true });

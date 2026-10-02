@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import type { TextToCadApi } from "../../src/shared/ipc";
+import type { WorkbenchApi } from "../../src/shared/ipc";
 import { chooseDirectory, launch, mod, newTab as newTabIn, repoRoot, scratch, settleTerminal, shoot as shootInto } from "./launch";
 import { selectFixtureSession } from "./session-fixture";
 
@@ -25,7 +25,7 @@ declare const window: {
   DataTransfer: new () => { items: { add(file: File): void } };
   DragEvent: new (type: string, init: Record<string, unknown>) => unknown;
   ClipboardEvent: new (type: string, init: Record<string, unknown>) => unknown;
-  textToCad: TextToCadApi;
+  workbench: WorkbenchApi;
 };
 
 const MARKDOWN = "AGENTS.md";
@@ -57,7 +57,7 @@ test.beforeAll(async () => {
   fs.copyFileSync(path.join(repoRoot, STEP), path.join(allFilesDir, "STEP", "tom.step"));
   browserDir = scratch("browser");
   ({ app, page } = await launch({ userData }));
-  await page.evaluate(() => window.textToCad.settings.set({ theme: "dark" }));
+  await page.evaluate(() => window.workbench.settings.set({ theme: "dark" }));
   await switchProject(repoRoot);
 });
 
@@ -327,7 +327,7 @@ test("a drawing attaches a PNG without sending, writes nothing, and is not resto
     // Ephemeral: the tabs main keeps for this session do not include it, so a reload brings
     // back the strip without it.
     await newTab("Browser");
-    await expect.poll(async () => (await page.evaluate((id) => window.textToCad.explorer.loadTabs({ sessionId: id }), session.id))
+    await expect.poll(async () => (await page.evaluate((id) => window.workbench.explorer.loadTabs({ sessionId: id }), session.id))
       .map((tab) => tab.kind)).toEqual(["browser"]);
     await page.reload();
     await page.waitForLoadState("domcontentloaded");
@@ -357,8 +357,8 @@ test("a browser tab's native page is shared by the explorer and the app tools, p
   try {
     const project = await chooseDirectory(app, browserDir);
     const [sessionA, sessionB] = await page.evaluate(async (projectId) => [
-      (await window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "checkout" })).id,
-      (await window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "checkout" })).id,
+      (await window.workbench.sessions.create({ projectId, agentId: "claude-code", gitMode: "checkout" })).id,
+      (await window.workbench.sessions.create({ projectId, agentId: "claude-code", gitMode: "checkout" })).id,
     ], project.id);
     await page.locator(`[data-session-row="${sessionA}"]`).click();
     await expect(page.locator("[data-explorer-ready=true]")).toBeVisible();
@@ -368,7 +368,7 @@ test("a browser tab's native page is shared by the explorer and the app tools, p
     await page.getByRole("textbox", { name: "Address" }).press("Enter");
     const tabId = (await page.locator("[data-browser-target]").getAttribute("data-browser-target"))!;
     const scope = { sessionId: sessionA!, projectId: project.id, root: null, tabId };
-    const metadata = () => page.evaluate((target) => window.textToCad.browser.metadata(target), scope);
+    const metadata = () => page.evaluate((target) => window.workbench.browser.metadata(target), scope);
     await expect.poll(async () => (await metadata()).url).toBe(origin);
     await expect.poll(async () => (await metadata()).visible).toBe(true);
     const nativeId = await app.evaluate(async ({ webContents }, url) => {
@@ -376,7 +376,7 @@ test("a browser tab's native page is shared by the explorer and the app tools, p
       await target.executeJavaScript("document.getElementById('name').focus()");
       return target.id;
     }, origin);
-    await page.evaluate((target) => window.textToCad.browser.input({ ...target, input: { action: "type", text: "Still here" } }), scope);
+    await page.evaluate((target) => window.workbench.browser.input({ ...target, input: { action: "type", text: "Still here" } }), scope);
     const fieldValue = () => app.evaluate(async ({ webContents }, id) => webContents.fromId(id)!.executeJavaScript("document.getElementById('name').value"), nativeId);
     await expect.poll(fieldValue).toBe("Still here");
     // Hidden behind another tab, and kept.
@@ -388,7 +388,7 @@ test("a browser tab's native page is shared by the explorer and the app tools, p
     await page.locator(`[data-session-row="${sessionB}"]`).click();
     await expect(page.getByRole("tab", { name: /127\.0\.0\.1/ })).toHaveCount(0);
     await expect.poll(async () => (await metadata()).visible).toBe(false);
-    await expect(page.evaluate((target) => window.textToCad.browser.metadata(target), { ...scope, sessionId: sessionB! })).rejects.toThrow();
+    await expect(page.evaluate((target) => window.workbench.browser.metadata(target), { ...scope, sessionId: sessionB! })).rejects.toThrow();
     await page.locator(`[data-session-row="${sessionA}"]`).click();
     await expect(page.locator(`[data-browser-target="${tabId}"]`)).toBeVisible();
     await expect.poll(fieldValue).toBe("Still here");

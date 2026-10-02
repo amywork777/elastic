@@ -27,10 +27,10 @@ export async function integrationProof(servers, request) {
     return { catalog };
   }
   if (request.operation === 'isolation') {
-    const config = servers.find(server => server.name === 'text-to-cad-pdf');
+    const config = servers.find(server => server.name === 'app-pdf');
     const env = Object.fromEntries(config.env.map(entry => [entry.name, entry.value]));
-    const response = await fetch(`${env.TEXT_TO_CAD_BRIDGE_URL}/rpc`, { method: 'POST',
-      headers: { authorization: `Bearer ${env.TEXT_TO_CAD_BRIDGE_TOKEN}`, 'content-type': 'application/json' },
+    const response = await fetch(`${env.WORKBENCH_BRIDGE_URL}/rpc`, { method: 'POST',
+      headers: { authorization: `Bearer ${env.WORKBENCH_BRIDGE_TOKEN}`, 'content-type': 'application/json' },
       body: JSON.stringify({ method: 'read_document', params: { tabId: request.tabId } }) });
     return { status: response.status, body: await response.json() };
   }

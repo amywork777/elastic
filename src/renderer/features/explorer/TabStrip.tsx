@@ -1,4 +1,4 @@
-import { PencilRuler, FileText, GitCompare, Globe, Plus, SquareTerminal, X } from "lucide-react";
+import { Blocks, FileText, GitCompare, Globe, Plus, SquareTerminal, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { createElement, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
@@ -18,8 +18,8 @@ import { cn } from "@renderer/lib/utils";
 import { tabTitle, useExplorer } from "@renderer/state/explorer";
 import type { ExplorerTab, ExplorerTabKind } from "@shared/types";
 
-import { FileIcon } from "@text-to-cad/ui/navigation";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { FileIcon } from "@workbench/ui/navigation";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { EXPLORER_TABPANEL_ID, focusTabBody } from "./focus";
 import { preloadTerminal } from "./load-terminal";
@@ -64,7 +64,7 @@ const KIND_ICONS: Record<ExplorerTabKind, LucideIcon> = {
   review: GitCompare,
   browser: Globe,
   terminal: SquareTerminal,
-  drawing: PencilRuler,
+  tool: Blocks,
 };
 
 /** The menu's rows, in the order a person reaches for them. */
@@ -73,7 +73,6 @@ const KINDS: readonly { kind: ExplorerTabKind; label: string; shortcut: string }
   { kind: "review", label: "Review", shortcut: "new-review-tab" },
   { kind: "browser", label: "Browser", shortcut: "new-browser-tab" },
   { kind: "terminal", label: "Terminal", shortcut: "new-terminal-tab" },
-  { kind: "drawing", label: "Drawing", shortcut: "new-drawing-tab" },
 ];
 
 /** The binding as the shortcut table has it — one declaration, two readers. */

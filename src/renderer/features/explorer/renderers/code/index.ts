@@ -1,4 +1,4 @@
-import { defineFileRenderer } from "@text-to-cad/ui/file-viewer";
+import { defineFileRenderer } from "@workbench/ui/file-viewer";
 
 const TEXT_MIME = /^(?:text\/|application\/(?:json|(?:[a-z0-9.+-]+\+)?json|xml|(?:[a-z0-9.+-]+\+)?xml|javascript|x-javascript|yaml|x-yaml|toml))(?:;|$)/i;
 

@@ -10,8 +10,6 @@ import { BrowserWindow, app, dialog, shell } from "electron";
 
 import { ipcContract, type IpcContract } from "../../shared/ipc";
 import { projects, settings } from "../db/repositories";
-import { viewers } from "../cad";
-import { changedSettingsKeys, track } from "../telemetry";
 import { applySettingsEffects } from "../settings-effects";
 import { settingsFallbacks } from "./settings-fallbacks";
 import { takeQueuedCommands } from "../menu";
@@ -20,13 +18,11 @@ import { agentOptionsHandlers } from "./agent-options";
 import { agentsHandlers } from "./agents";
 import { appHandlers } from "./app";
 import { integrationHandlers } from "./integrations";
-import { cadHandlers } from "./cad";
 import { clipboardHandlers } from "./clipboard";
 import { browserHandlers } from "./browser";
 import { dialogsHandlers, existingPath } from "./dialogs";
 import { explorerHandlers, initExplorerServices, revealProjectDirectory } from "./explorer";
 import { gitHandlers } from "./git";
-import { refreshRuntimeAfterOverride, runtimeHandlers } from "./runtime";
 import { onboardingHandlers } from "./onboarding";
 import { skillsHandlers } from "./skills";
 import { installE2eDoor } from "../test-door";
@@ -78,9 +74,6 @@ const handlers = {
   /** P5: the skills root every session is handed. */
   ...skillsHandlers,
 
-  /** P5: the managed Python and cadgen runtime. */
-  ...runtimeHandlers,
-
   /** First run: whether onboarding shows, and the sample project. */
   ...onboardingHandlers,
 
@@ -96,26 +89,6 @@ const handlers = {
       // Three of these fields are instructions to the OS or to the window, not
       // stored values (src/main/settings-effects.ts).
       applySettingsEffects(next);
-      // A viewer is bound to the interpreter that runs it. When the override
-      // changes, every viewer this app started — including the ones a project
-      // open warmed before the change — is stale: stopped here, so the next
-      // `cad.viewerOrigin` launches (or fails) with the interpreter that is
-      // now configured, instead of handing out a process the old one runs.
-      if (previous.cadPythonOverride !== next.cadPythonOverride) {
-        viewers().stopAll();
-        // And the status every window shows is the new interpreter's.
-        void refreshRuntimeAfterOverride().catch((error: unknown) => {
-          console.error("[runtime] status after the override changed:", error);
-        });
-      }
-      // The field's NAME, never its value: "someone changed the git mode" is a
-      // product question, "to what" is their business (src/main/telemetry.ts).
-      // Only a field whose value actually moved: the renderer re-sends
-      // `layout` and `sidebar` on every pane drag, and a patch that restates
-      // a value is not a change anyone made.
-      for (const key of changedSettingsKeys(previous, next, patch)) {
-        track({ name: "settings_changed", key });
-      }
       return next;
     },
     fallbacks: settingsFallbacks,
@@ -148,7 +121,6 @@ const handlers = {
   // its branch of the contract is (src/shared/ipc/index.ts).
   ...explorerHandlers,
   ...gitHandlers,
-  ...cadHandlers,
   ...integrationHandlers,
   ...clipboardHandlers,
   ...browserHandlers,

@@ -1,5 +1,5 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
-import LoadingIcon from "@text-to-cad/ui/loading-icon";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
+import LoadingIcon from "@workbench/ui/loading-icon";
 import { useSettings } from "@renderer/state/settings";
 
 /** The live status keeps its existing words; only actual work animates. */

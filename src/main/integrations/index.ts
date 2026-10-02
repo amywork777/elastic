@@ -13,7 +13,7 @@ import { createActions, RendererCommands } from "./actions";
 import { integrationServers } from "./manager";
 import { createTerminalActions } from "./terminals/actions";
 import { explorerTerminals } from "../ipc/explorer";
-import { sessionRuntimePath } from "../cad";
+import { sessionRuntimePath } from "../runtime-path";
 import { BrowserConnections } from "../browser/connections";
 import { McpBridge, type BridgeSession } from "./mcp-bridge";
 import { EMPTY_SKILLS, materialiseSkillsRoot, skillsPreamble, SKILLS_ROOT_ENV, type SkillSummary, type SkillsRoot } from "./skills";
@@ -30,8 +30,8 @@ let commandsInstance: RendererCommands | null = null;
  */
 export function mcpServerScript(): { command: string; args: string[]; env: Record<string, string> } {
   const script = app.isPackaged
-    ? path.join(appRoot().replace(/app\.asar$/, "app.asar.unpacked"), "out", "text-to-cad-mcp", "server.mjs")
-    : path.join(appRoot(), "resources", "text-to-cad-mcp", "server.mjs");
+    ? path.join(appRoot().replace(/app\.asar$/, "app.asar.unpacked"), "out", "app-mcp", "server.mjs")
+    : path.join(appRoot(), "resources", "app-mcp", "server.mjs");
   // The skills root travels in the environment: `list_skills` and
   // `read_skill` read it directly, without a round trip through main.
   const env: Record<string, string> = { ELECTRON_RUN_AS_NODE: "1" };

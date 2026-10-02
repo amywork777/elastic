@@ -5,19 +5,19 @@ import { useExplorer } from "@renderer/state/explorer";
 import type { FileTab } from "@shared/types";
 
 const openFile = vi.fn(() => ({ id: "worktree-car" }) as FileTab);
-const selectCadReference = vi.fn();
+const selectReference = vi.fn();
 const scope = { projectId: "car", root: "/worktrees/wider-wheel" };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useExplorer.setState({ projectId: "car", ready: true, tabs: [], activeId: null, openFile, selectCadReference });
+  useExplorer.setState({ projectId: "car", ready: true, tabs: [], activeId: null, openFile, selectReference });
 });
 
 it("opens the reference in its draft's worktree even when the explorer follows another root", () => {
   useExplorer.setState({ root: null });
   openComposerReference(scope, { file: "models/car.step", selector: "o1.3" });
   expect(openFile).toHaveBeenCalledWith("models/car.step", scope.root);
-  expect(selectCadReference).toHaveBeenCalledWith("worktree-car", "o1.3");
+  expect(selectReference).toHaveBeenCalledWith("worktree-car", "o1.3");
 });
 
 it("does not resolve a bare selector against a same-named model in another workspace", () => {
@@ -35,5 +35,5 @@ it("refuses a stale project's reference and opens whole-file chips without selec
   expect(openFile).not.toHaveBeenCalled();
   useExplorer.setState({ projectId: "car" });
   openComposerReference(scope, { file: "models/car.step", selector: "" });
-  expect(selectCadReference).not.toHaveBeenCalled();
+  expect(selectReference).not.toHaveBeenCalled();
 });

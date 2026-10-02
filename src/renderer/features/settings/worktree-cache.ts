@@ -62,7 +62,7 @@ export function ensureWorktrees(projectId: string, { fresh = false } = {}): Prom
   if (running) {
     return running;
   }
-  const read = window.textToCad.git
+  const read = window.workbench.git
     .worktrees({ projectId })
     .then((list) => {
       // An invalidation since the read began means the answer is already old,

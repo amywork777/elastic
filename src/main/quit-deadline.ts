@@ -22,7 +22,6 @@
  */
 import { spawn } from "node:child_process";
 
-import { daemonPids } from "./cad/daemon";
 import { isQuittingForUpdate } from "./quitting";
 
 /** The quit deadline, including teardown and watchdog startup, within the two-second budget. */
@@ -118,7 +117,7 @@ export function armQuitDeadline(
   deadlineMs: number = QUIT_DEADLINE_MS,
   platform: NodeJS.Platform = process.platform,
   tree: boolean = !isQuittingForUpdate() || platform === "darwin",
-  spare: readonly number[] = daemonPids(),
+  spare: readonly number[] = [],
 ): void {
   try {
     // Armed once state is saved: at the end of before-quit (nothing cancels a

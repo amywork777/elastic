@@ -8,7 +8,7 @@ import { cleanup } from "@testing-library/react";
  * renderer always has and jsdom does not: the preload bridge and matchMedia.
  *
  * The bridge is a stub rather than a mock of `ipcRenderer` — the point of
- * `window.textToCad` being the only surface is that a test can replace all of
+ * `window.workbench` being the only surface is that a test can replace all of
  * it in five lines.
  */
 Object.defineProperty(window, "matchMedia", {
@@ -42,7 +42,7 @@ document.execCommand ??= () => false;
 // file tree both use it to keep the selected thing on screen.
 Element.prototype.scrollIntoView ??= () => {};
 
-Object.defineProperty(window, "textToCad", {
+Object.defineProperty(window, "workbench", {
   writable: true,
   value: {
     app: {

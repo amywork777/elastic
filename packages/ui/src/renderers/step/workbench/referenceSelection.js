@@ -3,9 +3,9 @@ import {
   isNativeCadSelector,
   parseCadRefToken,
   sortCadRefSelectors
-} from "@text-to-cad/core/lib/cadRefs.js";
-import { entryReferenceAssetSignature } from "@text-to-cad/core/lib/entryAssets.js";
-import { buildSelectorRuntime } from "@text-to-cad/core/lib/selectors/runtime.js";
+} from "@workbench/core/lib/cadRefs.js";
+import { entryReferenceAssetSignature } from "@workbench/core/lib/entryAssets.js";
+import { buildSelectorRuntime } from "@workbench/core/lib/selectors/runtime.js";
 import { fileKey } from "./entryPaths.js";
 
 export function buildReferenceCacheKey(entry) {

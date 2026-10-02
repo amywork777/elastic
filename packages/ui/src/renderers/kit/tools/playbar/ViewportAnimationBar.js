@@ -1,9 +1,9 @@
 import { VIEWPORT_BOTTOM_CENTER } from "../../shell/viewportLayout.js";
 import { Pause, Play } from "lucide-react";
 import { useAnimationClockValue } from "./animationClock.js";
-import { Slider } from "@text-to-cad/ui/primitives/slider";
-import { cn } from "@text-to-cad/ui/utils";
-import { ToolbarButton } from "@text-to-cad/ui/primitives/toolbar-button";
+import { Slider } from "@workbench/ui/primitives/slider";
+import { cn } from "@workbench/ui/utils";
+import { ToolbarButton } from "@workbench/ui/primitives/toolbar-button";
 import { FILE_SHEET_PRECISION_SLIDER_CLASSES } from "../../inspector/FileSheet.js";
 
 // The transport owns play/pause and scrubbing; routine, speed and loop are preview's Playback

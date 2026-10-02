@@ -1,5 +1,5 @@
-import { createPromptDeliveryLedger, formatPromptReference, validatePromptContext } from "@text-to-cad/core/prompt";
-import type { PromptContext, PromptContextPort, PromptDeliveryResult, PromptDestinationState } from "@text-to-cad/core/prompt";
+import { createPromptDeliveryLedger, formatPromptReference, validatePromptContext } from "@workbench/core/prompt";
+import type { PromptContext, PromptContextPort, PromptDeliveryResult, PromptDestinationState } from "@workbench/core/prompt";
 
 import { bindDraftDestination, DraftDestinationGone, draftDestinationIsCurrent, validateDraftDestination } from "@renderer/state/cad-draft";
 import type { DraftDestination } from "@renderer/state/cad-draft";

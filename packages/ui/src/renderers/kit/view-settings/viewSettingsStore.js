@@ -1,5 +1,5 @@
-import { normalizeViewSettings, resetViewSettings, VIEW_GROUP_KEYS } from "@text-to-cad/core/common/viewSettings.js";
-import { resolveViewSceneSettings } from "@text-to-cad/core/common/sceneSettings.js";
+import { normalizeViewSettings, resetViewSettings, VIEW_GROUP_KEYS } from "@workbench/core/common/viewSettings.js";
+import { resolveViewSceneSettings } from "@workbench/core/common/sceneSettings.js";
 import { mergeViewerDisplaySettings, viewerDisplaySettingsForMode } from "./viewerDisplaySettings.js";
 import { shareSettingsValue } from "./shareSettingsValue.js";
 

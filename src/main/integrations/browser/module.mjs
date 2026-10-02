@@ -4,6 +4,6 @@ import { tool } from "../definition.mjs";
 export default {
   id: "browser", runtime: "playwright",
   description: "Playwright controls for the browser pages visible in text-to-cad.",
-  skills: ["skills/text-to-cad-browser"], tools: [],
+  skills: ["skills/app-browser"], tools: [],
   hostTools: [tool("browser_connection", "Connect the browser server to this session's scoped native pages.")],
 };

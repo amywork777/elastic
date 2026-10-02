@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { selectRenderer, type FileMetadata, type FileSource, type TextDocument } from "@text-to-cad/ui/file-viewer";
+import { selectRenderer, type FileMetadata, type FileSource, type TextDocument } from "@workbench/ui/file-viewer";
 import { languageFor, monacoModelUri } from "@renderer/features/explorer/renderers/code/editor/monaco";
 import { codeRenderer } from "@renderer/features/explorer/renderers/code";
 import { imageRenderer } from "@renderer/features/explorer/renderers/image";

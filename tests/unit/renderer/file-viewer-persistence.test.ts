@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createTabStore, TAB_RECORD_VERSION } from "@text-to-cad/ui/tab-store";
-import type { JsonValue } from "@text-to-cad/ui/file-viewer";
+import { createTabStore, TAB_RECORD_VERSION } from "@workbench/ui/tab-store";
+import type { JsonValue } from "@workbench/ui/file-viewer";
 import { desktopTabRecord, desktopTabStore, forgetTabStore } from "@renderer/features/explorer/adapters/tabStore";
 
 const KEY = "text-to-cad.tabs.v1";

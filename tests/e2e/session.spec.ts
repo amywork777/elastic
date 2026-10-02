@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import type { TextToCadApi } from "../../src/shared/ipc";
+import type { WorkbenchApi } from "../../src/shared/ipc";
 import { chooseDirectory, launch, scratch, setTheme as setThemeIn, settledLayout, shoot as shootInto } from "./launch";
 
 /**
@@ -11,7 +11,7 @@ import { chooseDirectory, launch, scratch, setTheme as setThemeIn, settledLayout
  * — cancelled, errored, resumed, signed out — each screenshotted into
  * the current test's Playwright output directory.
  *
- * `TEXT_TO_CAD_FAKE_AGENT` makes main launch `tests/fake-agent` in place of
+ * `WORKBENCH_FAKE_AGENT` makes main launch `tests/fake-agent` in place of
  * every adapter; the `showcase` prompt is the fake's Codex-shaped turn.
  */
 /**
@@ -32,7 +32,7 @@ declare const window: {
   innerWidth: number;
   /** What a drag actually selected. */
   getSelection(): { toString(): string; removeAllRanges(): void } | null;
-  textToCad: TextToCadApi;
+  workbench: WorkbenchApi;
 };
 
 let app: ElectronApplication;
@@ -57,7 +57,7 @@ test.beforeAll(async () => {
       console.error(`[renderer:${message.type()}] ${message.text()}`);
     }
   });
-  await page.evaluate((value) => window.textToCad.settings.set({ theme: value }), "dark");
+  await page.evaluate((value) => window.workbench.settings.set({ theme: value }), "dark");
   await chooseDirectory(app, project);
 });
 
@@ -111,7 +111,7 @@ test("a new session runs a Codex-shaped turn through every state", async () => {
   await shoot("session-new.png");
 
   // The model menu is grouped by provider — one group per agent that
-  // answered, `TEXT_TO_CAD_FAKE_AGENT` making every installed one answer the
+  // answered, `WORKBENCH_FAKE_AGENT` making every installed one answer the
   // same two models — and lists names alone, with no paragraph under each.
   await actionRow.locator("[data-chip=model]").click();
   const menu = page.getByRole("menu");
@@ -634,10 +634,10 @@ test("activity keeps failures separate from the summary and uses a quiet thinkin
   fs.writeFileSync(path.join(base, "README.md"), "# Preview project\n");
   await setTheme("light");
   const added = await chooseDirectory(app, base);
-  const session = await page.evaluate((projectId) => window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), added.id);
+  const session = await page.evaluate((projectId) => window.workbench.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), added.id);
   await page.locator(`[data-session-row="${session.id}"]`).getByRole("button").first().click();
   // The read succeeds; writing to an existing directory fails safely.
-  await page.evaluate(({ id, text }) => window.textToCad.sessions.prompt({ id, content: [{ type: "text", text }] }),
+  await page.evaluate(({ id, text }) => window.workbench.sessions.prompt({ id, content: [{ type: "text", text }] }),
     { id: session.id, text: `thought read ${path.join(base, "README.md")} write ${path.join(base, "models")} terminal` });
   const group = page.locator("[data-activity-group]");
   const summary = group.getByRole("button").first();
@@ -673,10 +673,10 @@ test("paths an agent writes are links that open in the explorer, and a typed ref
     fs.writeFileSync(path.join(workspace, file), `# ${path.basename(file)}\n`);
   }
   const added = await chooseDirectory(app, workspace);
-  const session = await page.evaluate((projectId) => window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), added.id);
+  const session = await page.evaluate((projectId) => window.workbench.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), added.id);
   await page.locator(`[data-session-row="${session.id}"]`).getByRole("button").first().click();
   await expect(page.locator("[data-explorer-ready=true]")).toBeVisible();
-  const outcome = await page.evaluate(({ id, text }) => window.textToCad.sessions.prompt({ id, content: [{ type: "text", text }] }),
+  const outcome = await page.evaluate(({ id, text }) => window.workbench.sessions.prompt({ id, content: [{ type: "text", text }] }),
     { id: session.id, text: "mention some files" });
   expect(outcome.stopReason).toBe("end_turn");
   // Real paths are buttons — prose, a code span, a CAD reference with its selector — and a
@@ -709,7 +709,7 @@ test("paths an agent writes are links that open in the explorer, and a typed ref
   await page.keyboard.press("Enter");
   await expect(chips).toHaveCount(0);
   await expect.poll(async () => {
-    const state = await page.evaluate((id) => window.textToCad.sessions.state({ id }), session.id);
+    const state = await page.evaluate((id) => window.workbench.sessions.state({ id }), session.id);
     const turns = state?.state.turns.filter((turn) => turn.role === "user") ?? [];
     return turns.at(-1)?.parts.find((part) => part.type === "text")?.text;
   }).toBe(`make ${STEP}#o1.2 thicker, and #f3 please`);

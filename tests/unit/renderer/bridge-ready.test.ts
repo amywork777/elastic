@@ -9,7 +9,7 @@ import { useUi } from "@renderer/state/ui";
  * it once its `ui.command` listener is attached, and runs it like a pushed one.
  */
 
-const bridge = window.textToCad as unknown as Record<string, unknown>;
+const bridge = window.workbench as unknown as Record<string, unknown>;
 const saved = { on: bridge.on, ui: bridge.ui };
 let detach = () => {};
 

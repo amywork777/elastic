@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { FileText, Lock, RotateCw } from "lucide-react";
 import { Component, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";

@@ -3,7 +3,7 @@
  *
  *   1. compose the app's skills into resources/skills (build-skills.mjs);
  *   2. electron-vite build — main, preload, renderer into out/;
- *   3. bundle the MCP server into out/text-to-cad-mcp (build-mcp.mjs), after
+ *   3. bundle the MCP server into out/app-mcp (build-mcp.mjs), after
  *      electron-vite because it empties its output directories first.
  *
  * `scripts/package.mjs` runs this before electron-builder, so a packaged app
@@ -62,7 +62,7 @@ export function buildAll({ env = process.env } = {}) {
   }
 
   return buildMcpServer({ version }).then((mcp) => {
-    console.info(`bundled text-to-cad-mcp ${mcp.version} -> ${path.relative(appRoot, mcp.out)}`);
+    console.info(`bundled app-mcp ${mcp.version} -> ${path.relative(appRoot, mcp.out)}`);
   });
 }
 

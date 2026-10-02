@@ -92,7 +92,7 @@ cannot be undone by cancellation.
 
 `build-mcp.mjs` bundles the app bridge entry and copies the pinned upstream MCP,
 Playwright and Playwright Core distributions beside it, including their runtime
-assets and notices. `out/text-to-cad-mcp/**` ships unpacked; the Electron binary runs
+assets and notices. `out/app-mcp/**` ships unpacked; the Electron binary runs
 that entry as Node. Nothing downloads a second browser or installs agent config.
 When upgrading, test the shipped directory outside the checkout: upstream uses
 runtime assets that must not be reduced to a single esbuild bundle.

@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { useEffect, useRef, useState } from "react";
 import { Archive, Copy, FolderOpen, MoreHorizontal, Pencil, RotateCcw, Trash2, Unplug } from "lucide-react";
 
@@ -164,7 +164,7 @@ export function SessionHeader({
                 Copy path
               </DropdownMenuItem>
               <DropdownMenuItem
-                onSelect={() => void window.textToCad.shell.showItemInFolder({ projectId: session.projectId, root: session.cwd })}
+                onSelect={() => void window.workbench.shell.showItemInFolder({ projectId: session.projectId, root: session.cwd })}
               >
                 <FolderOpen />
                 Reveal in Finder

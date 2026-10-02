@@ -12,7 +12,6 @@ import {
   MessageSquarePlus,
   PanelLeft,
   PanelRight,
-  PencilRuler,
   Settings,
   SquareTerminal,
   type LucideIcon,
@@ -53,7 +52,6 @@ const NEW_TAB_ROWS: readonly { kind: ExplorerTabKind; label: string; value: stri
   { kind: "review", label: "New review tab", value: "new review tab diff changes git", icon: GitCompare },
   { kind: "terminal", label: "New terminal", value: "new terminal tab shell", icon: SquareTerminal },
   { kind: "browser", label: "New browser tab", value: "new browser tab web url", icon: Globe },
-  { kind: "drawing", label: "New drawing", value: "new drawing tab sketch canvas", icon: PencilRuler },
 ];
 
 /**

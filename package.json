@@ -1,13 +1,13 @@
 {
-  "name": "@text-to-cad/desktop",
-  "productName": "text-to-cad",
+  "name": "elastic",
+  "productName": "elastic",
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "text-to-cad — a CAD-first agent workbench desktop app.",
-  "author": "text-to-cad contributors",
+  "description": "elastic: a small desktop agent workbench. Plugins (MCP servers, skills, file renderers, MCP App tabs) do the heavy lifting.",
+  "author": "elastic contributors",
   "license": "MIT",
-  "homepage": "https://github.com/earthtojake/text-to-cad",
+  "homepage": "https://github.com/amywork777/elastic",
   "main": "./out/main/index.js",
   "workspaces": [
     "packages/*"
@@ -27,14 +27,12 @@
     "package:linux": "node scripts/package.mjs --linux",
     "build:skills": "node scripts/build-skills.mjs",
     "build:mcp": "node scripts/build-mcp.mjs",
-    "cad:resources": "node scripts/cad-resources.mjs",
-    "bundle:runtime": "node scripts/bundle-runtime.mjs",
     "brand": "node scripts/make-brand.mjs",
     "native:rebuild": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
-    "@aptabase/electron": "0.3.1",
+    "@modelcontextprotocol/ext-apps": "1.7.5",
     "@modelcontextprotocol/sdk": "1.30.0",
     "better-sqlite3": "13.0.3",
     "chokidar": "5.0.0",
@@ -49,6 +47,7 @@
     "@betteroffice/fonts": "0.2.0",
     "@eslint/js": "10.0.1",
     "@monaco-editor/react": "4.7.0",
+    "@playwright/mcp": "0.0.81",
     "@playwright/test": "1.63.0",
     "@radix-ui/react-use-controllable-state": "1.2.6",
     "@rive-app/react-webgl2": "4.34.1",
@@ -71,13 +70,15 @@
     "@types/node": "22.20.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@types/ws": "8.18.1",
     "@vitejs/plugin-react": "5.2.0",
+    "@workbench/core": "*",
+    "@workbench/ui": "*",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/addon-web-links": "0.12.0",
     "@xterm/xterm": "6.0.0",
     "@xyflow/react": "12.11.6",
     "ansi-to-react": "6.2.6",
-    "@text-to-cad/core": "*",
     "class-variance-authority": "0.7.1",
     "cmdk": "1.1.1",
     "cn": "0.2.5",
@@ -119,9 +120,6 @@
     "use-stick-to-bottom": "1.1.6",
     "vite": "7.3.6",
     "vitest": "5.0.0",
-    "zustand": "5.0.15",
-    "@text-to-cad/ui": "*",
-    "@types/ws": "8.18.1",
-    "@playwright/mcp": "0.0.81"
+    "zustand": "5.0.15"
   }
 }

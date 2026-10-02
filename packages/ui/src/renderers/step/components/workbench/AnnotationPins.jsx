@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { projectWorldPointToClient } from "@text-to-cad/core/lib/viewer/measureRuler.js";
-import { Button } from "@text-to-cad/ui/primitives/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@text-to-cad/ui/primitives/popover";
-import { cn } from "@text-to-cad/ui/utils";
+import { projectWorldPointToClient } from "@workbench/core/lib/viewer/measureRuler.js";
+import { Button } from "@workbench/ui/primitives/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@workbench/ui/primitives/popover";
+import { cn } from "@workbench/ui/utils";
 import { measureModelOffsetFromRuntime } from "../../scene/useStepPicking.js";
 import { AnnotationBody } from "./StepAnnotations.jsx";
 

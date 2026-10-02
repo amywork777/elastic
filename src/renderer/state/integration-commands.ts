@@ -1,22 +1,18 @@
 /** Authenticated integration commands. Background reads never change project or focus. */
-import { isCadFile } from "@text-to-cad/core/lib/fileFormats.js";
-import { emptyDrawingDocument, parseDrawingScene } from "@text-to-cad/core/drawing";
-import { selectRenderer } from "@text-to-cad/ui/file-viewer";
+import { selectRenderer } from "@workbench/ui/file-viewer";
 import { createDesktopRenderers } from "@renderer/features/explorer/renderers";
 import type { IntegrationCommand } from "@shared/ipc/integrations";
 import type { ExplorerTab } from "@shared/types";
-import { readSessionStrip, renameDrawingTab, tabTitle, openSessionTab, closeSessionTab, selectSessionTab, revealSessionPath } from "./explorer";
-import { getDrawingScene } from "./drawings";
+import { readSessionStrip, tabTitle, openSessionTab, closeSessionTab, selectSessionTab, revealSessionPath } from "./explorer";
 import { useProjects } from "./projects";
 import { useSessions } from "./sessions";
 import { hasDirtyDocument, performDocumentCommand, performPdfCommand } from "./live-documents";
-import { performCadViewerCommand } from "./live-cad";
-import { imageResult } from "./image-result";
+import { pluginTool } from "@renderer/plugins/store";
 
 async function rendererIdForPath(projectId: string, root: string | null, path: string, tabId: string) {
   const composition = createDesktopRenderers(projectId, root, tabId);
   try {
-    const metadata = await window.textToCad.explorer.stat({ projectId, ...(root ? { root } : {}), path });
+    const metadata = await window.workbench.explorer.stat({ projectId, ...(root ? { root } : {}), path });
     return selectRenderer(composition.renderers, { ...metadata, mediaType: metadata.fileKind }).id;
   } catch { return null; } // Deleted or unavailable resources have no current renderer.
   finally { composition.dispose(); }
@@ -96,36 +92,19 @@ export async function performIntegrationCommand(command: IntegrationCommand, sig
       if (!tab) throw new Error("the explorer could not open a browser tab");
       return { opened: command.url, tabId: tab.id, root: scope.root };
     }
-    case "open-drawing": {
-      const tab = await openSessionTab(command.sessionId, command.projectId, scope.root, "drawing", { root: scope.root, title: command.title ?? "Drawing" }, signal);
-      if (!tab) throw new Error("the explorer could not open a drawing tab");
-      return { tabId: tab.id, title: tabTitle(tab), root: scope.root, ephemeral: true };
-    }
-    case "drawing-rename": {
-      const tab = await scopedTab(command, signal);
-      signal?.throwIfAborted();
-      if (tab.kind !== "drawing") throw new Error("this is not a drawing tab");
-      renameDrawingTab(tab.id, tab.sessionId, command.title ?? "");
-      return { tabId: tab.id, title: command.title!.trim(), root: tab.root };
-    }
-    case "drawing-state":
-    case "drawing-capture": {
-      const tab = await scopedTab(command, signal);
-      signal?.throwIfAborted();
-      if (tab.kind !== "drawing") throw new Error("this is not a drawing tab");
-      const scene = getDrawingScene(tab.id) ?? JSON.stringify(emptyDrawingDocument());
-      const document = parseDrawingScene(scene);
-      const state = { tabId: tab.id, title: tab.title, root: tab.root, ephemeral: true, elementCount: document.elements.filter(element => !element.isDeleted).length };
-      if (command.kind === "drawing-state") return state;
-      const { exportDrawingScenePng } = await import("@text-to-cad/ui/drawing");
-      signal?.throwIfAborted();
-      return imageResult(await exportDrawingScenePng(scene), state);
+    case "open-tool": {
+      const pluginId = String(params.pluginId ?? ""), toolId = String(params.toolId ?? "");
+      const tool = pluginTool(pluginId, toolId);
+      if (!tool) throw new Error(`no enabled plugin contributes the tool "${pluginId}/${toolId}"`);
+      const tab = await openSessionTab(command.sessionId, command.projectId, scope.root, "tool", { root: scope.root, pluginId, toolId, title: tool.title }, signal);
+      if (!tab) throw new Error("the explorer could not open the tool");
+      return { tabId: tab.id, title: tabTitle(tab), root: scope.root };
     }
     case "list-tabs": {
       const { tabs, activeId } = await scopedTabs(command, signal);
       signal?.throwIfAborted();
       return { active: tabs.some(tab => tab.id === activeId) ? activeId : null,
-        tabs: await Promise.all(tabs.map(async tab => ({ ...tab, title: tabTitle(tab), ...(tab.kind === "drawing" ? { ephemeral: true } : {}), ...(tab.kind === "file" ? { renderer: tab.path ? await rendererIdForPath(tab.projectId, tab.root, tab.path, tab.id) : null } : {}) }))) };
+        tabs: await Promise.all(tabs.map(async tab => ({ ...tab, title: tabTitle(tab), ...(tab.kind === "file" ? { renderer: tab.path ? await rendererIdForPath(tab.projectId, tab.root, tab.path, tab.id) : null } : {}) }))) };
     }
     case "tab-resource": return scopedTab(command, signal);
     case "show-tab": {
@@ -146,18 +125,6 @@ export async function performIntegrationCommand(command: IntegrationCommand, sig
       const tab = await openSessionTab(command.sessionId, command.projectId, scope.root, "terminal", { cwd: String(params.cwd ?? command.rootDirectory), ptyId: String(params.ptyId), agent: true }, signal);
       if (!tab) throw new Error("the explorer could not open a terminal tab");
       return { tabId: tab.id, ptyId: params.ptyId, cwd: params.cwd };
-    }
-    case "viewer-state":
-    case "select-reference":
-    case "cad-clear-selection":
-    case "cad-camera":
-    case "cad-reset-camera":
-    case "cad-render-mode":
-    case "capture-view": {
-      const tab = await scopedTab(command, signal);
-      signal?.throwIfAborted();
-      if (tab.kind !== "file" || !tab.path || !isCadFile(tab.path)) throw new Error("this tab does not contain a CAD model");
-      return performCadViewerCommand(command.kind, { ...params, tabId: tab.id }, { ...scope, path: tab.path });
     }
   }
 }

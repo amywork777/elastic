@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { Check, ShieldQuestion, X } from "lucide-react";
 import { useState } from "react";
 

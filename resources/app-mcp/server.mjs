@@ -4,10 +4,10 @@
  * text-to-cad passes it in `session/new`'s `mcpServers`.
  *
  * The server knows nothing about Electron. It reads four environment
- * variables: `TEXT_TO_CAD_BRIDGE_URL` and `TEXT_TO_CAD_BRIDGE_TOKEN` (the
- * bridge and the scoped token that names one session), `TEXT_TO_CAD_INTEGRATION`
+ * variables: `WORKBENCH_BRIDGE_URL` and `WORKBENCH_BRIDGE_TOKEN` (the
+ * bridge and the scoped token that names one session), `WORKBENCH_INTEGRATION`
  * (which integration's tools it serves, "workspace" when unset) and
- * `TEXT_TO_CAD_SKILLS_ROOT` (the skills the app materialised). It forwards
+ * `WORKBENCH_SKILLS_ROOT` (the skills the app materialised). It forwards
  * app-owned tool calls to main as `POST <bridge>/rpc` (see
  * `src/main/integrations/mcp-bridge.ts`, whose `BRIDGE_ENV` also sets the
  * session id and cwd; the token already names both, so they are not read here). Main does the work; this file is the
@@ -15,7 +15,7 @@
  * scoped native connection and runs the upstream Playwright MCP server.
  *
  * Two tools are answered here instead: `list_skills` and `read_skill` read the
- * skills root the app materialised (`TEXT_TO_CAD_SKILLS_ROOT`,
+ * skills root the app materialised (`WORKBENCH_SKILLS_ROOT`,
  * `src/main/integrations/skills.ts`), which is static files on disk and needs neither
  * main nor a window. They are how an agent that does not load an additional
  * directory's skills by itself reaches the same files.
@@ -36,14 +36,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { integrationById } from "../../src/main/integrations/registry.mjs";
 
 export const BRIDGE_ENV = {
-  url: "TEXT_TO_CAD_BRIDGE_URL",
-  token: "TEXT_TO_CAD_BRIDGE_TOKEN",
-  cwd: "TEXT_TO_CAD_CWD",
-  session: "TEXT_TO_CAD_SESSION_ID",
+  url: "WORKBENCH_BRIDGE_URL",
+  token: "WORKBENCH_BRIDGE_TOKEN",
+  cwd: "WORKBENCH_CWD",
+  session: "WORKBENCH_SESSION_ID",
 };
 
 /** Where the app put its skills. Shared with `src/main/integrations/skills.ts` by name. */
-export const SKILLS_ROOT_ENV = "TEXT_TO_CAD_SKILLS_ROOT";
+export const SKILLS_ROOT_ENV = "WORKBENCH_SKILLS_ROOT";
 
 /** The layout inside the skills root that this server reads. */
 const SKILLS_LAYOUT = path.join(".claude", "skills");
@@ -186,10 +186,10 @@ const failure = (error) => ({
  * and what to pass.
  */
 export function createServer(bridge, options = {}) {
-  const integration = integrationById(options.integration ?? process.env.TEXT_TO_CAD_INTEGRATION ?? "workspace");
+  const integration = integrationById(options.integration ?? process.env.WORKBENCH_INTEGRATION ?? "workspace");
   if (integration.runtime) throw new Error(`${integration.id} uses its upstream MCP runtime`);
   const skillsRoot = options.skillsRoot ?? process.env[SKILLS_ROOT_ENV] ?? null;
-  const server = new McpServer({ name: `text-to-cad-${integration.id}`, version: options.version ?? "0.0.0" });
+  const server = new McpServer({ name: `app-${integration.id}`, version: options.version ?? "0.0.0" });
   for (const definition of integration.tools) {
     server.registerTool(definition.name, {
       description: definition.description,
@@ -216,7 +216,7 @@ export function createServer(bridge, options = {}) {
 
 export async function main() {
   const version = readVersion();
-  if (integrationById(process.env.TEXT_TO_CAD_INTEGRATION ?? "workspace").runtime === "playwright") {
+  if (integrationById(process.env.WORKBENCH_INTEGRATION ?? "workspace").runtime === "playwright") {
     const connection = await httpBridge()("browser_connection", {});
     process.chdir(connection.root);
     const { createConnection } = await import("@playwright/mcp");
@@ -244,7 +244,7 @@ function readVersion() {
 
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
-    process.stderr.write(`text-to-cad-mcp: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(`app-mcp: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
   });
 }

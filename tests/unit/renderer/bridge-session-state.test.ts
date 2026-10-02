@@ -13,7 +13,7 @@ import type { Session } from "@shared/types";
  */
 
 type Handler = (payload: unknown) => void;
-const bridge = window.textToCad as unknown as Record<string, unknown>;
+const bridge = window.workbench as unknown as Record<string, unknown>;
 const saved = bridge.on;
 let handlers: Record<string, Handler>;
 let detach: () => void;

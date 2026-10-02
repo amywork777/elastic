@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { drawingAssetsPlugin } from "@text-to-cad/ui/drawing-assets";
+import { drawingAssetsPlugin } from "@workbench/ui/drawing-assets";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
@@ -23,7 +23,7 @@ const alias = {
 // could be set by whoever launches the binary is a key anyone can point at
 // their own project. Absent (a checkout, a community build) it compiles to "",
 // which makes src/main/telemetry.ts inert — no init, no network call.
-const aptabaseKey = process.env.TEXT_TO_CAD_APTABASE_KEY ?? "";
+const aptabaseKey = process.env.WORKBENCH_APTABASE_KEY ?? "";
 
 export default defineConfig({
   main: {
@@ -94,7 +94,7 @@ export default defineConfig({
       host: "127.0.0.1",
       port: 5273,
       strictPort: true,
-      // The viewer's client and @text-to-cad/core live outside this app's root, so
+      // The viewer's client and @workbench/core live outside this app's root, so
       // dev has to be allowed to serve them from there.
       fs: { allow: [repoRoot] },
     },

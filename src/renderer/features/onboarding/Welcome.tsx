@@ -181,7 +181,7 @@ function StartStep({ onDone }: { onDone: () => void }) {
     try {
       // Main copies the sample and answers with it; selecting it here, as
       // `ui.directorySelected` would, opens the folder's new-session screen.
-      const sample = await window.textToCad.onboarding.createSample();
+      const sample = await window.workbench.onboarding.createSample();
       if (here.current) {
         useProjects.getState().selectDirectory(sample);
         useSessions.getState().setActive(null);

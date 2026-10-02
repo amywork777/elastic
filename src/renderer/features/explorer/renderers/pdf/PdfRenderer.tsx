@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDocument, PDFWorker, TextLayer } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { zoomLimits } from '@text-to-cad/core/lib/drawing2d/index.js';
+import { zoomLimits } from '@workbench/core/lib/drawing2d/index.js';
 import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker';
 import 'pdfjs-dist/web/pdf_viewer.css';
-import { PromptContextAction, useViewerHost, type LivePdfDocument } from '@text-to-cad/ui/host';
-import type { FileRendererProps } from '@text-to-cad/ui/file-viewer';
+import { PromptContextAction, useViewerHost, type LivePdfDocument } from '@workbench/ui/host';
+import type { FileRendererProps } from '@workbench/ui/file-viewer';
 
 export interface PdfRendererData { bytes: Uint8Array<ArrayBuffer> }
 function validPage(page: number, count: number) {

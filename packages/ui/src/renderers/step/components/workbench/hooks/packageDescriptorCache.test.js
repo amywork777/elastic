@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createHttpCadResourceProvider } from "@text-to-cad/core/client";
+import { createHttpCadResourceProvider } from "@workbench/core/client";
 
 import {
   installRuntimePackageDescriptor,

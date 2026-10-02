@@ -1,4 +1,4 @@
-import { entryAssetHash } from "@text-to-cad/core/lib/entryAssets.js";
+import { entryAssetHash } from "@workbench/core/lib/entryAssets.js";
 import { readAnnotations } from "./stepAnnotations.js";
 
 // The STEP renderer's own slices of the file's view (`kit/shell/fileView.js`): what it was

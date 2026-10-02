@@ -74,7 +74,7 @@ describe("McpBridge", () => {
     const { bridge, url } = await startBridge();
     expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
     const spec = bridge.serverFor(SESSION);
-    expect(spec.name).toBe("text-to-cad-workspace");
+    expect(spec.name).toBe("app-workspace");
     expect(spec).not.toHaveProperty("type");
     expect((spec as { command: string }).command).toBe("/electron");
     expect((spec as { args: string[] }).args).toEqual(["/server.mjs"]);

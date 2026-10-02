@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { BrowserWindow, app, dialog, nativeImage, nativeTheme, shell } from "electron";
 
 import { initIntegrations, shutdownIntegrations } from "./integrations";
-import { initCad, shutdownCad } from "./cad";
+import { APP_NAME, APP_SLUG } from "../shared/brand";
 import { browserService } from "./browser/service";
 import { endTrackedChildren, killTrackedChildren } from "./children";
 import { closeDb, databaseFile, db, startupFailureMessage } from "./db";
@@ -21,7 +21,6 @@ import { installMenu } from "./menu";
 import { armQuitDeadline } from "./quit-deadline";
 import { isQuitting, markQuitting } from "./quitting";
 import { disposeSettingsEffects } from "./settings-effects";
-import { initTelemetry, track } from "./telemetry";
 import { initUpdater, stopUpdater } from "./updater";
 import { TITLEBAR_HEIGHT, trafficLightPosition } from "../shared/titlebar";
 import { WINDOW_MIN, flushWindowStates, restoreWindowState, trackWindowState } from "./window-state";
@@ -68,14 +67,14 @@ function windowBackgroundColor(): string {
  * takes the name from whichever package.json it happened to load: the
  * packaged app's, `apps/desktop`'s under `electron .`, and NOTHING under
  * `electron out/main/index.js` (then the name is "Electron" and the database
- * lands in a directory called that). Every launch of this code is text-to-cad,
+ * lands in a directory called that). Every launch of this code is the same app,
  * so the name and the directory are set here, before the single-instance
  * lock (which lives in that directory) and before the database opens. A
  * `--user-data-dir` on the command line — the e2e suite's — still wins.
  */
-app.setName("text-to-cad");
+app.setName(APP_NAME);
 if (!app.commandLine.hasSwitch("user-data-dir")) {
-  app.setPath("userData", path.join(app.getPath("appData"), "text-to-cad"));
+  app.setPath("userData", path.join(app.getPath("appData"), APP_SLUG));
   app.setPath("sessionData", app.getPath("userData"));
 }
 
@@ -160,21 +159,21 @@ function createWindow() {
   // How the window arrives, in the three ways this app is launched (README,
   // "Windows nobody sees"):
   //
-  // - `TEXT_TO_CAD_E2E_HIDDEN=1`: never shown at all. The e2e suite drives the
+  // - `WORKBENCH_E2E_HIDDEN=1`: never shown at all. The e2e suite drives the
   //   renderer through the DevTools protocol, which does not need a window on
   //   screen — and a suite that flashed one over the machine's screen for
   //   every spec is a suite nobody runs while working. `backgroundThrottling`
   //   is off below so the unshown window keeps painting and its timers keep
   //   real time.
-  // - `TEXT_TO_CAD_LAUNCH_INACTIVE=1`: shown, but without taking focus, for a
+  // - `WORKBENCH_LAUNCH_INACTIVE=1`: shown, but without taking focus, for a
   //   relaunch from a script while the person is working in another app.
   // - otherwise: shown and focused, which is what a person double-clicking
   //   the app asked for.
   window.once("ready-to-show", () => {
-    if (process.env.TEXT_TO_CAD_E2E_HIDDEN === "1") {
+    if (process.env.WORKBENCH_E2E_HIDDEN === "1") {
       return;
     }
-    if (process.env.TEXT_TO_CAD_LAUNCH_INACTIVE === "1" || process.env.NODE_ENV === "test") {
+    if (process.env.WORKBENCH_LAUNCH_INACTIVE === "1" || process.env.NODE_ENV === "test") {
       window.showInactive();
     } else {
       window.show();
@@ -220,9 +219,6 @@ if (!app.requestSingleInstanceLock()) {
       window.focus();
     }
   });
-
-  // Before ready, or Aptabase disables itself (src/main/telemetry.ts).
-  initTelemetry();
 
   // A rejection nobody awaited is a bug with no other trace; log it.
   process.on("unhandledRejection", (reason) => {
@@ -279,22 +275,19 @@ if (!app.requestSingleInstanceLock()) {
     startupStep = "services";
     console.info(`[db] ${databaseFile()}`);
     registerIpcHandlers();
-    // The CAD runtime, the skills root, the viewer manager and the MCP
-    // bridge, before the first window: the file tab's first
-    // `cad.viewerOrigin` and the first session's `mcpServers` and
-    // `additionalDirectories` all need them up.
-    await initCad();
+    // The skills root, the plugins and the MCP bridge, before the first
+    // window: the first session's `mcpServers` and `additionalDirectories`
+    // need them up.
     await initIntegrations({ sendCommand: (command) => broadcast("integrations.command", command), cancelCommand: requestId => broadcast("integrations.cancel", { requestId }) });
     installMenu(() => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null, createWindow);
     createWindow();
     initUpdater();
     // Starts the agent probe now, and (outside `NODE_ENV=test` unless
-    // `TEXT_TO_CAD_PREWARM=1`) spawns one idle adapter per agent the index says
+    // `WORKBENCH_PREWARM=1`) spawns one idle adapter per agent the index says
     // is in use a second and a half from now, once the probe has settled: the
     // first session opened then costs a `session/load` and not a spawn
     // (src/main/acp/warm.ts).
     prewarmAgents();
-    track({ name: "app_launched" });
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -303,20 +296,19 @@ if (!app.requestSingleInstanceLock()) {
     });
   }).catch((error: unknown) => {
     // A migration that failed, a database from a newer build (refused, not
-    // modified), a pre-upgrade backup on a full disk, the CAD runtime or the
+    // modified), a pre-upgrade backup on a full disk, or the
     // bridge failing to start: without this the app sits in the Dock with no
     // window and no word. Say why and where, then leave.
     console.error("[main] startup failed:", error);
     try {
-      dialog.showErrorBox("text-to-cad could not start", startupFailureMessage(error, startupStep === "database"));
+      dialog.showErrorBox(`${APP_NAME} could not start`, startupFailureMessage(error, startupStep === "database"));
     } catch (dialogError) {
       console.error("[main] could not show the startup error:", dialogError);
     }
     // `app.exit` skips before-quit and will-quit, so their teardown runs
-    // here: what initCad and initIntegrations may already have started (the
-    // runtime probe, a viewer, the bridge) must not outlive this process.
+    // here: what initIntegrations may already have started (the bridge, a
+    // plugin's server) must not outlive this process.
     // Each step is guarded — one failing must not keep the next from running.
-    step("startup teardown", "cad", shutdownCad);
     step("startup teardown", "integrations", shutdownIntegrations);
     step("startup teardown", "database", closeDb);
     step("startup teardown", "children", killTrackedChildren);
@@ -331,15 +323,14 @@ if (!app.requestSingleInstanceLock()) {
 
   /**
    * Quitting is a budget, not a sequence: two seconds, with a repository
-   * watched, a shell, an adapter and the viewer all up (tests/e2e/cad.spec.ts
-   * quits in that state and asserts no child is left behind). Everything here is told to stop and nothing is awaited: the viewer,
+   * watched, a shell and an adapter up. Everything here is told to stop and nothing is awaited:
    * the adapters and the ptys get their signals, the bridge starts closing,
    * the explorer's watchers are left open (chokidar's `close()` blocks, and an
    * fsevents handle dies with the process), the database closes — and then every child this process
    * still has a pipe to is detached, with the probes killed outright. Electron
    * waits for the Node side, and the Node side waits for its children; a
-   * `--version` probe mid-`import cadgen` with a sixty-second timeout is what
-   * made quitting take sixty seconds.
+   * `--version` probe with a sixty-second timeout is what made quitting take
+   * sixty seconds.
    */
   let quitStartedAt: number | undefined;
   // Armed at the end of `before-quit` and again at `will-quit`; once is enough.
@@ -361,9 +352,7 @@ if (!app.requestSingleInstanceLock()) {
     // failing teardown must not skip the rest, the database close among them.
     try {
       step("quit teardown", "updater", stopUpdater);
-      // The viewers this app started, the bridge, and any tool call still
-      // waiting on a window.
-      step("quit teardown", "cad", shutdownCad);
+      // The bridge, and any tool call still waiting on a window.
       step("quit teardown", "integrations", shutdownIntegrations);
       // Database writes on the way out, in this order and all before closeDb():
       // the ACP snapshot flush (closeAll → flushAll; each adapter's `closed`

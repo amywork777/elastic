@@ -189,7 +189,7 @@ export const useAcp = create<AcpState>((set, get) => ({
   forget: (sessionId) => set((current) => without(current, sessionId)),
 
   create: async (input) => {
-    const session = await window.textToCad.sessions.create(input);
+    const session = await window.workbench.sessions.create(input);
     useSessions.getState().adopt(session);
     return session.id;
   },
@@ -212,7 +212,7 @@ export const useAcp = create<AcpState>((set, get) => ({
     const flight = { asked };
     loadsInFlight.set(sessionId, flight);
     try {
-      const state = await window.textToCad.sessions.load({ id: sessionId });
+      const state = await window.workbench.sessions.load({ id: sessionId });
       // Forgotten while it loaded — archived, deleted, disconnected: the answer is for nobody.
       if (generationOf(sessionId) === asked) get().receiveState(sessionId, state);
     } catch (error) {
@@ -251,7 +251,7 @@ export const useAcp = create<AcpState>((set, get) => ({
       // outlived the renderer's copy of it and there is nothing to reconnect.
       const asked = generationOf(sessionId);
       try {
-        const painted = await window.textToCad.sessions.state({ id: sessionId });
+        const painted = await window.workbench.sessions.state({ id: sessionId });
         if (generationOf(sessionId) !== asked) {
           return;
         }
@@ -281,28 +281,28 @@ export const useAcp = create<AcpState>((set, get) => ({
   prompt: async (sessionId, content) => {
     const blocks: PromptBlock[] =
       typeof content === "string" ? [{ type: "text", text: content }] : content;
-    const { stopReason, refused } = await window.textToCad.sessions.prompt({ id: sessionId, content: blocks });
+    const { stopReason, refused } = await window.workbench.sessions.prompt({ id: sessionId, content: blocks });
     if (refused !== undefined) {
       throw new PromptRefused(refused);
     }
     return stopReason;
   },
 
-  cancel: (sessionId) => window.textToCad.sessions.cancel({ id: sessionId }),
+  cancel: (sessionId) => window.workbench.sessions.cancel({ id: sessionId }),
 
-  setMode: (sessionId, modeId) => window.textToCad.sessions.setMode({ id: sessionId, modeId }),
+  setMode: (sessionId, modeId) => window.workbench.sessions.setMode({ id: sessionId, modeId }),
 
   setConfigOption: (sessionId, configId, value) =>
-    window.textToCad.sessions.setConfigOption({ id: sessionId, configId, value }),
+    window.workbench.sessions.setConfigOption({ id: sessionId, configId, value }),
 
   respondPermission: (sessionId, requestId, optionId) =>
-    window.textToCad.sessions.respondPermission({ id: sessionId, requestId, optionId }),
+    window.workbench.sessions.respondPermission({ id: sessionId, requestId, optionId }),
 
   close: async (sessionId) => {
     // Counted as a forget without the forgetting: a Reconnect still loading is for nobody now, and
     // its answer — a ready state, or the failure the close causes — would paint over "closed".
     forgotten.set(sessionId, generationOf(sessionId) + 1);
-    await window.textToCad.sessions.close({ id: sessionId });
+    await window.workbench.sessions.close({ id: sessionId });
     // Kept, marked closed: the turns and the plan stay on screen under the Reconnect bar, the way
     // `ensureLoaded` expects a hand-disconnected session to be held. Leaving it lets it go.
     // And the setup note goes: the setup is moot once the adapter is gone, and the note's own
@@ -320,7 +320,7 @@ export const useAcp = create<AcpState>((set, get) => ({
     const asked = generationOf(sessionId);
     let note: string | null;
     try {
-      note = (await window.textToCad.sessions.retrySetup({ id: sessionId })).error;
+      note = (await window.workbench.sessions.retrySetup({ id: sessionId })).error;
     } catch (error) {
       note = errorMessage(error);
     }

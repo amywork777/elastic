@@ -9,7 +9,7 @@ import {
   RotateCw,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
-import { createPromptContext, textPart } from "@text-to-cad/core/prompt";
+import { createPromptContext, textPart } from "@workbench/core/prompt";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@renderer/components/ui/alert";
@@ -42,9 +42,9 @@ import {
 import { errorMessage } from "@shared/ipc/errors";
 import type { Project } from "@shared/types";
 
-import { EmptyState } from "@text-to-cad/ui/navigation";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
-import { FileIcon } from "@text-to-cad/ui/navigation";
+import { EmptyState } from "@workbench/ui/navigation";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
+import { FileIcon } from "@workbench/ui/navigation";
 import { setupMonaco } from "@renderer/features/explorer/renderers/code/editor";
 import { ReviewDiff, type ReviewSelection } from "./review-diff";
 import type { ChangedFile, FileDiff, GitStatus } from "./types";
@@ -192,7 +192,7 @@ function ReviewBody({
       }
       // One read per refresh, whatever the scope: the answer carries the
       // working tree's file count for the commit button (`workingFiles`).
-      return window.textToCad.git.status({ ...request, scope: diffScopeFor(scope) }).then(
+      return window.workbench.git.status({ ...request, scope: diffScopeFor(scope) }).then(
         (next) => {
           if (sequence !== latestRead.current) return;
           setStatus(next);
@@ -683,7 +683,7 @@ function FileSection({
     }
     reading.current = true;
     const asked = revision;
-    void window.textToCad.git
+    void window.workbench.git
       .fileDiff({ ...request, path: file.path, scope: diffScopeFor(scope) })
       .then((result) => {
         reading.current = false;
@@ -910,7 +910,7 @@ function CommitPanel({
       return;
     }
     void run(async () => {
-      const { sha, pushedOnly, pushed } = await window.textToCad.git.commit({ ...request, message: message.trim(), push });
+      const { sha, pushedOnly, pushed } = await window.workbench.git.commit({ ...request, message: message.trim(), push });
       // The files this message was for were committed by someone else between
       // the last read and this request: say nothing was committed.
       if (pushedOnly && fileCount > 0) {
@@ -936,12 +936,12 @@ function CommitPanel({
       return;
     }
     void run(async () => {
-      const { url } = await window.textToCad.git.pullRequest({
+      const { url } = await window.workbench.git.pullRequest({
         ...request,
         title,
         body: rest.join("\n").trim(),
       });
-      await window.textToCad.shell.openExternal({ url });
+      await window.workbench.shell.openExternal({ url });
     });
   };
 

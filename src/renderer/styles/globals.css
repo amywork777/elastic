@@ -18,8 +18,8 @@
 @source "../../../../../node_modules/streamdown/dist/*.js";
 @source "../../../../../node_modules/@streamdown/code/dist/*.js";
 
-@import "@text-to-cad/ui/tokens.css";
-@import "@text-to-cad/ui/styles.css";
+@import "@workbench/ui/tokens.css";
+@import "@workbench/ui/styles.css";
 
 @layer base {
   * {

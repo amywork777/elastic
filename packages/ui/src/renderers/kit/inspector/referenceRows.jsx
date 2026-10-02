@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 // Onshape-style axis colour coding for coordinate triples.
 const AXES = Object.freeze([

@@ -1,5 +1,5 @@
-import { unavailablePromptContext } from "@text-to-cad/core/prompt";
-import type { ViewerHost } from "@text-to-cad/ui/host";
+import { unavailablePromptContext } from "@workbench/core/prompt";
+import type { ViewerHost } from "@workbench/ui/host";
 
 /**
  * An explicit, effect-free `ViewerHost` for mounting the explorer's renderers

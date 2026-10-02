@@ -44,7 +44,7 @@ const alias = [
  * And a third, `browser`: Node tests that serve a harness from this app's root
  * with their own Vite server and drive it in Playwright's Chromium (the PDF
  * renderer, whose worker, text layer and canvas jsdom has none of). They need
- * `npx playwright install chromium`, as `@text-to-cad/ui`'s browser suite does.
+ * `npx playwright install chromium`, as `@workbench/ui`'s browser suite does.
  *
  * The split matters. A main-process test that quietly gets a `window` will
  * pass while the code it covers cannot run, and a renderer test without one

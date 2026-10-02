@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { ArrowDown, Paperclip } from "lucide-react";
 import { memo, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";

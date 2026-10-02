@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, ExternalLink, Terminal } from "lucide-react";
 import { Spinner } from "@renderer/components/ui/spinner";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { Button } from "@renderer/components/ui/button";
 import { Input } from "@renderer/components/ui/input";
@@ -134,7 +134,7 @@ function DrawerBody({ agent, platform }: { agent: AgentStatus; platform: Platfor
           <Button
             className="h-7 gap-1.5 px-2 text-xs"
             onClick={() =>
-              void window.textToCad.shell.openExternal({ url: agent.websiteUrl })
+              void window.workbench.shell.openExternal({ url: agent.websiteUrl })
             }
             size="sm"
             variant="ghost"
@@ -220,7 +220,7 @@ function InstallationSection({ agent, platform }: { agent: AgentStatus; platform
         </p>
         <Button
           className="mt-3 h-8 gap-1.5"
-          onClick={() => void window.textToCad.shell.openExternal({ url: agent.docsUrl })}
+          onClick={() => void window.workbench.shell.openExternal({ url: agent.docsUrl })}
           size="sm"
           variant="secondary"
         >

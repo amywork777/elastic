@@ -43,7 +43,7 @@ export function isInvokeDef(node: unknown): node is InvokeDef {
 
 /**
  * Declare the contract. Identity at run time — its whole job is to pin the
- * literal type of the tree so `TextToCadApi` and `IpcHandlers` can be derived
+ * literal type of the tree so `WorkbenchApi` and `IpcHandlers` can be derived
  * from it.
  */
 export function defineIpc<const T extends IpcNode>(contract: T): T {

@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { Expand } from "lucide-react";
 
 import { AttachmentPreview } from "@renderer/components/ai-elements/attachments";

@@ -8,10 +8,10 @@
  *   - main gets `IpcHandlers`, a nested object of functions whose argument and
  *     return types are the schemas, registered with request *and* response
  *     validation (`src/main/ipc/index.ts`);
- *   - preload builds `window.textToCad` by walking the same tree
+ *   - preload builds `window.workbench` by walking the same tree
  *     (`src/preload/index.ts`), so the renderer's API and the contract cannot
  *     disagree;
- *   - the renderer imports `TextToCadApi` — types only. Renderer code never
+ *   - the renderer imports `WorkbenchApi` — types only. Renderer code never
  *     touches `ipcRenderer`, and never imports anything from `src/main`.
  *
  * Validation is not decoration. The renderer is a browser context: everything
@@ -43,11 +43,9 @@ import { acpContract, acpEvents } from "./acp";
 import { agentOptionsContract, agentOptionsEvents } from "./agent-options";
 import { agentsContract, agentsEvents } from "./agents";
 import { dialogsContract } from "./dialogs";
-import { runtimeContract, runtimeEvents } from "./runtime";
 import { onboardingContract } from "./onboarding";
 import { skillsContract } from "./skills";
 import { integrationsIpc, integrationsEvents } from "./integrations";
-import { cadIpc } from "./cad";
 import { explorerEvents, explorerIpc } from "./explorer";
 import { gitIpc } from "./git";
 import { clipboardContract } from "./clipboard";
@@ -55,7 +53,6 @@ import { browserIpc } from "./browser";
 
 export * from "./define";
 export * from "./agent-options";
-export * from "./cad";
 export * from "./explorer";
 export * from "./git";
 
@@ -122,9 +119,6 @@ export const ipcContract = defineIpc({
 
   /** P5: the skills root every session is handed. */
   ...skillsContract,
-
-  /** P5: the CAD runtime that ships inside the app — its status and a re-probe. */
-  ...runtimeContract,
 
   /** First run: whether onboarding shows, and the sample project. */
   ...onboardingContract,
@@ -203,10 +197,8 @@ export const ipcContract = defineIpc({
   // The branches a phase owns are declared in their own file and spread in
   // here, so this map stays a map. `explorer.*` and `terminal.*` come from
   // ./explorer (P3); `git.*` from ./git (P3's reads, P7's worktrees);
-  // `cad.*` from ./cad (P3's stub, P5's implementation).
   ...explorerIpc,
   ...gitIpc,
-  ...cadIpc,
   ...integrationsIpc,
 });
 
@@ -234,10 +226,9 @@ export const ipcEvents = {
   ...acpEvents,
   ...agentsEvents,
   ...agentOptionsEvents,
-  ...runtimeEvents,
   // `files.changed`, `terminal.data` and `terminal.exit` (P3).
   ...explorerEvents,
-  // `integrations.command` — the text-to-cad MCP server's way into the explorer (P5).
+  // `integrations.command` — the app MCP server's way into the explorer (P5).
   ...integrationsEvents,
 } as const;
 
@@ -249,8 +240,8 @@ export type IpcEventPayload<C extends IpcEventChannel> = z.infer<IpcEvents[C]>;
 /* The bridge                                                                  */
 /* -------------------------------------------------------------------------- */
 
-/** What preload puts on `window.textToCad`. */
-export type TextToCadApi = IpcClient<IpcContract> & {
+/** What preload puts on `window.workbench`. */
+export type WorkbenchApi = IpcClient<IpcContract> & {
   /**
    * Subscribe to a main-process event. Returns the unsubscribe function —
    * React effects want a teardown, and a listener that outlives its component

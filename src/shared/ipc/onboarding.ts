@@ -15,7 +15,7 @@ export const OnboardingStatusSchema = z.object({
   /**
    * False under the test suites (`NODE_ENV=test`), whose fresh profiles would
    * otherwise open on the welcome instead of the screen they test.
-   * `TEXT_TO_CAD_ONBOARDING=1` turns it back on for a test that wants the welcome.
+   * `WORKBENCH_ONBOARDING=1` turns it back on for a test that wants the welcome.
    */
   enabled: z.boolean(),
 });

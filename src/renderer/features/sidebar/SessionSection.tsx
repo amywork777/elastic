@@ -1,7 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { ChevronRight, Plus } from "lucide-react";
 import { cn } from "cn";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { Button } from "@renderer/components/ui/button";
 import {

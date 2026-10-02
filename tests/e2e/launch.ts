@@ -39,8 +39,8 @@ export async function launch(options: {
   const merged = {
     ...process.env,
     NODE_ENV: "test",
-    TEXT_TO_CAD_FAKE_AGENT: fakeAgent,
-    ...(options.fakeArgs ? { TEXT_TO_CAD_FAKE_AGENT_ARGS: options.fakeArgs } : {}),
+    WORKBENCH_FAKE_AGENT: fakeAgent,
+    ...(options.fakeArgs ? { WORKBENCH_FAKE_AGENT_ARGS: options.fakeArgs } : {}),
     ...options.env,
   };
   for (const [key, value] of Object.entries(merged)) {
@@ -74,7 +74,7 @@ export type ChosenDirectory = { id: string; name: string; path: string; createdA
 export async function chooseDirectory(app: ElectronApplication, directory: string): Promise<ChosenDirectory> {
   return app.evaluate(
     (_electron, chosen) =>
-      (globalThis as unknown as { __textToCadE2E: { choose(directory: string): ChosenDirectory } }).__textToCadE2E.choose(chosen),
+      (globalThis as unknown as { __workbenchE2E: { choose(directory: string): ChosenDirectory } }).__workbenchE2E.choose(chosen),
     directory,
   );
 }
@@ -166,7 +166,7 @@ export async function newTab(page: Page, label: string) {
 
 /** Set the theme through the settings and wait for the document to wear it. */
 export async function setTheme(page: Page, theme: "dark" | "light") {
-  await page.evaluate((value) => (window as unknown as { textToCad: { settings: { set(patch: { theme: string }): Promise<unknown> } } }).textToCad.settings.set({ theme: value }), theme);
+  await page.evaluate((value) => (window as unknown as { workbench: { settings: { set(patch: { theme: string }): Promise<unknown> } } }).workbench.settings.set({ theme: value }), theme);
   await expect(page.locator("html")).toHaveClass(theme === "dark" ? /\bdark\b/ : /^(?!.*\bdark\b).*$/);
 }
 

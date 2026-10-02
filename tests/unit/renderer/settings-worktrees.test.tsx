@@ -6,7 +6,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { SettingsRoute } from "@renderer/features/settings/SettingsRoute";
 import { GitPage } from "@renderer/features/settings/pages/GitPage";
 import {
@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 it("does not offer Delete on a locked worktree, and names the lock", async () => {
-  vi.mocked(window.textToCad.git.worktrees).mockResolvedValue([worktree({ locked: true })]);
+  vi.mocked(window.workbench.git.worktrees).mockResolvedValue([worktree({ locked: true })]);
   render(
     <TooltipProvider>
       <GitPage />
@@ -55,7 +55,7 @@ it("does not offer Delete on a locked worktree, and names the lock", async () =>
 });
 
 it("says on the row why a worktree is kept: in use, locked", async () => {
-  vi.mocked(window.textToCad.git.worktrees).mockResolvedValue([
+  vi.mocked(window.workbench.git.worktrees).mockResolvedValue([
     worktree({ path: "/w/p/busy", branch: "busy", openSessions: 1 }),
     worktree({ path: "/w/p/held", branch: "held", locked: true }),
   ]);
@@ -70,8 +70,8 @@ it("says on the row why a worktree is kept: in use, locked", async () => {
 
 it("words a worktree root that is now a file as a file, and drops \"created again\" for it", async () => {
   useSettings.setState({ settings: { ...defaultSettings(), worktreeRoot: "/a-file" }, ready: true });
-  vi.mocked(window.textToCad.git.worktrees).mockResolvedValue([]);
-  vi.mocked(window.textToCad.settings.fallbacks).mockResolvedValue({ refused: {}, gone: { worktreeRoot: { path: "/a-file", reason: "file" } } });
+  vi.mocked(window.workbench.git.worktrees).mockResolvedValue([]);
+  vi.mocked(window.workbench.settings.fallbacks).mockResolvedValue({ refused: {}, gone: { worktreeRoot: { path: "/a-file", reason: "file" } } });
   render(
     <TooltipProvider>
       <GitPage />
@@ -83,8 +83,8 @@ it("words a worktree root that is now a file as a file, and drops \"created agai
 
 it("keeps \"created again with the next worktree\" for a worktree root that is missing", async () => {
   useSettings.setState({ settings: { ...defaultSettings(), worktreeRoot: "/gone" }, ready: true });
-  vi.mocked(window.textToCad.git.worktrees).mockResolvedValue([]);
-  vi.mocked(window.textToCad.settings.fallbacks).mockResolvedValue({ refused: {}, gone: { worktreeRoot: { path: "/gone", reason: "missing" } } });
+  vi.mocked(window.workbench.git.worktrees).mockResolvedValue([]);
+  vi.mocked(window.workbench.settings.fallbacks).mockResolvedValue({ refused: {}, gone: { worktreeRoot: { path: "/gone", reason: "missing" } } });
   render(
     <TooltipProvider>
       <GitPage />
@@ -95,8 +95,8 @@ it("keeps \"created again with the next worktree\" for a worktree root that is m
 
 it("reads afresh each time the search mounts the Git page, and keeps the list on the page meanwhile", async () => {
   const user = userEvent.setup();
-  vi.mocked(window.textToCad.git.worktrees).mockClear();
-  vi.mocked(window.textToCad.git.worktrees).mockResolvedValue([worktree({})]);
+  vi.mocked(window.workbench.git.worktrees).mockClear();
+  vi.mocked(window.workbench.git.worktrees).mockResolvedValue([worktree({})]);
   useUi.setState({ route: "settings", settingsSection: "general", commandPaletteOpen: false });
   render(
     <TooltipProvider>
@@ -111,7 +111,7 @@ it("reads afresh each time the search mounts the Git page, and keeps the list on
   // The list from the first mount is on the page at once, not after the new read.
   expect(screen.getAllByText("text-to-cad/fillet")).not.toHaveLength(0);
   // A file removed on disk makes a worktree clean: a mount reads again, over the old list.
-  await waitFor(() => expect(window.textToCad.git.worktrees).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(window.workbench.git.worktrees).toHaveBeenCalledTimes(2));
 });
 
 const deferred = <T,>() => {
@@ -125,7 +125,7 @@ const deferred = <T,>() => {
 it("reads again after an invalidation discards a read in flight, instead of handing back the discarded one", async () => {
   const first = deferred<Worktree[]>();
   const second = deferred<Worktree[]>();
-  vi.mocked(window.textToCad.git.worktrees).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+  vi.mocked(window.workbench.git.worktrees).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
   const a = ensureWorktrees("p");
   useWorktreeCache.getState().invalidate();
   const b = ensureWorktrees("p");
@@ -137,7 +137,7 @@ it("reads again after an invalidation discards a read in flight, instead of hand
 
 it("keeps the previous list on the page while a re-read is under way", async () => {
   const again = deferred<Worktree[]>();
-  vi.mocked(window.textToCad.git.worktrees)
+  vi.mocked(window.workbench.git.worktrees)
     .mockResolvedValueOnce([worktree({})])
     .mockReturnValueOnce(again.promise);
   render(
@@ -147,7 +147,7 @@ it("keeps the previous list on the page while a re-read is under way", async () 
   );
   expect(await screen.findByText("text-to-cad/fillet")).toBeInTheDocument();
   act(() => useWorktreeCache.getState().invalidate());
-  expect(window.textToCad.git.worktrees).toHaveBeenCalledTimes(2);
+  expect(window.workbench.git.worktrees).toHaveBeenCalledTimes(2);
   expect(screen.getByText("text-to-cad/fillet")).toBeInTheDocument();
   await act(async () => again.resolve([worktree({ branch: "text-to-cad/other" })]));
   expect(await screen.findByText("text-to-cad/other")).toBeInTheDocument();

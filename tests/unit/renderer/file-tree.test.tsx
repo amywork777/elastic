@@ -1,4 +1,4 @@
-import { FileViewer, defineFileRenderer } from "@text-to-cad/ui/file-viewer";
+import { FileViewer, defineFileRenderer } from "@workbench/ui/file-viewer";
 import { useMemo } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -9,7 +9,7 @@ import { useExplorer, useTree } from "@renderer/state/explorer";
 import type { DirEntry } from "@shared/ipc/explorer";
 
 /**
- * The SHARED tree (`@text-to-cad/ui/navigation`) over THIS app's source adapter
+ * The SHARED tree (`@workbench/ui/navigation`) over THIS app's source adapter
  * (`features/explorer/adapters/fileSource.ts`), against a small project listed one
  * level at a time, the way `src/main/explorer/fs.ts` lists one.
  *
@@ -53,8 +53,8 @@ function entriesOf(directory: string): DirEntry[] {
 let listed: string[];
 
 /** Replace one `explorer.*` call on the preload bridge, which is read-only. */
-function stub(name: keyof typeof window.textToCad.explorer, implementation: unknown) {
-  (window.textToCad.explorer as unknown as Record<string, unknown>)[name] = vi.fn(implementation as never);
+function stub(name: keyof typeof window.workbench.explorer, implementation: unknown) {
+  (window.workbench.explorer as unknown as Record<string, unknown>)[name] = vi.fn(implementation as never);
 }
 
 beforeEach(() => {
@@ -247,12 +247,12 @@ describe("FileTree", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByLabelText("Rename README.md")).toBeNull());
     expect(row("README.md")).toHaveFocus();
-    expect(window.textToCad.explorer.rename).not.toHaveBeenCalled();
+    expect(window.workbench.explorer.rename).not.toHaveBeenCalled();
 
     // Enter commits through main, and the row follows the answer.
     await user.keyboard("{F2}");
     await user.keyboard("{Control>}a{/Control}NOTES.md{Enter}");
-    await waitFor(() => expect(window.textToCad.explorer.rename).toHaveBeenCalledWith({ projectId: "p1", path: "README.md", name: "NOTES.md" }));
+    await waitFor(() => expect(window.workbench.explorer.rename).toHaveBeenCalledWith({ projectId: "p1", path: "README.md", name: "NOTES.md" }));
   });
 
   it("filters to a flat list of paths", async () => {

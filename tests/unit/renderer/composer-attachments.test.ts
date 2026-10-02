@@ -23,7 +23,7 @@ URL.revokeObjectURL = () => {};
 
 const project: Project = { id: "p", name: "p", path: "/p", createdAt: 0 };
 const draftKey = "__new__:p";
-const explorer = window.textToCad.explorer as unknown as {
+const explorer = window.workbench.explorer as unknown as {
   paths: ReturnType<typeof vi.fn>;
   stat: ReturnType<typeof vi.fn>;
 };

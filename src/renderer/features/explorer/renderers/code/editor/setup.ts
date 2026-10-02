@@ -17,7 +17,7 @@
  * The two themes are the app's tokens, hand-converted: Monaco takes hex, not
  * `var(--background)`, so this is the one place in the renderer where a colour
  * is written out. The values are the surface tokens
- * `@text-to-cad/ui/tokens.css` states in oklch — dark `--background` is
+ * `@workbench/ui/tokens.css` states in oklch — dark `--background` is
  * `oklch(0.28 0 0)`, `#292929`, and so on down `SURFACE`. The editor sits on
  * the shell's own background: an editor a shade off the pane around it reads
  * as a slab with seams at every edge, which is what the stacked diffs in the

@@ -1,4 +1,4 @@
-import { normalizeCadRefSelectors, parseCadRefSelector } from "@text-to-cad/core/lib/cadRefs.js";
+import { normalizeCadRefSelectors, parseCadRefSelector } from "@workbench/core/lib/cadRefs.js";
 
 // Annotations: notes a person pins to the geometry they selected, for prompting. Each one is the
 // references that were selected when it was made (the portable `selector`, e.g. "o1.1.e3", and a

@@ -1,5 +1,5 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
-import { formatPromptAnnotation, type PromptReference } from "@text-to-cad/core/prompt";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
+import { formatPromptAnnotation, type PromptReference } from "@workbench/core/prompt";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Crosshair, MessageSquareDot, X } from "lucide-react";
 import { toast } from "sonner";
@@ -30,7 +30,7 @@ export function openAnnotation(scope: ReferenceScope | null, annotation: DraftAn
     throw new Error("Open this session’s project to see where the annotation is.");
   }
   const tab = explorer.openFile(file, scope.root);
-  if (tab) explorer.openCadAnnotation(tab.id, annotation.id);
+  if (tab) explorer.openAnnotation(tab.id, annotation.id);
 }
 
 /**

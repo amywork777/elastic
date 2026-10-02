@@ -4,7 +4,7 @@ import * as React from "react"
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
-import { cn } from "@text-to-cad/ui/utils"
+import { cn } from "@workbench/ui/utils"
 
 function Sheet({
   ...props

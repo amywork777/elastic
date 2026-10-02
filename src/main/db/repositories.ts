@@ -442,7 +442,7 @@ export const explorerTabs = {
     if (tabs.some(tab => tab.sessionId !== sessionId || tab.projectId !== session.projectId)) {
       throw new Error("Explorer tabs belong to a different session");
     }
-    const parsed = tabs.filter(tab => tab.kind !== "drawing").map(tab => PersistedExplorerTabSchema.parse(tab));
+    const parsed = tabs.map(tab => PersistedExplorerTabSchema.parse(tab));
     const connection = db();
     connection.transaction(() => {
       connection.prepare("DELETE FROM explorer_tabs WHERE session_id = ?").run(sessionId);

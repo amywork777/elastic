@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { PromptContext, PromptPart } from "@text-to-cad/core/prompt";
+import type { PromptContext, PromptPart } from "@workbench/core/prompt";
 
 import { createDesktopPromptContext } from "@renderer/features/explorer/host/promptContext";
 import { useComposer } from "@renderer/state/composer";

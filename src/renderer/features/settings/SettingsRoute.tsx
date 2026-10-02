@@ -41,7 +41,7 @@ export function SettingsRoute() {
   // not), and closing Settings drops them.
   useEffect(() => {
     seedSessions(useSessions.getState().sessions);
-    const off = window.textToCad.on("sessions.changed", noteSessions);
+    const off = window.workbench.on("sessions.changed", noteSessions);
     return () => {
       off();
       useWorktreeCache.getState().clear();

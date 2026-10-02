@@ -11,7 +11,7 @@ TipTap and PDF.js dependencies and their tests; its README describes them. They
 use only this package's public exports, and they are what a host renderer may
 rely on:
 
-- `defineFileRenderer` and the registration contract from `@text-to-cad/ui/file-viewer`
+- `defineFileRenderer` and the registration contract from `@workbench/ui/file-viewer`
   ([FileViewer](file-viewer.md)), including `fallback: true` for the one
   renderer that takes files nothing else matches, and `body` panels for a view
   that replaces the content rather than sitting in the panel column (the
@@ -22,9 +22,9 @@ rely on:
   release lease; the renderer returns it as the prepared document's `dispose`,
   and FileViewer releases it when the request is cancelled, the file changes,
   or the view unmounts.
-- The host ports in `@text-to-cad/ui/host`: `useViewerHost`, `PromptContextAction`
+- The host ports in `@workbench/ui/host`: `useViewerHost`, `PromptContextAction`
   for prompt delivery, and the live `documents` and `pdf` capabilities
   ([viewer host](viewer-host.md#live-text-and-pdf-capabilities)).
-- Shared chrome from `@text-to-cad/ui/navigation` (`EmptyState`),
-  `@text-to-cad/ui/primitives/*` and `@text-to-cad/ui/utils`, styled by this
+- Shared chrome from `@workbench/ui/navigation` (`EmptyState`),
+  `@workbench/ui/primitives/*` and `@workbench/ui/utils`, styled by this
   package's `styles.css` and the host's own Tailwind build.

@@ -1,5 +1,5 @@
-import { normalizeParameterValues } from "@text-to-cad/core/common/parameters.js";
-import { restoreAnimationState } from "@text-to-cad/core/common/animationClock.js";
+import { normalizeParameterValues } from "@workbench/core/common/parameters.js";
+import { restoreAnimationState } from "@workbench/core/common/animationClock.js";
 
 // A model can be posed by Position or by a routine. The owner in hand wins: while a routine
 // owns the pose, the Position values are not applied under it.

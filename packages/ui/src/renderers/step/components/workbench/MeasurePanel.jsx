@@ -1,9 +1,9 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { X } from "lucide-react";
 
-import { MEASURE_SNAP_LABELS, formatMeasurementAngle, formatMeasurementDelta } from "@text-to-cad/core/lib/viewer/measurement.js";
-import { measureLabelText, measureSeriesColor } from "@text-to-cad/core/lib/viewer/measureDimension.js";
-import { cn } from "@text-to-cad/ui/utils";
+import { MEASURE_SNAP_LABELS, formatMeasurementAngle, formatMeasurementDelta } from "@workbench/core/lib/viewer/measurement.js";
+import { measureLabelText, measureSeriesColor } from "@workbench/core/lib/viewer/measureDimension.js";
+import { cn } from "@workbench/ui/utils";
 
 
 // The Measure panel's body: its measurements, one row each, or — before the first — one hint row

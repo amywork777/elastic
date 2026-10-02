@@ -39,7 +39,7 @@ export function useSettingsFallbacks(): SettingsFallbacks {
   const [fallbacks, setFallbacks] = useState<SettingsFallbacks>(NO_FALLBACKS);
   useEffect(() => {
     let current = true;
-    void window.textToCad.settings
+    void window.workbench.settings
       .fallbacks()
       .then((next) => {
         if (current) setFallbacks(next);

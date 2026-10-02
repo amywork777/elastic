@@ -11,7 +11,7 @@
 import { useEffect, useId, useState } from "react";
 import { Folder, TriangleAlert } from "lucide-react";
 import { Spinner } from "@renderer/components/ui/spinner";
-import { Alert, AlertDescription } from "@text-to-cad/ui/primitives/alert";
+import { Alert, AlertDescription } from "@workbench/ui/primitives/alert";
 
 import { Button } from "@renderer/components/ui/button";
 import { Textarea } from "@renderer/components/ui/textarea";
@@ -126,7 +126,7 @@ export function GitPage() {
           description="Every worktree lives here, under a folder per project, whichever agent made it."
           keywords="directory location root"
           onChoose={() => {
-            void window.textToCad.dialogs
+            void window.workbench.dialogs
               .chooseDirectory({
                 title: "Worktree root",
                 defaultPath: settings.worktreeRoot ?? undefined,
@@ -255,7 +255,7 @@ function ProjectWorktreeCard({ project }: { project: Project }) {
     setBusy(worktree.path);
     setError(null);
     try {
-      await window.textToCad.git.removeWorktree({ projectId: project.id, path: worktree.path });
+      await window.workbench.git.removeWorktree({ projectId: project.id, path: worktree.path });
       useWorktreeCache.getState().invalidate();
     } catch (caught) {
       setError(errorMessage(caught));
@@ -334,7 +334,7 @@ function ProjectWorktreeCard({ project }: { project: Project }) {
           <Button
             className="h-8 gap-1.5"
             onClick={() => {
-              void window.textToCad.shell.showItemInFolder({ projectId: project.id, worktrees: true });
+              void window.workbench.shell.showItemInFolder({ projectId: project.id, worktrees: true });
             }}
             size="sm"
             variant="ghost"

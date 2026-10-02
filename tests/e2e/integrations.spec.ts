@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import type { TextToCadApi } from "../../src/shared/ipc";
+import type { WorkbenchApi } from "../../src/shared/ipc";
 import { chooseDirectory, launch, mod, scratch } from "./launch";
 
 /**
@@ -24,7 +24,7 @@ import { chooseDirectory, launch, mod, scratch } from "./launch";
  * so what is asserted is the wire and the app, never a model.
  */
 
-declare const window: { textToCad: TextToCadApi };
+declare const window: { workbench: WorkbenchApi };
 
 type Frame = { kind: string; params: Record<string, unknown> };
 type ToolResult = { isError?: boolean; content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> };
@@ -53,7 +53,7 @@ test.beforeAll(async () => {
     env: { FAKE_AGENT_INTEGRATION_PROOF: "1", FAKE_AGENT_RECORD: record, CADGEN_DAEMON: "0" },
   }));
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.evaluate(() => window.textToCad.settings.set({ theme: "dark" }));
+  await page.evaluate(() => window.workbench.settings.set({ theme: "dark" }));
   projectId = (await chooseDirectory(app, project)).id;
 });
 
@@ -63,14 +63,14 @@ test.afterAll(async () => {
 });
 
 test("the skills root is in session/new in both layouts, and the preamble only for an agent that ignores it", async () => {
-  const info = await page.evaluate(() => window.textToCad.skills.info());
+  const info = await page.evaluate(() => window.workbench.skills.info());
   const names = info.skills.map((skill) => skill.name);
-  expect(names).toEqual(expect.arrayContaining(["cad", "cad-viewer", "documents", "pdf", "drawings", "terminals", "text-to-cad-browser"]));
+  expect(names).toEqual(expect.arrayContaining(["cad", "cad-viewer", "documents", "pdf", "drawings", "terminals", "app-browser"]));
   expect(names).not.toContain("text-to-cad-app-use");
   // One directory per app version, under the app's own user-data directory.
   expect(path.dirname(info.root!)).toBe(path.join(fs.realpathSync(path.join(userData, "profile")), "skills"));
   for (const layout of [path.join(".claude", "skills"), path.join(".agents", "skills")]) {
-    for (const name of ["cad", "cad-viewer", "documents", "pdf", "drawings", "terminals", "text-to-cad-browser"]) {
+    for (const name of ["cad", "cad-viewer", "documents", "pdf", "drawings", "terminals", "app-browser"]) {
       expect(fs.existsSync(path.join(info.root!, layout, name, "SKILL.md"))).toBe(true);
     }
   }
@@ -90,7 +90,7 @@ test("the skills root is in session/new in both layouts, and the preamble only f
   // The app's own cadgen is first on the session's PATH, where `command -v` finds it.
   const first = String(created.params.PATH ?? "").split(path.delimiter)[0]!;
   const shipped = [path.join(first, "cadgen"), path.join(first, "cadgen.cmd")].find((candidate) => fs.existsSync(candidate));
-  if (process.env.TEXT_TO_CAD_E2E_REQUIRE_CAD === "1") {
+  if (process.env.WORKBENCH_E2E_REQUIRE_CAD === "1") {
     expect(shipped, "CAD qualification requires the app's cadgen command in the session PATH").toBeDefined();
   }
   if (shipped) expect(native.find((frame) => frame.kind === "which")!.params.cadgen).toBe(shipped);
@@ -105,7 +105,7 @@ test("the skills root is in session/new in both layouts, and the preamble only f
 
 test("a real ACP session starts isolated domain MCPs and operates the live app's resources", async () => {
   test.setTimeout(120_000);
-  const session = await page.evaluate((id) => window.textToCad.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "none", name: "Integration proof" }), projectId);
+  const session = await page.evaluate((id) => window.workbench.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "none", name: "Integration proof" }), projectId);
   sessionId = session.id;
   await page.locator(`[data-session-row="${sessionId}"]`).click();
   await expect(page.locator("[data-explorer-ready=true]")).toBeVisible();
@@ -220,9 +220,9 @@ function frames(): Frame[] {
 async function run(agentId: string, prompts: string[]): Promise<Frame[]> {
   const before = frames().length;
   const id = (await page.evaluate(({ projectId, agentId, cwd }) =>
-    window.textToCad.sessions.create({ projectId, agentId, cwd, gitMode: "none" }), { projectId, agentId, cwd: project })).id;
+    window.workbench.sessions.create({ projectId, agentId, cwd, gitMode: "none" }), { projectId, agentId, cwd: project })).id;
   for (const text of prompts) {
-    await page.evaluate(({ id, text }) => window.textToCad.sessions.prompt({ id, content: [{ type: "text", text }] }), { id, text });
+    await page.evaluate(({ id, text }) => window.workbench.sessions.prompt({ id, content: [{ type: "text", text }] }), { id, text });
   }
   return frames().slice(before);
 }
@@ -230,7 +230,7 @@ async function run(agentId: string, prompts: string[]): Promise<Frame[]> {
 /** One `integration-proof` turn: the fake agent runs the request and records the result. */
 async function proof(request: Record<string, unknown>): Promise<unknown> {
   const id = String(++counter);
-  const result = await page.evaluate(({ sessionId, text }) => window.textToCad.sessions.prompt({ id: sessionId, content: [{ type: "text", text }] }),
+  const result = await page.evaluate(({ sessionId, text }) => window.workbench.sessions.prompt({ id: sessionId, content: [{ type: "text", text }] }),
     { sessionId, text: `integration-proof ${JSON.stringify({ ...request, id })}` });
   expect(result.stopReason).toBe("end_turn");
   const entry = frames().find((frame) => frame.kind === "integration-proof" && frame.params.id === id);

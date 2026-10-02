@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
-import { createScreenSpaceLineSegments, topologyLineDepthBiasForWidth } from "@text-to-cad/core/common/renderEdges.js";
-import { STEP_TREE_TOPOLOGY_NODE_PREFIX } from "@text-to-cad/core/lib/step/stepTree.js";
+import { createScreenSpaceLineSegments, topologyLineDepthBiasForWidth } from "@workbench/core/common/renderEdges.js";
+import { STEP_TREE_TOPOLOGY_NODE_PREFIX } from "@workbench/core/lib/step/stepTree.js";
 import {
   buildEdgeLinePositionsFromProxy, buildFaceBoundaryLinePositions, buildFaceFillGeometryFromDisplayMeshes,
   buildFaceFillGeometryFromProxy, buildVertexMarkerMesh, referenceExplodedViewMatrix, REFERENCE_CORNER_COLOR
-} from "@text-to-cad/core/lib/viewer/referenceGeometry.js";
+} from "@workbench/core/lib/viewer/referenceGeometry.js";
 import { clearOverlayGroup, getHighlightEdgeColor, getHighlightEdgeOpacity, getHighlightEdgeThickness } from "./useStepDisplay.js";
 
 function referenceSelectorType(reference) {

@@ -14,7 +14,7 @@ export function useAppInfo(): AppInfo | null {
 
   useEffect(() => {
     let live = true;
-    void window.textToCad.app.info().then((next) => {
+    void window.workbench.app.info().then((next) => {
       if (live) {
         setInfo(next);
       }

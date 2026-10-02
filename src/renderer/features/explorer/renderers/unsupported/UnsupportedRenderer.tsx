@@ -1,9 +1,9 @@
 import { ExternalLink, FileQuestion } from "lucide-react";
 
-import type { FileRendererProps } from "@text-to-cad/ui/file-viewer";
-import { EmptyState } from "@text-to-cad/ui/navigation";
-import { Button } from "@text-to-cad/ui/primitives/button";
-import { useViewerHost } from "@text-to-cad/ui/host";
+import type { FileRendererProps } from "@workbench/ui/file-viewer";
+import { EmptyState } from "@workbench/ui/navigation";
+import { Button } from "@workbench/ui/primitives/button";
+import { useViewerHost } from "@workbench/ui/host";
 
 import { formatBytes } from "../image/ImageRenderer";
 

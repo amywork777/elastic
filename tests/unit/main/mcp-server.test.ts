@@ -10,9 +10,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 // The server the agent talks to, from its source; the packaged app runs the
 // esbuild bundle of the same file (scripts/build-mcp.mjs).
-import { BRIDGE_ENV, createServer, httpBridge, isInside } from "../../../resources/text-to-cad-mcp/server.mjs";
+import { BRIDGE_ENV, createServer, httpBridge, isInside } from "../../../resources/app-mcp/server.mjs";
 
-const SERVER = fileURLToPath(new URL("../../../resources/text-to-cad-mcp/server.mjs", import.meta.url));
+const SERVER = fileURLToPath(new URL("../../../resources/app-mcp/server.mjs", import.meta.url));
 
 type Call = { method: string; params: unknown };
 
@@ -46,7 +46,7 @@ afterEach(() => {
 
 /** A materialised skills root, in the layout this server reads. */
 function skillsRoot(skills: Record<string, string>): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "text-to-cad-mcp-skills-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "app-mcp-skills-"));
   temps.push(root);
   for (const [name, description] of Object.entries(skills)) {
     const dir = path.join(root, ".claude", "skills", name);

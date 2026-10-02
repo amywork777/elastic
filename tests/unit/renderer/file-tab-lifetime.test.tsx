@@ -9,7 +9,7 @@ import type { Project } from "@shared/types";
 let delayedOpen: (() => void) | undefined;
 
 vi.mock("@renderer/features/explorer/renderers", async () => {
-  const { defineFileRenderer } = await import("@text-to-cad/ui/file-viewer");
+  const { defineFileRenderer } = await import("@workbench/ui/file-viewer");
   const renderers = [defineFileRenderer({
     id: "text-lifetime", priority: 0, matches: () => true,
     prepare: async ({ file, source, signal }) => ({ data: null, text: await source.readText!(file.path, { signal }) }),
@@ -24,8 +24,8 @@ vi.mock("@renderer/features/explorer/renderers", async () => {
 });
 
 const project: Project = { id: "rename-project", name: "Original project", path: "/tmp/rename-project", createdAt: 0 };
-function stub(name: keyof typeof window.textToCad.explorer, implementation: unknown) {
-  (window.textToCad.explorer as unknown as Record<string, unknown>)[name] = vi.fn(implementation as never);
+function stub(name: keyof typeof window.workbench.explorer, implementation: unknown) {
+  (window.workbench.explorer as unknown as Record<string, unknown>)[name] = vi.fn(implementation as never);
 }
 beforeEach(() => {
   localStorage.clear();
@@ -50,12 +50,12 @@ it("preserves the dirty editor and its save revision when a project label change
   view.rerender(<FileTab {...props} project={{ ...project, name: "Renamed project" }} />);
   await screen.findByText("Renamed project");
   expect(editor).toHaveValue("unsaved draft");
-  expect(window.textToCad.explorer.readText).toHaveBeenCalledTimes(1);
+  expect(window.workbench.explorer.readText).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(window.textToCad.explorer.writeText).toHaveBeenCalledWith(expect.objectContaining({ content: "unsaved draft", expectedRevision: "r1" })));
+  await waitFor(() => expect(window.workbench.explorer.writeText).toHaveBeenCalledWith(expect.objectContaining({ content: "unsaved draft", expectedRevision: "r1" })));
   await waitFor(() => expect(screen.queryByLabelText("Unsaved changes")).not.toBeInTheDocument());
   // The explorer owns a debounced IPC write; finish it before jsdom is torn down.
-  await waitFor(() => expect(window.textToCad.explorer.saveTabs).toHaveBeenCalledWith(
+  await waitFor(() => expect(window.workbench.explorer.saveTabs).toHaveBeenCalledWith(
     expect.objectContaining({ sessionId: "file-tab-owner", tabs: expect.arrayContaining([expect.objectContaining({ path: "notes.txt" })]) }),
   ));
 });
@@ -125,7 +125,7 @@ it("the watcher's echo of a save is not a change on disk: no reload, and no bann
   const echo = () => act(() => useExplorer.getState().receiveChanges(project.id, null, [{ kind: "changed", path: "notes.txt", directory: false, revision: "r2" }]));
   echo();
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
-  expect(window.textToCad.explorer.readText).toHaveBeenCalledTimes(1);
+  expect(window.workbench.explorer.readText).toHaveBeenCalledTimes(1);
   expect(screen.getByRole("textbox", { name: "Draft" })).toBe(editor);
   fireEvent.change(editor, { target: { value: "saved text, then more" } });
   echo();
@@ -135,7 +135,7 @@ it("the watcher's echo of a save is not a change on disk: no reload, and no bann
   // Someone else's edit still is one.
   act(() => useExplorer.getState().receiveChanges(project.id, null, [{ kind: "changed", path: "notes.txt", directory: false, revision: "r3" }]));
   await screen.findByText("This file changed on disk since you opened it.");
-  await waitFor(() => expect(window.textToCad.explorer.saveTabs).toHaveBeenCalled());
+  await waitFor(() => expect(window.workbench.explorer.saveTabs).toHaveBeenCalled());
 });
 
 it("a file that opens read-only says why, in the tab rather than in a native title", async () => {
@@ -157,5 +157,5 @@ it("a file that opens read-only says why, in the tab rather than in a native tit
   render(<FileTab sessionId="file-tab-owner" tabId={tab.id} project={project} root={null} path="notes.txt" panel={null} />);
   await screen.findByRole("textbox", { name: "Draft" });
   expect(document.querySelector("[data-read-only-reason]")).toBeNull();
-  await waitFor(() => expect(window.textToCad.explorer.saveTabs).toHaveBeenCalled());
+  await waitFor(() => expect(window.workbench.explorer.saveTabs).toHaveBeenCalled());
 });

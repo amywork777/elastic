@@ -1,4 +1,4 @@
-import { surfWorkerMemoryStats } from "@text-to-cad/core/lib/renderAssetClient.js";
+import { surfWorkerMemoryStats } from "@workbench/core/lib/renderAssetClient.js";
 
 import { viewerMemoryPolicy } from "./viewerMemoryPolicy.js";
 

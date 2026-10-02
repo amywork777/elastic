@@ -1,9 +1,9 @@
 import { Maximize2, Minimize2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import type { FileRendererProps } from "@text-to-cad/ui/file-viewer";
-import { cn } from "@text-to-cad/ui/utils";
-import { Button } from "@text-to-cad/ui/primitives/button";
+import type { FileRendererProps } from "@workbench/ui/file-viewer";
+import { cn } from "@workbench/ui/utils";
+import { Button } from "@workbench/ui/primitives/button";
 
 /**
  * A shared image view on a checkerboard, so transparency is visible rather than being

@@ -10,7 +10,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { AlertCircle, BookOpen, Download, RefreshCw, Search } from "lucide-react";
 import { cn } from "cn";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { Alert, AlertDescription, AlertTitle } from "@renderer/components/ui/alert";
 import { Button } from "@renderer/components/ui/button";
@@ -242,7 +242,7 @@ function AgentRow({ agent, onOpen }: { agent: AgentStatus; onOpen: () => void })
       </button>
       <IconButton
         label={`${agent.name} documentation`}
-        onClick={() => void window.textToCad.shell.openExternal({ url: agent.docsUrl })}
+        onClick={() => void window.workbench.shell.openExternal({ url: agent.docsUrl })}
       >
         <BookOpen className="size-3.5" />
       </IconButton>

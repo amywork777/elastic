@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Paperclip, X } from "lucide-react";
 import { cn } from "cn";

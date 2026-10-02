@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { projectWorktreeDir } from "../../src/main/projects/workspace";
-import type { TextToCadApi } from "../../src/shared/ipc";
+import type { WorkbenchApi } from "../../src/shared/ipc";
 import { chooseDirectory, launch, mod, newTab as newTabIn, scratch, settleTerminal, shoot as shootInto } from "./launch";
 
 /**
@@ -25,7 +25,7 @@ import { chooseDirectory, launch, mod, newTab as newTabIn, scratch, settleTermin
  * to the developer's `~/.text-to-cad`.
  */
 
-declare const window: { textToCad: TextToCadApi };
+declare const window: { workbench: WorkbenchApi };
 
 const gitEnv = {
   ...process.env,
@@ -61,7 +61,7 @@ test.beforeAll(async () => {
   git("commit", "--quiet", "-m", "the state being reviewed against");
   ({ app, page } = await launch({ userData: path.join(base, "user-data") }));
   // The worktree root before anything can create one in the real home directory.
-  await page.evaluate((root) => window.textToCad.settings.set({ theme: "dark", worktreeRoot: root, fetchBeforeCreate: false }), worktreeRoot);
+  await page.evaluate((root) => window.workbench.settings.set({ theme: "dark", worktreeRoot: root, fetchBeforeCreate: false }), worktreeRoot);
 });
 
 test.afterAll(async () => {
@@ -76,7 +76,7 @@ test("a chosen folder is a draft: no project, no explorer, and its words kept pe
   await expect(draft).toBeVisible();
   await expect(page.getByTestId("explorer")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Toggle explorer" })).toHaveCount(0);
-  expect(await page.evaluate(() => window.textToCad.projects.list())).toEqual([]);
+  expect(await page.evaluate(() => window.workbench.projects.list())).toEqual([]);
   await draft.fill("Round the car body");
   await chooseDirectory(app, other);
   await expect(page.getByRole("heading", { name: "What should we build in Other project?" })).toBeVisible();
@@ -84,13 +84,13 @@ test("a chosen folder is a draft: no project, no explorer, and its words kept pe
   // Re-choosing a folder restores its in-memory draft, still without a saved project.
   await chooseDirectory(app, repo);
   await expect(draft).toHaveText("Round the car body");
-  expect(await page.evaluate(() => window.textToCad.projects.list())).toEqual([]);
+  expect(await page.evaluate(() => window.workbench.projects.list())).toEqual([]);
   await expect(page.getByTestId("sidebar").locator("[data-sidebar-section]")).toHaveCount(0);
   await draft.fill("");
 });
 
 test("a checkout session runs in the project, and the review shows the agent's and the person's changes in every scope", async () => {
-  const session = await page.evaluate((id) => window.textToCad.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "checkout" }), projectId);
+  const session = await page.evaluate((id) => window.workbench.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "checkout" }), projectId);
   expect(session.cwd).toBe(repo);
   expect(session.branch).toBe("main");
   expect(session.worktreePath).toBeUndefined();
@@ -98,7 +98,7 @@ test("a checkout session runs in the project, and the review shows the agent's a
   // `Last turn` mark, which is read before the agent runs.
   const target = path.join(repo, "agent.txt");
   const { stopReason } = await page.evaluate(({ id, file }) =>
-    window.textToCad.sessions.prompt({ id, content: [{ type: "text" as const, text: `please write ${file}` }] }), { id: session.id, file: target });
+    window.workbench.sessions.prompt({ id, content: [{ type: "text" as const, text: `please write ${file}` }] }), { id: session.id, file: target });
   expect(stopReason).toBe("end_turn");
   expect(fs.existsSync(target)).toBe(true);
   // Named from the first prompt, with no git glyph: `main` is the project's own branch.
@@ -155,7 +155,7 @@ function worktreeFolder(): string {
 }
 
 test("a worktree session gets its own branch, directory and glyph, and the explorer roots there", async () => {
-  const session = await page.evaluate((id) => window.textToCad.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "worktree", name: "Model the wrist" }), projectId);
+  const session = await page.evaluate((id) => window.workbench.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "worktree", name: "Model the wrist" }), projectId);
   worktreeSessionId = session.id;
   const worktree = path.join(worktreeFolder(), "model-the-wrist");
   expect(session.cwd).toBe(worktree);
@@ -170,11 +170,11 @@ test("a worktree session gets its own branch, directory and glyph, and the explo
   // The fake agent writes `hello.txt` into the worktree, then calls the MCP server's `open_file`
   // on the relative name — adapter environment, stdio server, bridge token, main's root
   // resolution, the renderer's stores. The file exists only in the worktree.
-  const outcome = await page.evaluate(({ id, text }) => window.textToCad.sessions.prompt({ id, content: [{ type: "text", text }] }),
+  const outcome = await page.evaluate(({ id, text }) => window.workbench.sessions.prompt({ id, content: [{ type: "text", text }] }),
     { id: session.id, text: `write ${path.join(worktree, "hello.txt")} then open hello.txt` });
   expect(outcome.stopReason).toBe("end_turn");
   expect(fs.existsSync(path.join(repo, "hello.txt"))).toBe(false);
-  const state = await page.evaluate((id) => window.textToCad.sessions.state({ id }), session.id);
+  const state = await page.evaluate((id) => window.workbench.sessions.state({ id }), session.id);
   const openFile = state?.state.turns.flatMap((turn) => turn.parts)
     .find((part) => part.type === "tool_call" && /open_file/.test(String((part as { title?: string }).title))) as { status: string; output: unknown } | undefined;
   expect(openFile?.status, JSON.stringify(openFile?.output)).toBe("completed");
@@ -198,7 +198,7 @@ test("a worktree session gets its own branch, directory and glyph, and the explo
   // A local session in the same project has its own tabs, over the checkout.
   await page.keyboard.press(`${mod}+n`);
   await expect(page.getByTestId("explorer")).toHaveCount(0);
-  const local = await page.evaluate((id) => window.textToCad.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "none" }), projectId);
+  const local = await page.evaluate((id) => window.workbench.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "none" }), projectId);
   await page.locator(`[data-session-row="${local.id}"]`).getByRole("button").first().click();
   await expect(page.locator("[data-explorer-ready=true]")).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
@@ -223,7 +223,7 @@ test("the worktree is listed in Settings, and Delete takes it away once no sessi
   // A session is still open on it, and it holds the agent's uncommitted file: Delete is refused
   // before it is pressed, for each reason.
   await expect(page.getByRole("button", { name: "Delete" }).first()).toBeDisabled();
-  await page.evaluate((id) => window.textToCad.sessions.delete({ id }), worktreeSessionId);
+  await page.evaluate((id) => window.workbench.sessions.delete({ id }), worktreeSessionId);
   fs.rmSync(path.join(worktree, "hello.txt"));
   // Settings re-reads on remount: leaving and coming back proves the list is not a snapshot.
   await page.getByRole("button", { name: "General" }).click();
@@ -247,7 +247,7 @@ test("the new-session screen's New worktree makes the session in a worktree of i
   await draft.fill("write a file");
   await draft.press("Enter");
   await expect(page.locator("[data-session-view]")).toBeVisible({ timeout: 30_000 });
-  const sessions = await page.evaluate((id) => window.textToCad.sessions.list({ projectId: id }), projectId);
+  const sessions = await page.evaluate((id) => window.workbench.sessions.list({ projectId: id }), projectId);
   const made = sessions.find((session) => session.title.startsWith("write a file"));
   expect(made?.cwd).not.toBe(repo);
   expect(made?.worktreePath).toBe(made?.cwd);

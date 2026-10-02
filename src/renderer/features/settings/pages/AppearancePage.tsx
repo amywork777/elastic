@@ -9,7 +9,7 @@
  */
 import { Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "cn";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import {
   SelectRow,

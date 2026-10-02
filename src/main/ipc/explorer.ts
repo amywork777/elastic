@@ -9,6 +9,7 @@
  * project is gone, which is the honest answer to "read this file in a project
  * I removed" and stops a stale tab from reading an arbitrary path.
  */
+import { sessionRuntimePath } from "../runtime-path";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
@@ -35,13 +36,11 @@ import {
   statFile,
   writeTextFile,
 } from "../explorer/fs";
-import { sessionRuntimePath } from "../cad";
 import { Terminals } from "../explorer/terminal";
 import * as git from "../projects/git";
 import { projectWorktreeDir, realDirectory, resolveProjectRoot, rootBelongsToProject } from "../projects/workspace";
 import type { ExplorerTab, IpcEventChannel, IpcEventPayload } from "../../shared";
 import type { FileChange, FileMutationResult } from "../../shared/ipc/explorer";
-import { fileExtension, track } from "../telemetry";
 import { IpcError, type IpcContext } from "./register";
 
 /* -------------------------------------------------------------------------- */
@@ -525,14 +524,6 @@ export const explorerHandlers = {
         // again through `fileSource.ts`, and that stat watches.
         if (intent !== "open") return entry;
         await watchers?.watchEntry(root, entry);
-        // `file_opened`: opening a file tab is renderer state, and its stat is
-        // the call main sees for an open. A tab's reload after an on-disk
-        // change stats again without the intent, so it is neither held nor
-        // counted twice. Only the extension leaves:
-        // never the path or the name (README, "Telemetry").
-        if (entry.kind === "file") {
-          track({ name: "file_opened", extension: fileExtension(entry.path) });
-        }
         return entry;
       }),
 
@@ -703,7 +694,7 @@ export const explorerHandlers = {
           cwd: directory,
           ...(cols === undefined ? {} : { cols }),
           ...(rows === undefined ? {} : { rows }),
-          // A respawned agent-opened tab gets what `create_terminal` gave it: `cadgen` on PATH.
+          // A respawned agent-opened tab gets what `create_terminal` gave it: the session's runtime PATH.
           ...(agent ? { pathPrefix: sessionRuntimePath() } : {}),
         });
         const current = sessions.get(sessionId);

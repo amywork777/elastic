@@ -1,7 +1,7 @@
 import { Excalidraw, CaptureUpdateAction, convertToExcalidrawElements, exportToBlob, newElementWith, serializeAsJSON, viewportCoordsToSceneCoords } from '@excalidraw/excalidraw';
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI, ExcalidrawInitialDataState } from '@excalidraw/excalidraw/types';
 import type { ExcalidrawElement, FileId } from '@excalidraw/excalidraw/element/types';
-import { emptyDrawingDocument, MAX_DRAWING_BYTES, parseDrawingScene } from '@text-to-cad/core/drawing';
+import { emptyDrawingDocument, MAX_DRAWING_BYTES, parseDrawingScene } from '@workbench/core/drawing';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDrawingSession } from './session.js';
 import { DEFAULT_OVERLAY_DRAWING_COLOR, DRAWING_TOOLS, DrawingToolbar } from './toolbar.jsx';

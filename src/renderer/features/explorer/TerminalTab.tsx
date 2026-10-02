@@ -1,7 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
-import { createPromptContext } from "@text-to-cad/core/prompt";
+import { createPromptContext } from "@workbench/core/prompt";
 import { createDesktopPromptContext } from "./host/promptContext";
 import { useSessions } from "@renderer/state/sessions";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ import { useExplorer, updateSessionTab } from "@renderer/state/explorer";
 import { isTerminalReply } from "@shared/terminal-replies";
 import type { Project } from "@shared/types";
 
-import { EmptyState } from "@text-to-cad/ui/navigation";
+import { EmptyState } from "@workbench/ui/navigation";
 
 import { claimFocus, holdFocusClaim } from "./focus";
 import { errorMessage } from "@shared/ipc/errors";
@@ -182,11 +182,11 @@ export function TerminalTab({
     }
     let spawn = spawning.get(tabId);
     if (!spawn) {
-      spawn = window.textToCad.terminal
+      spawn = window.workbench.terminal
         .create({ sessionId, projectId: project.id, ...(cwd ? { cwd } : {}), ...(agent ? { agent } : {}) })
         // A shell can finish spawning after the person changes sessions.
         .then((info) => updateSessionTab(sessionId, tabId, { ptyId: info.id, cwd: info.cwd })
-          .catch(() => window.textToCad.terminal.kill({ id: info.id, sessionId }).catch(() => {})))
+          .catch(() => window.workbench.terminal.kill({ id: info.id, sessionId }).catch(() => {})))
         .finally(() => {
           spawning.delete(tabId);
         });
@@ -227,14 +227,14 @@ export function TerminalTab({
       new WebLinksAddon((_event, uri) => {
         // A URL printed by a build belongs in a browser, not in a webview
         // whose chrome this pane does not have.
-        void window.textToCad.shell.openExternal({ url: uri }).catch(() => {});
+        void window.workbench.shell.openExternal({ url: uri }).catch(() => {});
       }),
     );
     term.open(host);
 
     const push = () => {
       fit.fit();
-      void window.textToCad.terminal
+      void window.workbench.terminal
         .resize({ id: ptyId, sessionId, cols: term.cols, rows: term.rows })
         .catch(() => {});
     };
@@ -261,7 +261,7 @@ export function TerminalTab({
      */
     let replaying = false;
 
-    const offData = window.textToCad.on("terminal.data", (event) => {
+    const offData = window.workbench.on("terminal.data", (event) => {
       if (event.id !== ptyId) {
         return;
       }
@@ -273,7 +273,7 @@ export function TerminalTab({
     });
 
     // Attach: whatever the shell wrote while this tab was closed.
-    void window.textToCad.terminal
+    void window.workbench.terminal
       .attach({ id: ptyId, sessionId })
       .then((attached) => {
         if (!attached) {
@@ -299,7 +299,7 @@ export function TerminalTab({
         push();
       })
       .catch(() => {});
-    const offExit = window.textToCad.on("terminal.exit", (event) => {
+    const offExit = window.workbench.on("terminal.exit", (event) => {
       if (event.id === ptyId) {
         setExited(event.exitCode);
       }
@@ -310,7 +310,7 @@ export function TerminalTab({
         if (replaying && isTerminalReply(data)) {
           return;
         }
-        void window.textToCad.terminal.write({ id: ptyId, sessionId, data }).catch(() => {});
+        void window.workbench.terminal.write({ id: ptyId, sessionId, data }).catch(() => {});
       });
     }
 
@@ -387,7 +387,7 @@ export function TerminalTab({
   // exited pty's scrollback (up to 512 KB) until its tab lets go of the id,
   // and a tab that only forgot it would leave that behind on every restart.
   const restart = () => {
-    if (ptyId) void window.textToCad.terminal.kill({ id: ptyId, sessionId }).catch(() => {});
+    if (ptyId) void window.workbench.terminal.kill({ id: ptyId, sessionId }).catch(() => {});
     update(tabId, { ptyId: null });
   };
 

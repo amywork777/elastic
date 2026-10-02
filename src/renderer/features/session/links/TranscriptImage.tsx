@@ -41,7 +41,7 @@ function ProjectImage({ scope, path, alt, className }: { scope: TranscriptScope;
   const [read, setRead] = useState<{ path: string; dataUrl: string } | null>(null);
   useEffect(() => {
     let live = true;
-    window.textToCad.explorer
+    window.workbench.explorer
       .readBinary({ projectId: scope.projectId, ...(scope.root ? { root: scope.root } : {}), path })
       .then((binary) => {
         if (live && binary.mime.startsWith("image/") && binary.dataUrl.startsWith("data:image/")) {

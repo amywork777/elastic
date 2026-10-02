@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import { PNG } from 'pngjs';
-import { writeGlb } from '@text-to-cad/core/glb/writeGlb.js';
+import { writeGlb } from '@workbench/core/glb/writeGlb.js';
 
 // Inline fixtures, served from memory: two boxes with authored colours, the same
 // pair with one box driven by a clip whose first key IS the rest pose, and bytes

@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import {
   applyExplodedViewProgress, clearExplodedViewRecords, computeExplodedViewLayout, easeExplodedViewProgress
-} from "@text-to-cad/core/lib/viewer/explodedView.js";
-import { applyDisplayRecordTransform, toNumber } from "@text-to-cad/core/lib/viewer/modelRuntime.js";
-import { syncRecordTopologyDisplayEdgeTransforms } from "@text-to-cad/core/lib/viewer/topologyDisplayEdgeLine.js";
+} from "@workbench/core/lib/viewer/explodedView.js";
+import { applyDisplayRecordTransform, toNumber } from "@workbench/core/lib/viewer/modelRuntime.js";
+import { syncRecordTopologyDisplayEdgeTransforms } from "@workbench/core/lib/viewer/topologyDisplayEdgeLine.js";
 import { clamp } from "../../kit/camera/viewportCameraKit.js";
 import { inactiveExplodedViewNeedsReset } from "../render/explodedViewLifecycle.js";
 

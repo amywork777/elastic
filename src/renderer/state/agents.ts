@@ -76,7 +76,7 @@ export const useAgents = create<AgentsState>((set) => ({
    */
   load: async () => {
     try {
-      const agents = await window.textToCad.agents.list();
+      const agents = await window.workbench.agents.list();
       // A cold probe that failed answers with its flagged rows: nothing follows those on
       // `agents.status`, so they are the answer, and read as the failure they are.
       set({ agents, ready: agents.length > 0, loadError: probeFailure(agents) });
@@ -88,25 +88,25 @@ export const useAgents = create<AgentsState>((set) => ({
   },
 
   refresh: async () => {
-    const agents = await window.textToCad.agents.refresh();
+    const agents = await window.workbench.agents.refresh();
     set({ agents, ready: true, loadError: null });
   },
 
   install: async (agentId, index = 0) => {
-    const { jobId } = await window.textToCad.agents.install({ agentId, index });
+    const { jobId } = await window.workbench.agents.install({ agentId, index });
     seedJob(set, jobId, agentId, "install");
     return jobId;
   },
 
   login: async (agentId) => {
-    const { jobId } = await window.textToCad.agents.login({ agentId });
+    const { jobId } = await window.workbench.agents.login({ agentId });
     seedJob(set, jobId, agentId, "login");
     return jobId;
   },
 
-  writeJob: (jobId, data) => window.textToCad.agents.writeJob({ jobId, data }),
+  writeJob: (jobId, data) => window.workbench.agents.writeJob({ jobId, data }),
 
-  cancelJob: (jobId) => window.textToCad.agents.cancelJob({ jobId }),
+  cancelJob: (jobId) => window.workbench.agents.cancelJob({ jobId }),
 
   // A probe that failed leaves the last launch's rows flagged (`probeFailed`): that is a check
   // that did not happen, so it reads as `loadError` — not as agents that are signed out.

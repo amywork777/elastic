@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { lastUserPrompt } from "@renderer/features/session/SessionView";
 import { Transcript } from "@renderer/features/session/Transcript";
 import { reduce } from "@shared/acp/reduce";

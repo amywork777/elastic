@@ -82,13 +82,13 @@ describe("window state on launch", () => {
   });
 });
 
-// The e2e suite's window is never shown (`TEXT_TO_CAD_E2E_HIDDEN=1`), so it is
+// The e2e suite's window is never shown (`WORKBENCH_E2E_HIDDEN=1`), so it is
 // on no display to fit. Fitted anyway, it took the size of whatever screen the
 // CI runner happened to have — 1024 wide — and the explorer came out under the
 // file viewer's 720px breakpoint, where the tree is a sheet a picked file shuts.
 describe("window state for a window that is never shown", () => {
   it("keeps the stored size and place whatever the displays are", () => {
-    vi.stubEnv("TEXT_TO_CAD_E2E_HIDDEN", "1");
+    vi.stubEnv("WORKBENCH_E2E_HIDDEN", "1");
     try {
       displays.all = [{ workArea: { x: 0, y: 25, width: 1024, height: 743 } }];
       saved.state = { maximized: false, width: 1440, height: 900 };

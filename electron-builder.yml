@@ -1,6 +1,7 @@
-appId: dev.texttocad.desktop
-productName: text-to-cad
-copyright: Copyright © text-to-cad contributors
+appId: dev.elastic.desktop
+# Keep in step with src/shared/brand.ts and package.json productName.
+productName: elastic
+copyright: Copyright © elastic contributors
 
 # `npm run build` (electron-vite) has to have run first: everything shipped
 # comes out of out/, plus the native modules electron-builder resolves from
@@ -16,66 +17,22 @@ files:
   - package.json
   - "!**/*.map"
 
-# What ships beside the app rather than inside the asar. Every directory a
-# build fills (runtime, cadgen, skills) is committed empty (a .gitkeep) and
-# `scripts/package.mjs` recreates them before every build, so a checkout that
-# never ran a build script still has a source for each entry.
-#
-# Measured against electron-builder 26.15.3, not assumed: a MISSING source here
-# is tolerated (the build succeeds and copies nothing) and an EMPTY one produces
-# no directory in Resources. The placeholders are belt to that braces — a
-# tolerance is a thing a minor release can withdraw, and the alternative is a
-# conditional config generated per build.
-#
-#   resources/runtime/${os}-${arch}
-#                      THE CAD RUNTIME: a pinned Python with cadgen and its
-#                      whole dependency closure installed, one directory per
-#                      target (scripts/bundle-runtime.mjs). About 1.2 GB, and
-#                      the whole point of the app — a packaged text-to-cad renders
-#                      CAD with nothing to download. `${os}` and `${arch}` are
-#                      the TARGET's (electron-builder expands them per arch of
-#                      a multi-arch build), so a mac build with --arm64 --x64
-#                      picks up mac-arm64/ and mac-x64/ for its two apps.
-#                      scripts/package.mjs refuses to package a target whose
-#                      runtime is missing. The layout inside the app is the same
-#                      as in the checkout — Resources/runtime/<os>-<arch>/ — so
-#                      src/main/cad/runtime.ts resolves both with one function.
-#   resources/cadgen   the cadgen wheel and its constraints file, which the
-#                      bundler installs from; kept beside the app so a person
-#                      can see what shipped (a couple of megabytes).
-#   resources/skills   repo authoring and registered integration skills,
-#                      handed to every session as a directory.
-#
-# The runtime's executables keep their mode bits and their symlinks
-# (python/bin/python3 -> python3.13): electron-builder copies extraResources
-# with both, and the dmg and zip carry both. When mac signing lands, the
-# runtime's Mach-O files (bin/python3.13, lib/*.dylib, every *.so under
-# site-packages) are what `mac.binaries` or a walk in an afterSign hook has to
-# hand to codesign — Resources/ is a fine place for them as long as each one
-# is signed; nothing here has to move.
+# What ships beside the app rather than inside the asar: the composed skills
+# (scripts/build-skills.mjs), handed to every session as a directory. The
+# directory is committed empty (.gitkeep) so a checkout that never ran a build
+# still has a source for it.
 extraResources:
   - from: src/main/browser/vendor/LICENSE
     to: notices/browser-use-browser-harness-js-LICENSE
-  - from: resources/runtime/${os}-${arch}
-    to: runtime/${os}-${arch}
-  - from: resources/cadgen
-    to: cadgen
   - from: resources/skills
     to: skills
-  - from: resources/sample
-    to: sample
 
-# One icon source, build/icon.png (scripts/make-icons.mjs renders the sidebar star;
-# committed). electron-builder derives the macOS .icns and Windows .ico from it.
+# One icon source, build/icon.png (scripts/make-icons.mjs renders it; committed). electron-builder derives the macOS .icns and Windows .ico from it.
 
-# The updater feed. `release-publish.yml` attaches the installers to the same
-# GitHub Release it tags (plan §11), so the feed is that repository, and
-# electron-updater reads the app-update.yml this block generates.
-publish:
-  provider: github
-  owner: earthtojake
-  repo: text-to-cad
-  releaseType: release
+# No updater feed is configured: an unconfigured build never checks for
+# updates (src/main/updater.ts). To ship updates, add a `publish` block here
+# (for example `provider: github`, `owner`, `repo`) and the release workflow
+# that attaches installers to it.
 
 # better-sqlite3 and node-pty are native. `npm run native:rebuild` runs
 # `electron-builder install-app-deps`, which rebuilds them against the Electron
@@ -86,13 +43,13 @@ asarUnpack:
   - "**/*.node"
   - node_modules/better-sqlite3/**
   - node_modules/node-pty/**
-  # The text-to-cad MCP server is run by the AGENT (Codex, Claude Code) as a
+  # The app's MCP server is run by the AGENT (Codex, Claude Code) as a
   # script path in `session/new`, so it has to be a real file on disk, not an
-  # entry in the archive (src/main/cad/index.ts, mcpServerScript).
-  - out/text-to-cad-mcp/**
+  # entry in the archive (src/main/integrations/index.ts, mcpServerScript).
+  - out/app-mcp/**
 
 # Every artifact is named the same way, so a GitHub Release reads as a table:
-# text-to-cad-<version>-<os>-<arch>.<ext>.
+# elastic-<version>-<os>-<arch>.<ext>.
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 mac:
@@ -123,7 +80,7 @@ mac:
   entitlementsInherit: build/entitlements.mac.inherit.plist
   notarize: false
   extendInfo:
-    NSHumanReadableCopyright: text-to-cad contributors
+    NSHumanReadableCopyright: elastic contributors
 
 dmg:
   # ${arch} in a dmg name is the architecture of the app inside it, which is
@@ -145,8 +102,8 @@ nsis:
 
 linux:
   category: Development
-  maintainer: text-to-cad contributors <noreply@github.com>
-  synopsis: A CAD-first agent workbench
+  maintainer: elastic contributors <noreply@github.com>
+  synopsis: A small desktop agent workbench built on MCP plugins
   # Best-effort and unsigned (plan §14). AppImage is the portable one; deb is a
   # convenience for the distributions that want it.
   target:

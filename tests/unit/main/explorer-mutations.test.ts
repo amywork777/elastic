@@ -4,19 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 
-import type * as Telemetry from "@main/telemetry";
-
 const fixture = vi.hoisted(() => {
-  // Compiled in by electron-vite; the real `fileExtension` is under test, so
-  // the module is loaded with its key blank and Aptabase stubbed.
-  (globalThis as { __APTABASE_KEY__?: string }).__APTABASE_KEY__ = "";
-  return { root: "", track: vi.fn(), trash: vi.fn(async (_target: string) => {}) };
+  return { root: "", trash: vi.fn(async (_target: string) => {}) };
 });
-vi.mock("@aptabase/electron/main", () => ({ initialize: vi.fn(), trackEvent: vi.fn() }));
-vi.mock("@main/telemetry", async (importOriginal) => ({
-  ...(await importOriginal<typeof Telemetry>()),
-  track: fixture.track,
-}));
 vi.mock("electron", () => ({ BrowserWindow: {}, dialog: {}, ipcMain: {}, shell: { trashItem: fixture.trash } }));
 vi.mock("@main/db/repositories", () => ({
   projects: {
@@ -32,7 +22,6 @@ vi.mock("@main/projects/workspace", async (importOriginal) => ({ ...(await impor
 import { explorerHandlers, initExplorerServices, disposeExplorerServices } from "@main/ipc/explorer";
 import { FileWatchers } from "@main/explorer/fs";
 import type { IpcContext } from "@main/ipc/register";
-import { fileExtension } from "@main/telemetry";
 import { FileMutationResultSchema, TextWriteResultSchema } from "@shared/ipc/explorer";
 
 beforeAll(async () => { fixture.root = await fs.mkdtemp(path.join(os.tmpdir(), "file-mutations-")); });
@@ -70,41 +59,17 @@ test("a notification failure cannot turn a committed save or move into failure",
   } finally { disposeExplorerServices(); }
 });
 
-test("opening a file counts its extension and nothing else; a directory or a failed stat counts nothing", async () => {
-  await fs.mkdir(path.join(fixture.root, "Secret Project"), { recursive: true });
-  await fs.writeFile(path.join(fixture.root, "Secret Project", "Gripper.STL"), "solid");
-  fixture.track.mockClear();
-  await explorerHandlers.explorer.stat({ ...at, path: "Secret Project/Gripper.STL", intent: "open" });
-  await explorerHandlers.explorer.stat({ ...at, path: "Secret Project", intent: "open" });
-  await expect(explorerHandlers.explorer.stat({ ...at, path: "missing.step", intent: "open" })).rejects.toThrow();
-  expect(fixture.track.mock.calls).toEqual([[{ name: "file_opened", extension: "stl" }]]);
-});
-
-test("a stat that is not a tab opening — an attachment check, an integration lookup — neither counts nor watches", async () => {
+test("a stat that is not a tab opening — an attachment check, an integration lookup — does not watch", async () => {
   await fs.mkdir(path.join(fixture.root, "attach"), { recursive: true });
   await fs.writeFile(path.join(fixture.root, "attach", "part.step"), "ISO-10303-21;");
-  fixture.track.mockClear();
   const watchEntry = vi.spyOn(FileWatchers.prototype, "watchEntry").mockResolvedValue();
   initExplorerServices(() => {});
   try {
     await explorerHandlers.explorer.stat({ ...at, path: "attach/part.step" });
-    expect(fixture.track).not.toHaveBeenCalled();
     expect(watchEntry).not.toHaveBeenCalled();
     await explorerHandlers.explorer.stat({ ...at, path: "attach/part.step", intent: "open" });
-    expect(fixture.track).toHaveBeenCalledOnce();
     expect(watchEntry).toHaveBeenCalledOnce();
   } finally { disposeExplorerServices(); watchEntry.mockRestore(); }
-});
-
-test("file_opened's extension is a short alphanumeric suffix or \"other\", never a fragment of a name", () => {
-  expect(fileExtension("a/Gripper.STL")).toBe("stl");
-  expect(fileExtension("a/model.step")).toBe("step");
-  expect(fileExtension("README")).toBe("none");
-  expect(fileExtension(".env")).toBe("none");
-  expect(fileExtension("plan.acme-q3-layoffs")).toBe("other");
-  expect(fileExtension("notes.confidential")).toBe("other");
-  expect(fileExtension("photo.jpg ")).toBe("other");
-  expect(fileExtension("archive.tar.gz")).toBe("gz");
 });
 
 test("trash, rename and duplicate act on a symlink row itself, and report the link's path", async () => {

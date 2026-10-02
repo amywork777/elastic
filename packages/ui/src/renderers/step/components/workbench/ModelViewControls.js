@@ -1,7 +1,7 @@
-import { normalizeExplodedViewSettings } from "@text-to-cad/core/lib/displaySettings.js";
-import { normalizeViewSettings } from "@text-to-cad/core/common/viewSettings.js";
-import { clipAxisBounds, normalizeStepClipSettings } from "@text-to-cad/core/lib/viewer/clipPlane.js";
-import { Slider } from "@text-to-cad/ui/primitives/slider";
+import { normalizeExplodedViewSettings } from "@workbench/core/lib/displaySettings.js";
+import { normalizeViewSettings } from "@workbench/core/common/viewSettings.js";
+import { clipAxisBounds, normalizeStepClipSettings } from "@workbench/core/lib/viewer/clipPlane.js";
+import { Slider } from "@workbench/ui/primitives/slider";
 import { FILE_SHEET_PRECISION_SLIDER_CLASSES, FileSheetSelectRow } from "../../../kit/inspector/FileSheet.js";
 
 const AXES = Object.freeze(["x", "y", "z"]);

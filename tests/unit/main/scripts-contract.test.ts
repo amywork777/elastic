@@ -17,7 +17,7 @@ describe("the scripts that drive the app", () => {
     const called: string[] = [];
     for (const file of fs.readdirSync(scripts).filter((name) => /\.m?js$/.test(name))) {
       const source = fs.readFileSync(path.join(scripts, file), "utf8");
-      for (const match of source.matchAll(/window\.textToCad\.([A-Za-z]+(?:\.[A-Za-z]+)+)/g)) {
+      for (const match of source.matchAll(/window\.workbench\.([A-Za-z]+(?:\.[A-Za-z]+)+)/g)) {
         called.push(`${file}: ${match[1]}`);
       }
     }

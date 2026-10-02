@@ -14,10 +14,10 @@ vi.mock("@main/ipc/register", () => ({ broadcast }));
 
 import { installE2eDoor } from "@main/test-door";
 
-const door = () => (globalThis as { __textToCadE2E?: { choose(directory: string): unknown } }).__textToCadE2E;
+const door = () => (globalThis as { __workbenchE2E?: { choose(directory: string): unknown } }).__workbenchE2E;
 
 afterEach(() => {
-  delete (globalThis as { __textToCadE2E?: unknown }).__textToCadE2E;
+  delete (globalThis as { __workbenchE2E?: unknown }).__workbenchE2E;
 });
 
 it("is installed for a test launch of a development build, and chooses as the chooser does", () => {

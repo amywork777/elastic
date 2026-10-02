@@ -1,6 +1,6 @@
-import { normalizeViewSettings, resolveViewSettings } from "@text-to-cad/core/common/viewSettings.js";
+import { normalizeViewSettings, resolveViewSettings } from "@workbench/core/common/viewSettings.js";
 
-import { buildStepClipPatch } from "@text-to-cad/core/lib/viewer/clipPlane.js";
+import { buildStepClipPatch } from "@workbench/core/lib/viewer/clipPlane.js";
 
 const GROUPS = ["camera", "surfaces", "edges", "lighting", "background", "floor", "grid", "axes", "clip", "exploded"];
 const normalizeViewerDisplayMode = value => normalizeViewSettings({ mode: value }).mode;

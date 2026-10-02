@@ -13,7 +13,7 @@ import { defineConfig } from "@playwright/test";
  *
  * Every spec launches the real app, and each launch used to put a window over
  * whatever the person at this machine was doing — a dozen of them per run,
- * stealing the screen if not the focus. `TEXT_TO_CAD_E2E_HIDDEN` tells main to
+ * stealing the screen if not the focus. `WORKBENCH_E2E_HIDDEN` tells main to
  * skip `show()` altogether (`ready-to-show` in src/main/index.ts): Playwright
  * drives the renderer over the DevTools protocol, which needs a live web
  * contents and not a visible window, so screenshots, bounding boxes, the
@@ -21,10 +21,10 @@ import { defineConfig } from "@playwright/test";
  * screenshots are taken by Chromium, not by the compositor on screen.
  *
  * Set here rather than in each spec's `env` because the specs spread
- * `process.env`, and set only when unset: `TEXT_TO_CAD_E2E_HIDDEN=0 npm run e2e`
+ * `process.env`, and set only when unset: `WORKBENCH_E2E_HIDDEN=0 npm run e2e`
  * shows the windows again, which is how you watch a spec fail.
  */
-process.env.TEXT_TO_CAD_E2E_HIDDEN ??= "1";
+process.env.WORKBENCH_E2E_HIDDEN ??= "1";
 
 // A test must never attach to an inherited interactive build broker.
 for (const key of ["CADGEN_BROKER", "CADGEN_BROKER_KEY", "CADGEN_BROKER_STATS", "CADGEN_DAEMON_CHILD", "CADGEN_ROOT_ID"]) {

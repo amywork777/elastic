@@ -1,6 +1,6 @@
-import { FileViewer } from "@text-to-cad/ui/file-viewer";
-import type { ViewerHost } from "@text-to-cad/ui/host";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { FileViewer } from "@workbench/ui/file-viewer";
+import type { ViewerHost } from "@workbench/ui/host";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { GitBranch } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -14,7 +14,6 @@ import { createDesktopFileSource, createDesktopFileActions } from "./adapters/fi
 import { desktopClipboard } from "./host/clipboard";
 import { createDesktopPromptContext } from "./host/promptContext";
 import { createDesktopLoadFailures } from "./host/loadFailures";
-import type { DesktopCadConnection } from "./adapters/cadRuntime";
 import { useDesktopViewState } from "./adapters/persistence";
 import { createDesktopRenderers } from "./renderers";
 import { EXPLORER_TABPANEL_ID, focusTabBody } from "./focus";
@@ -29,13 +28,12 @@ export function worktreeMark(root: ExplorerRoot): { label: string; path: string 
 }
 
 /** The desktop supplies a root, native services and tab navigation to the shared viewer. */
-export function FileTab({ sessionId, tabId, project, root, path, panel, cadConnection }: {
+export function FileTab({ sessionId, tabId, project, root, path, panel }: {
   sessionId: string; tabId: string; project: Project; root: ExplorerRoot; path: string | null; panel: string | null;
-  cadConnection?: DesktopCadConnection;
 }) {
   const source = useMemo(() => createDesktopFileSource({ sessionId, projectId: project.id,
     projectName: () => useProjects.getState().projects.find(entry => entry.id === project.id)?.name ?? "Project", root }), [sessionId, project.id, root]);
-  const composition = useMemo(() => createDesktopRenderers(project.id, root, tabId, cadConnection), [project.id, root, tabId, cadConnection]);
+  const composition = useMemo(() => createDesktopRenderers(project.id, root, tabId), [project.id, root, tabId, pluginsRevision]);
   useEffect(() => () => composition.dispose(), [composition]);
   const { state, onStateChange } = useDesktopViewState(source.id, tabId, root, panel);
   const reveal = useExplorer((state) => state.reveal);

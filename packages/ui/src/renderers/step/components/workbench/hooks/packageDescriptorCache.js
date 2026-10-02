@@ -1,6 +1,6 @@
-import { loadRenderJson } from "@text-to-cad/core/lib/renderAssetClient.js";
+import { loadRenderJson } from "@workbench/core/lib/renderAssetClient.js";
 
-import { cadResourceCacheKey } from "@text-to-cad/core/client";
+import { cadResourceCacheKey } from "@workbench/core/client";
 
 const PACKAGE_DESCRIPTOR_CACHE = new Map();
 const PACKAGE_DESCRIPTOR_CACHE_LIMIT = 32;

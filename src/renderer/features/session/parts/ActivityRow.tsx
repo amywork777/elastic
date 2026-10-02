@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { Suspense, lazy, useContext, useId, useState } from "react";
 import { Ban, Box, CircleAlert, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "cn";
@@ -8,7 +8,7 @@ import { capToolBody, ToolInput, ToolOutput, TrimmedBody } from "@renderer/compo
 import { useAcp } from "@renderer/state/acp";
 import { useExplorer } from "@renderer/state/explorer";
 import { useSessions } from "@renderer/state/sessions";
-import { isCadFile } from "@shared/cad-refs";
+import { isReferenceFile } from "@shared/file-refs";
 import type { ToolCallPart } from "@shared/acp/types";
 
 import { GlyphIcon } from "../glyphs";
@@ -148,7 +148,7 @@ function OpenCadFile({ path, sessionId }: { path: string; sessionId: string }) {
   const cwd = useSessions((state) => state.sessions.find((session) => session.id === sessionId)?.cwd ?? null);
   const owned = useExplorer((state) => state.sessionId === sessionId);
   const relative = relativeTo(path, cwd);
-  if (!scope || !owned || !relative || !isCadFile(relative)) {
+  if (!scope || !owned || !relative || !isReferenceFile(relative)) {
     return null;
   }
   const open = () => {

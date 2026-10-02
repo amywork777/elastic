@@ -360,7 +360,7 @@ describe("the model chip", () => {
 });
 
 describe("a first prompt the agent refuses", () => {
-  const bridge = window.textToCad as unknown as Record<string, unknown>;
+  const bridge = window.workbench as unknown as Record<string, unknown>;
   const saved = bridge.sessions;
   afterEach(() => {
     bridge.sessions = saved;

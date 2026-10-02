@@ -83,7 +83,7 @@ describe("the welcome", () => {
 
   it("stops waiting when the agent list cannot be read, and says so rather than showing no agents", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(window.textToCad.agents.list).mockRejectedValueOnce(new Error("ipc down"));
+    vi.mocked(window.workbench.agents.list).mockRejectedValueOnce(new Error("ipc down"));
     await useAgents.getState().load();
     expect(useAgents.getState()).toMatchObject({ ready: true, loadError: "ipc down" });
     expect(logged).toHaveBeenCalledWith(expect.stringContaining("Could not read the agent list"), expect.any(Error));
@@ -100,7 +100,7 @@ describe("the welcome", () => {
   });
 
   it("keeps waiting on an empty first list: that is the probe still running, not an answer", async () => {
-    vi.mocked(window.textToCad.agents.list).mockResolvedValueOnce([]);
+    vi.mocked(window.workbench.agents.list).mockResolvedValueOnce([]);
     await useAgents.getState().load();
     expect(useAgents.getState().ready).toBe(false);
   });
@@ -162,7 +162,7 @@ describe("the welcome's start step", () => {
     useSessions.setState({ activeId: "s1" });
     useSettings.setState({ settings: { ...defaultSettings(), onboardingCompleted: false }, patch } as never);
     useAgents.setState({ agents: [agent({ installed: true, auth: "authenticated" })], ready: true });
-    (window.textToCad as unknown as { onboarding: unknown }).onboarding = {
+    (window.workbench as unknown as { onboarding: unknown }).onboarding = {
       status: vi.fn(async () => ({ enabled: true })),
       createSample: vi.fn(
         () =>

@@ -5,19 +5,19 @@ import {
   isWebGlContextCreationError,
   isSoftwareWebGlRenderer,
   runtimeErrorMessage
-} from "@text-to-cad/core/lib/viewer/webglSupport.js";
+} from "@workbench/core/lib/viewer/webglSupport.js";
 import {
   createCadWebGlRenderer
-} from "@text-to-cad/core/common/webglRenderer.js";
-import { fitCameraDepthToBounds } from "@text-to-cad/core/common/renderOptions.js";
+} from "@workbench/core/common/webglRenderer.js";
+import { fitCameraDepthToBounds } from "@workbench/core/common/renderOptions.js";
 import {
   screenSpaceLineDeviceResolution
-} from "@text-to-cad/core/common/renderEdges.js";
+} from "@workbench/core/common/renderEdges.js";
 import {
   resolveInteractionPixelRatioCap
-} from "@text-to-cad/core/lib/viewer/renderQuality.js";
+} from "@workbench/core/lib/viewer/renderQuality.js";
 import { updateOrbitControls } from "../camera/orbitControls.js";
-import { PERF_MEASURE_NAMES, perfMeasure, perfStart } from "@text-to-cad/core/lib/viewer/perfMarks.js";
+import { PERF_MEASURE_NAMES, perfMeasure, perfStart } from "@workbench/core/lib/viewer/perfMarks.js";
 import { viewerDepthSettings, viewerLogarithmicDepthBuffer } from "./renderDepthPolicy.js";
 import { createZoomPivotGate, createZoomPivotReanchor } from "../camera/zoomPivotReanchor.js";
 import { createFramePresentation } from "./framePresentation.js";

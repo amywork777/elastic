@@ -1,7 +1,7 @@
 /**
  * The only bridge between the renderer and the rest of the machine.
  *
- * It exposes exactly one object, `window.textToCad`, built by walking the IPC
+ * It exposes exactly one object, `window.workbench`, built by walking the IPC
  * contract — so a channel that is not in `src/shared/ipc.ts` cannot be reached
  * from the renderer, and adding one takes no edit here. `ipcRenderer` itself is
  * never handed over.
@@ -14,7 +14,7 @@ import {
   ipcContract,
   ipcEvents,
   isInvokeDef,
-  type TextToCadApi,
+  type WorkbenchApi,
   type IpcClient,
   type IpcContract,
   type IpcEventChannel,
@@ -53,6 +53,6 @@ function on<C extends IpcEventChannel>(
 }
 
 const client = buildClient(ipcContract, []) as IpcClient<IpcContract>;
-const api: TextToCadApi = Object.freeze({ ...client, on });
+const api: WorkbenchApi = Object.freeze({ ...client, on });
 
-contextBridge.exposeInMainWorld("textToCad", api);
+contextBridge.exposeInMainWorld("workbench", api);

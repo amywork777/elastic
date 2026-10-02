@@ -1,10 +1,10 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@text-to-cad/ui/primitives/context-menu";
-import { ScrollArea } from "@text-to-cad/ui/primitives/scroll-area";
-import { TreeFilterHighlight, TreeFilterInput } from "@text-to-cad/ui/primitives/tree-filter";
-import { TREE_ROW_HEIGHT, TreeRowSurface, TreeRowChevron, TreeRowLabel } from "@text-to-cad/ui/primitives/tree-row";
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@workbench/ui/primitives/context-menu";
+import { ScrollArea } from "@workbench/ui/primitives/scroll-area";
+import { TreeFilterHighlight, TreeFilterInput } from "@workbench/ui/primitives/tree-filter";
+import { TREE_ROW_HEIGHT, TreeRowSurface, TreeRowChevron, TreeRowLabel } from "@workbench/ui/primitives/tree-row";
 
 import { EntryMenuItems, useEntryMenuFocusGuard } from "./EntryMenu.jsx";
 import { ALL_ENTRY_CAPABILITIES } from "./entry-menu.js";

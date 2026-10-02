@@ -12,7 +12,7 @@ describe("onboardingEnabled", () => {
     expect(onboardingEnabled({})).toBe(true);
     expect(onboardingEnabled({ NODE_ENV: "production" })).toBe(true);
     expect(onboardingEnabled({ NODE_ENV: "test" })).toBe(false);
-    expect(onboardingEnabled({ NODE_ENV: "test", TEXT_TO_CAD_ONBOARDING: "1" })).toBe(true);
+    expect(onboardingEnabled({ NODE_ENV: "test", WORKBENCH_ONBOARDING: "1" })).toBe(true);
   });
 });
 

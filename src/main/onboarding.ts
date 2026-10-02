@@ -15,7 +15,7 @@ import { resourcesDir } from "./app-paths";
 export const SAMPLE_FOLDER_NAME = "text-to-cad Sample";
 
 export function onboardingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.NODE_ENV !== "test" || env.TEXT_TO_CAD_ONBOARDING === "1";
+  return env.NODE_ENV !== "test" || env.WORKBENCH_ONBOARDING === "1";
 }
 
 /** What Finder and Explorer leave in a folder nobody put anything in. */

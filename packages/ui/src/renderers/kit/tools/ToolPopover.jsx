@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@text-to-cad/ui/primitives/dropdown-menu";
-import { cn } from "@text-to-cad/ui/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@workbench/ui/primitives/dropdown-menu";
+import { cn } from "@workbench/ui/utils";
 import { FLOATING_SURFACE_CLASS } from "./floatingSurface.js";
 
 /**

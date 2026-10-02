@@ -1,4 +1,4 @@
-import { cn } from "@text-to-cad/ui/utils";
+import { cn } from "@workbench/ui/utils";
 import { resolveParameterNumberControlStep } from "../../workbench/parameterControls.js";
 import {
   poseControlDisplayValue,
@@ -6,8 +6,8 @@ import {
   poseDisplayValues,
   poseDrivenDofs
 } from "../../workbench/poseDrivenControls.js";
-import { Button } from "@text-to-cad/ui/primitives/button";
-import { Slider } from "@text-to-cad/ui/primitives/slider";
+import { Button } from "@workbench/ui/primitives/button";
+import { Slider } from "@workbench/ui/primitives/slider";
 import {
   NO_PRESET_VALUE, DEFAULT_POSE_VALUE, positionValuesAreDefault,
   KinematicsPoseRow

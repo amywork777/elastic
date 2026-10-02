@@ -27,7 +27,7 @@ export const useProjects = create<ProjectsState>((set, get) => ({
   draft: null,
 
   add: async () => {
-    const project = await window.textToCad.projects.add();
+    const project = await window.workbench.projects.add();
     if (project) {
       get().selectDirectory(project);
     }

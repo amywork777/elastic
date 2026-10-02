@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import type * as Tooltip from "@text-to-cad/ui/primitives/tooltip";
+import type * as Tooltip from "@workbench/ui/primitives/tooltip";
 import type * as Pane_ from "@renderer/features/explorer/ExplorerPane";
 import type * as Focus from "@renderer/features/explorer/focus";
 import type * as ExplorerState from "@renderer/state/explorer";
@@ -83,7 +83,7 @@ beforeEach(async () => {
   chunk.state.crash = false;
   chunk.hold();
   focused.count = 0;
-  ({ TooltipProvider } = await import("@text-to-cad/ui/primitives/tooltip"));
+  ({ TooltipProvider } = await import("@workbench/ui/primitives/tooltip"));
   ({ ExplorerPane, useExplorerShortcuts } = await import("@renderer/features/explorer/ExplorerPane"));
   ({ claimFocus } = await import("@renderer/features/explorer/focus"));
   ({ useExplorer } = await import("@renderer/state/explorer"));
@@ -91,7 +91,7 @@ beforeEach(async () => {
   useProjects.setState({ projects: [PROJECT], ready: true, activeId: PROJECT.id, draft: null });
   useExplorer.setState({ sessionId: "s1", projectId: PROJECT.id, root: null, ready: true, collapsed: false,
     tabs: [fileTab, terminalTab], activeId: "f1" });
-  const terminal = window.textToCad.terminal as unknown as Record<string, ReturnType<typeof vi.fn>>;
+  const terminal = window.workbench.terminal as unknown as Record<string, ReturnType<typeof vi.fn>>;
   terminal.attach = vi.fn(async () => ({ info: { id: "pty-test", cwd: "/repo", shell: "/bin/zsh", cols: 80, rows: 24, exitCode: null }, scrollback: "", seq: 0 }));
   terminal.resize = vi.fn(async () => {});
 });

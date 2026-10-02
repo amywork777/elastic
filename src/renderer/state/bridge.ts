@@ -18,7 +18,6 @@ import { attachHistory, useHistory } from "./history";
 import { useOnboarding } from "./onboarding";
 import { usePathLinks } from "./path-links";
 import { useProjects } from "./projects";
-import { useRuntime } from "./runtime";
 import { useSessions } from "./sessions";
 import { useSettings } from "./settings";
 import { useUi } from "./ui";
@@ -32,20 +31,20 @@ export type UiCommand = IpcEventPayload<"ui.command">["command"];
 export function subscribeToMain(): () => void {
   const commands = new Map<string, AbortController>();
   const off = [
-    window.textToCad.on("ui.directorySelected", (directory) => {
+    window.workbench.on("ui.directorySelected", (directory) => {
       useProjects.getState().selectDirectory(directory);
       useSessions.getState().setActive(null);
     }),
-    window.textToCad.on("sessions.changed", (sessions) => {
+    window.workbench.on("sessions.changed", (sessions) => {
       useSessions.getState().receive(sessions);
     }),
-    window.textToCad.on("settings.changed", (settings) => {
+    window.workbench.on("settings.changed", (settings) => {
       useSettings.getState().receive(settings);
     }),
-    window.textToCad.on("app.updateStatus", (status) => {
+    window.workbench.on("app.updateStatus", (status) => {
       useUpdates.getState().receive(status);
     }),
-    window.textToCad.on("session.state", ({ sessionId, state }) => {
+    window.workbench.on("session.state", ({ sessionId, state }) => {
       // Sent before main heard the session was archived or deleted: taking it would bring back
       // state the index already let go of, and nothing would forget it again (`state/acp.ts`).
       // Main broadcasts a new session's row before its first state, so a missing row is a gone one
@@ -67,10 +66,10 @@ export function subscribeToMain(): () => void {
     // here is the note a create that failed after `session/new` leaves (`settleAfterFailedCreate`).
     // `error: null` is every ordinary status change and says nothing about a note already held.
     // An `error` status carries its message too, but that is the load failure `loadErrors` shows.
-    window.textToCad.on("session.status", ({ sessionId, status, error }) => {
+    window.workbench.on("session.status", ({ sessionId, status, error }) => {
       if (error && status !== "error" && status !== "closed") useAcp.getState().receiveSetupNote(sessionId, error);
     }),
-    window.textToCad.on("session.update", ({ sessionId, event }) => {
+    window.workbench.on("session.update", ({ sessionId, event }) => {
       const before = useAcp.getState().sessions[sessionId]?.status;
       useAcp.getState().receiveEvent(sessionId, event);
       // A turn's lifecycle drives the prompt queue: a turn that ends sends
@@ -84,22 +83,19 @@ export function subscribeToMain(): () => void {
         void useComposer.getState().drain(sessionId);
       }
     }),
-    window.textToCad.on("terminal.output", ({ sessionId, terminalId, data, silent }) => {
+    window.workbench.on("terminal.output", ({ sessionId, terminalId, data, silent }) => {
       useAcp.getState().receiveTerminalOutput(sessionId, terminalId, data, silent);
     }),
-    window.textToCad.on("agents.status", (agents) => {
+    window.workbench.on("agents.status", (agents) => {
       useAgents.getState().receive(agents);
     }),
-    window.textToCad.on("agents.output", (chunk) => {
+    window.workbench.on("agents.output", (chunk) => {
       useAgents.getState().receiveOutput(chunk);
     }),
-    window.textToCad.on("agentOptions.changed", (all) => {
+    window.workbench.on("agentOptions.changed", (all) => {
       useAgentOptions.getState().receive(all);
     }),
-    window.textToCad.on("runtime.status", (status) => {
-      useRuntime.getState().receive(status);
-    }),
-    window.textToCad.on("files.changed", ({ projectId, root, changes }) => {
+    window.workbench.on("files.changed", ({ projectId, root, changes }) => {
       const paths = changes.flatMap(change => change.kind === "moved" ? [change.previousPath, change.path] : [change.path]);
       useExplorer.getState().receiveChanges(projectId, root, changes);
       // A path the transcript showed as text may exist now, or one it linked
@@ -108,14 +104,14 @@ export function subscribeToMain(): () => void {
     }),
     // An agent's tool call, relayed by main; answered whatever happens, so
     // the bridge's wait ends with the reason rather than a timeout.
-    window.textToCad.on("integrations.cancel", ({ requestId }) => commands.get(requestId)?.abort(new Error("Tool request cancelled"))),
-    window.textToCad.on("integrations.command", (command) => {
+    window.workbench.on("integrations.cancel", ({ requestId }) => commands.get(requestId)?.abort(new Error("Tool request cancelled"))),
+    window.workbench.on("integrations.command", (command) => {
       const controller = new AbortController();
       commands.set(command.requestId, controller);
       void performIntegrationCommand(command, controller.signal)
-        .then((result) => window.textToCad.integrations.reply({ requestId: command.requestId, ok: true, result }))
+        .then((result) => window.workbench.integrations.reply({ requestId: command.requestId, ok: true, result }))
         .catch((error: unknown) =>
-          window.textToCad.integrations.reply({
+          window.workbench.integrations.reply({
             requestId: command.requestId,
             ok: false,
             error: error instanceof Error ? error.message : String(error),
@@ -123,13 +119,13 @@ export function subscribeToMain(): () => void {
         )
         .catch(() => {}).finally(() => commands.delete(command.requestId));
     }),
-    window.textToCad.on("ui.command", (payload) => runUiCommand(payload)),
+    window.workbench.on("ui.command", (payload) => runUiCommand(payload)),
   ];
   // Listening now: take what main held for this page before it was — the
   // menu's New Session or Settings… that opened this window. Run even after
   // a detach: main hands them out once, and a StrictMode remount's second
   // ask gets nothing.
-  void window.textToCad.ui.ready().then((held) => {
+  void window.workbench.ui.ready().then((held) => {
     for (const payload of held) runUiCommand(payload);
   }).catch((error: unknown) => console.error("[ui] held commands", error));
 

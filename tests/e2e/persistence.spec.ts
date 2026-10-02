@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import type { TextToCadApi } from "../../src/shared/ipc";
+import type { WorkbenchApi } from "../../src/shared/ipc";
 import { chooseDirectory, launch, type Launched, scratch } from "./launch";
 
 /**
@@ -29,7 +29,7 @@ import { chooseDirectory, launch, type Launched, scratch } from "./launch";
  * state that can be seen.
  */
 
-declare const window: { textToCad: TextToCadApi };
+declare const window: { workbench: WorkbenchApi };
 
 const LOAD_DELAY = "--load-delay 1200";
 
@@ -62,7 +62,7 @@ function start(options: { prewarm?: boolean; fakeArgs?: string } = {}): Promise<
     env: {
       CAD_DESKTOP_PYTHON: "/nowhere/python",
       CADGEN_DAEMON: "0",
-      ...(options.prewarm ? { TEXT_TO_CAD_PREWARM: "1" } : {}),
+      ...(options.prewarm ? { WORKBENCH_PREWARM: "1" } : {}),
     },
   });
 }
@@ -73,7 +73,7 @@ test("the first launch: a project, two sessions, the chips a person picked, a ti
     await page.emulateMedia({ colorScheme: "dark" });
     // Every provider answers with the same fake models; pin the one under test so this
     // machine's installed agents cannot change whose preferences are restored.
-    await page.evaluate(() => window.textToCad.settings.set({ defaultAgentId: "claude-code" }));
+    await page.evaluate(() => window.workbench.settings.set({ defaultAgentId: "claude-code" }));
     const added = await chooseDirectory(app, project);
     await expect(page.getByRole("heading", { name: `What should we build in ${path.basename(project)}?` })).toBeVisible();
     const row = page.locator("[data-new-session] [data-composer-row]");
@@ -115,19 +115,19 @@ test("the first launch: a project, two sessions, the chips a person picked, a ti
     await expect(strip.locator("[data-chip=effort]")).toContainText("Xhigh");
 
     // A second session, titled by its agent: the sidebar and the header follow.
-    titled = (await page.evaluate((projectId) => window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), added.id)).id;
+    titled = (await page.evaluate((projectId) => window.workbench.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), added.id)).id;
     await page.locator(`[data-session-row="${titled}"]`).getByRole("button").first().click();
     await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle");
     await agentTitle(page, titled, "Design the gripper");
     await expect(page.locator(`[data-session-row="${titled}"]`)).toContainText("Design the gripper");
     await expect(page.locator("[data-session-title]")).toHaveText("Design the gripper");
 
-    const sessions = await page.evaluate(() => window.textToCad.sessions.list({}));
+    const sessions = await page.evaluate(() => window.workbench.sessions.list({}));
     expect(sessions).toHaveLength(2);
     expect(sessions.every((session) => session.acpSessionId !== null)).toBe(true);
     launchedIds = sessions.map((session) => session.id).sort();
     // Light, under an OS in dark: the sharpest version of the restart below.
-    await page.evaluate(() => window.textToCad.settings.set({ theme: "light" }));
+    await page.evaluate(() => window.workbench.settings.set({ theme: "light" }));
   } finally {
     await app.close();
   }
@@ -146,7 +146,7 @@ test("the second launch comes back to all of it, and opening its sessions is che
     // choices, with both models' levels.
     await expect(page.getByText(path.basename(project)).first()).toBeVisible();
     await expect(page.locator("[data-session-row]")).toHaveCount(2);
-    expect((await page.evaluate(() => window.textToCad.sessions.list({}))).map((session) => session.id).sort()).toEqual(launchedIds);
+    expect((await page.evaluate(() => window.workbench.sessions.list({}))).map((session) => session.id).sort()).toEqual(launchedIds);
     const strip = page.locator("[data-new-session] [data-composer-row]");
     await expect(strip.locator("[data-chip=model]")).toContainText("Smart");
     await expect(strip.locator("[data-chip=effort]")).toContainText("Xhigh");
@@ -159,7 +159,7 @@ test("the second launch comes back to all of it, and opening its sessions is che
     // The warm pool: the index says which agents are worth an idle adapter, and main says on
     // stdout when one is up. A session opened now adopts it — no spawn and no `initialize` on
     // the critical path, which is what `warm=yes` means — and the pool puts up another.
-    const sessions = await page.evaluate(() => window.textToCad.sessions.list({}));
+    const sessions = await page.evaluate(() => window.workbench.sessions.list({}));
     const first = sessions.find((session) => session.id !== titled)!;
     const warmed = `[acp] ${first.agentId} warmed in `;
     const warmedCount = () => lines.filter((line) => line.includes(warmed)).length;
@@ -190,12 +190,12 @@ test("the second launch comes back to all of it, and opening its sessions is che
     await titledRow.click();
     await expect(page.locator("[data-session-title]")).toHaveText("Design the gripper");
     await expect(page.getByText("earlier reply")).toBeVisible({ timeout: 30_000 });
-    expect(await page.evaluate((id) => window.textToCad.sessions.get({ id }), titled)).toMatchObject({ title: "Design the gripper", titleSource: "agent" });
+    expect(await page.evaluate((id) => window.workbench.sessions.get({ id }), titled)).toMatchObject({ title: "Design the gripper", titleSource: "agent" });
     await page.locator("[data-session-title]").click();
     const editor = page.locator("[data-session-header]").getByRole("textbox", { name: "Session title" });
     await editor.fill("My gripper task");
     await editor.press("Enter");
-    await expect.poll(() => page.evaluate((id) => window.textToCad.sessions.get({ id }), titled)).toMatchObject({ title: "My gripper task", titleSource: "user" });
+    await expect.poll(() => page.evaluate((id) => window.workbench.sessions.get({ id }), titled)).toMatchObject({ title: "My gripper task", titleSource: "user" });
     await agentTitle(page, titled, "Agent replacement title");
     await expect(page.locator("[data-session-title]")).toHaveText("My gripper task");
     await expect(titledRow).toContainText("My gripper task");
@@ -265,7 +265,7 @@ async function pick(page: Page, chip: Locator, name: string): Promise<void> {
 }
 
 async function agentTitle(page: Page, id: string, title: string): Promise<void> {
-  await page.evaluate(({ id, title }) => window.textToCad.sessions.prompt({
+  await page.evaluate(({ id, title }) => window.workbench.sessions.prompt({
     id, content: [{ type: "text", text: `session-title ${JSON.stringify({ title })}` }],
   }), { id, title });
 }

@@ -2,8 +2,8 @@ import { loader } from "@monaco-editor/react";
 import { act, render } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
-import type { DocumentSession, FileRendererProps } from "@text-to-cad/ui/file-viewer";
-import { ViewerHostContext } from "@text-to-cad/ui/host";
+import type { DocumentSession, FileRendererProps } from "@workbench/ui/file-viewer";
+import { ViewerHostContext } from "@workbench/ui/host";
 import CodeRenderer from "@renderer/features/explorer/renderers/code/CodeRenderer";
 
 import { testViewerHost } from "../../viewer-host";

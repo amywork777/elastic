@@ -6,7 +6,7 @@ import { useUpdates } from "@renderer/state/updates";
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), info: vi.fn() } }));
 
 type AppApi = Record<string, unknown>;
-const app = () => window.textToCad.app as unknown as AppApi;
+const app = () => window.workbench.app as unknown as AppApi;
 
 beforeEach(() => {
   useUpdates.setState({ status: { state: "idle" }, busy: false });

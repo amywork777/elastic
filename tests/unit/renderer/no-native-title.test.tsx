@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 
 import { ReviewTab } from "@renderer/features/explorer/ReviewTab";
 import { TabStrip } from "@renderer/features/explorer/TabStrip";
@@ -67,8 +67,8 @@ beforeEach(() => {
   useProjects.setState({ projects: [{ id: "p", name: "p", path: "/p", createdAt: 0 }], activeId: "p" });
   useComposer.setState({ drafts: {}, annotations: {}, acceptedContexts: {}, referenceLabels: {}, pendingFiles: {}, draftRoots: {}, queues: {}, sending: {} });
   usePathLinks.setState({ kinds: {} });
-  useExplorer.setState({ sessionId: "s1", projectId: "p", root: null, tabs: [], activeId: null, ready: true, collapsed: true, cadSelection: null, reveal: null });
-  (window.textToCad.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ "models/x.step": "file" }));
+  useExplorer.setState({ sessionId: "s1", projectId: "p", root: null, tabs: [], activeId: null, ready: true, collapsed: true, fileSelection: null, reveal: null });
+  (window.workbench.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ "models/x.step": "file" }));
 });
 
 const titled = () =>
@@ -181,14 +181,14 @@ describe("Settings", () => {
     // Every value a page prints in a truncating line: a chosen path, a log, a skills root.
     useSettings.setState({ settings: { ...defaultSettings(), worktreeRoot: "/Users/me/worktrees" }, ready: true });
     useAgents.setState({ agents: [agent(true), agent(false)], ready: true, loadError: null });
-    vi.mocked(window.textToCad.agents.list).mockResolvedValue([agent(true), agent(false)]);
-    vi.mocked(window.textToCad.skills.info).mockResolvedValue({ root: "/Users/me/Library/skills/0.0.0", skills: [] });
+    vi.mocked(window.workbench.agents.list).mockResolvedValue([agent(true), agent(false)]);
+    vi.mocked(window.workbench.skills.info).mockResolvedValue({ root: "/Users/me/Library/skills/0.0.0", skills: [] });
     const status = { state: "missing", python: null, source: null, cadgenVersion: null, viewerBuilt: false, log: "/Users/me/cad-runtime.log", message: "No runtime" } as const;
-    vi.mocked(window.textToCad.runtime.status).mockResolvedValue(status);
+    vi.mocked(window.workbench.runtime.status).mockResolvedValue(status);
     useRuntime.setState({ status });
     // A project with a worktree that has uncommitted work: Delete is off, and says why.
     useProjects.setState({ projects: [{ id: "p", name: "p", path: "/p", createdAt: 0 }], activeId: "p" });
-    vi.mocked(window.textToCad.git.worktrees).mockResolvedValue([
+    vi.mocked(window.workbench.git.worktrees).mockResolvedValue([
       { path: "/Users/me/worktrees/p/fillet", branch: "text-to-cad/fillet", lastUsedAt: null, openSessions: 0, dirty: true, locked: false },
     ]);
   });
@@ -242,7 +242,7 @@ describe("Explorer", () => {
       isRepository: true, branch: "main", unborn: false, ahead: 0, behind: 0, insertions: 1, deletions: 0, workingFiles: 1,
       files: [{ path: "models/bracket.step", status: "modified", insertions: 1, deletions: 0, binary: false }],
     };
-    const git = window.textToCad.git as unknown as { status: ReturnType<typeof vi.fn>; fileDiff: ReturnType<typeof vi.fn> };
+    const git = window.workbench.git as unknown as { status: ReturnType<typeof vi.fn>; fileDiff: ReturnType<typeof vi.fn> };
     git.status.mockResolvedValueOnce(status).mockRejectedValueOnce(new Error("index.lock exists"));
     git.fileDiff.mockResolvedValue({ path: "models/bracket.step", before: "", after: "ISO-10303", binary: false, truncated: false });
     useSessions.setState({ sessions: [{ ...SESSION, cwd: "/p/worktree" }], ready: true });

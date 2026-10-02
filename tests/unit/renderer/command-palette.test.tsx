@@ -26,7 +26,7 @@ beforeEach(() => {
 describe("the command palette", () => {
   it("says so in a toast when the folder chooser fails", async () => {
     const user = userEvent.setup();
-    vi.mocked(window.textToCad.projects.add).mockRejectedValue(new Error("the chooser is unavailable"));
+    vi.mocked(window.workbench.projects.add).mockRejectedValue(new Error("the chooser is unavailable"));
     render(<CommandPalette />);
     await user.click(screen.getByRole("option", { name: /Open folder/ }));
     await waitFor(() =>

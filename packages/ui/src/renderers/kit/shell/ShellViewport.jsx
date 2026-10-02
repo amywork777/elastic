@@ -1,20 +1,20 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { createInspectEnvironmentResource, INSPECT_ENVIRONMENT_ID } from "@text-to-cad/core/common/inspectEnvironment.js";
-import { resolveCadGridSettings } from "@text-to-cad/core/common/cadInk.js";
-import { resolveSceneSurfaceLook, scenePhotographicLighting } from "@text-to-cad/core/common/sceneSettings.js";
+import { createInspectEnvironmentResource, INSPECT_ENVIRONMENT_ID } from "@workbench/core/common/inspectEnvironment.js";
+import { resolveCadGridSettings } from "@workbench/core/common/cadInk.js";
+import { resolveSceneSurfaceLook, scenePhotographicLighting } from "@workbench/core/common/sceneSettings.js";
 import {
   CAMERA_PROJECTION, normalizeCameraProjection, perspectiveSnapshotMatchesScene, resolvePerspectiveSnapshot
-} from "@text-to-cad/core/lib/perspective.js";
-import { mergeBoundsList } from "@text-to-cad/core/lib/viewer/autoZoom.js";
-import { applyRuntimeModelBounds, resolveRuntimeModelFloorZ, sceneRadiusForBounds } from "@text-to-cad/core/lib/viewer/modelRuntime.js";
-import { defaultSceneGridRadius, getSceneScaleSettings, normalizeSceneScaleMode, VIEWER_SCENE_SCALE } from "@text-to-cad/core/lib/viewer/sceneScale.js";
-import { buildCompositeScreenshotBlob, resolveElementBackgroundColor } from "@text-to-cad/core/lib/viewer/screenshotCapture.js";
+} from "@workbench/core/lib/perspective.js";
+import { mergeBoundsList } from "@workbench/core/lib/viewer/autoZoom.js";
+import { applyRuntimeModelBounds, resolveRuntimeModelFloorZ, sceneRadiusForBounds } from "@workbench/core/lib/viewer/modelRuntime.js";
+import { defaultSceneGridRadius, getSceneScaleSettings, normalizeSceneScaleMode, VIEWER_SCENE_SCALE } from "@workbench/core/lib/viewer/sceneScale.js";
+import { buildCompositeScreenshotBlob, resolveElementBackgroundColor } from "@workbench/core/lib/viewer/screenshotCapture.js";
 import {
   applySceneBackground, BASE_VIEWER_THEME, disposeTexture, getViewerThemeValue, updateSpotLightTarget
-} from "@text-to-cad/core/lib/viewer/stageTheme.js";
-import { buildRuntimeInitializationAlert } from "@text-to-cad/core/lib/viewer/webglSupport.js";
-import { THEME_FLOOR_MODES } from "@text-to-cad/core/lib/themeSettings.js";
+} from "@workbench/core/lib/viewer/stageTheme.js";
+import { buildRuntimeInitializationAlert } from "@workbench/core/lib/viewer/webglSupport.js";
+import { THEME_FLOOR_MODES } from "@workbench/core/lib/themeSettings.js";
 import { useViewerMobile } from "../../../file-viewer/responsive.js";
 import ViewPlaneControl from "../camera/ViewPlaneControl.js";
 import { CAD_DEFAULT_VERTICAL_FOV_DEGREES, explicitViewerFocalLength, perspectiveDistanceScale } from "../camera/cameraLens.js";

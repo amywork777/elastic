@@ -1,10 +1,10 @@
 // Robot descriptions for this folder's tests, parsed by core's own parsers (jsdom supplies
 // the DOMParser a browser would). Primitives only: no mesh is fetched.
 import { JSDOM } from "jsdom";
-import { parseSdf } from "@text-to-cad/core/lib/urdf/parseSdf.js";
-import { parseSrdf } from "@text-to-cad/core/lib/urdf/parseSrdf.js";
-import { parseUrdf } from "@text-to-cad/core/lib/urdf/parseUrdf.js";
-import { buildRobotParts } from "@text-to-cad/core/lib/urdf/robotParts.js";
+import { parseSdf } from "@workbench/core/lib/urdf/parseSdf.js";
+import { parseSrdf } from "@workbench/core/lib/urdf/parseSrdf.js";
+import { parseUrdf } from "@workbench/core/lib/urdf/parseUrdf.js";
+import { buildRobotParts } from "@workbench/core/lib/urdf/robotParts.js";
 
 function withDom(read) {
   const previous = globalThis.DOMParser;

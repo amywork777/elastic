@@ -5,7 +5,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { SessionRow } from "@renderer/features/sidebar/SessionRow";
 import { useSessions } from "@renderer/state/sessions";
 import type { Session } from "@shared/types";

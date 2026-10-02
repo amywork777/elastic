@@ -2,7 +2,7 @@ import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-l
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { EXPLORER_TABPANEL_ID, TabStrip } from "@renderer/features/explorer/TabStrip";
 import { useExplorer } from "@renderer/state/explorer";
 import type { ExplorerTab } from "@shared/types";

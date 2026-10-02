@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { ActivityGroup } from "@renderer/features/session/parts/ActivityRow";
 import { TranscriptScopeContext } from "@renderer/features/session/links/PathLink";
 import { useExplorer } from "@renderer/state/explorer";
@@ -207,7 +207,7 @@ describe("PermissionCard", () => {
   it("offers one button per option, allow first, and answers through the store", async () => {
     const user = userEvent.setup();
     const respond = vi.fn(async () => undefined);
-    (window.textToCad.sessions as unknown as { respondPermission: unknown }).respondPermission = respond;
+    (window.workbench.sessions as unknown as { respondPermission: unknown }).respondPermission = respond;
     wrap(<PermissionCard part={part} sessionId="s1" />);
     expect(screen.getByText("Run ls?")).toBeInTheDocument();
     expect(screen.getByText("Lists the directory.")).toBeInTheDocument();
@@ -224,7 +224,7 @@ describe("PermissionCard", () => {
         "Error invoking remote method 'text-to-cad:sessions.respondPermission': IpcError: the session is not connected; load it first",
       );
     });
-    (window.textToCad.sessions as unknown as { respondPermission: unknown }).respondPermission = respond;
+    (window.workbench.sessions as unknown as { respondPermission: unknown }).respondPermission = respond;
     wrap(<PermissionCard part={part} sessionId="s1" />);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Yes" }));
@@ -234,7 +234,7 @@ describe("PermissionCard", () => {
 
   it("falls back to the expired line when the refusal has no message", async () => {
     const user = userEvent.setup();
-    (window.textToCad.sessions as unknown as { respondPermission: unknown }).respondPermission = vi.fn(async () => {
+    (window.workbench.sessions as unknown as { respondPermission: unknown }).respondPermission = vi.fn(async () => {
       throw new Error("");
     });
     wrap(<PermissionCard part={part} sessionId="s1" />);
@@ -470,7 +470,7 @@ describe("an image in the agent's words", () => {
   const sourced = () => document.querySelectorAll("source, [srcset]");
 
   it("drops a <picture>'s <source> in prose", async () => {
-    vi.mocked(window.textToCad.explorer.readBinary).mockResolvedValue({
+    vi.mocked(window.workbench.explorer.readBinary).mockResolvedValue({
       path: "renders/front.png",
       mime: "image/png",
       size: 4,
@@ -503,7 +503,7 @@ describe("an image in the agent's words", () => {
   // `img` was asked: `![r](render.png)` read "[Image blocked: r]" however real the file.
   it("draws a project file named without a ./, in prose and in a thought", async () => {
     const user = userEvent.setup();
-    const readBinary = vi.mocked(window.textToCad.explorer.readBinary);
+    const readBinary = vi.mocked(window.workbench.explorer.readBinary);
     readBinary.mockResolvedValue({ path: "render.png", mime: "image/png", size: 4, dataUrl: "data:image/png;base64,AAAA" });
     scoped(
       <>
@@ -519,7 +519,7 @@ describe("an image in the agent's words", () => {
   });
 
   it("draws a project file, read through the project", async () => {
-    const readBinary = vi.mocked(window.textToCad.explorer.readBinary);
+    const readBinary = vi.mocked(window.workbench.explorer.readBinary);
     readBinary.mockResolvedValueOnce({ path: "renders/front.png", mime: "image/png", size: 4, dataUrl: "data:image/png;base64,AAAA" });
     scoped(
       <PartsList

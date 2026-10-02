@@ -41,7 +41,6 @@ import type { IpcEventChannel, IpcEventPayload } from "../../shared/ipc";
 import { DELETED_WHILE_STARTING } from "../../shared/ipc/errors";
 import type { Launch } from "../../shared/agents";
 import type { GitMode, Session, SessionStatus } from "../../shared/types";
-import type { Event as TelemetryEvent } from "../telemetry";
 import { startTimer } from "../timer";
 import { PROBE_WAIT_MS, type AgentDetector } from "../agents/detect";
 import { agentProvider } from "../agents/registry";
@@ -74,8 +73,8 @@ export type SessionManagerDeps = {
   spawnTerminal: SpawnTerminal;
   broadcast: <C extends IpcEventChannel>(channel: C, payload: IpcEventPayload<C>) => void;
   /**
-   * The MCP servers a session gets: text-to-cad's seven domain servers
-   * (`text-to-cad-<integration>`), minted per session by `mcpServersFor` in
+   * The MCP servers a session gets: the app's own domain servers
+   * (`app-<integration>`) and every enabled plugin's, minted per session by `mcpServersFor` in
    * src/main/integrations/index.ts. A probe (`probeOptions`) is minted one too, and revokes
    * it when it is done: the adapter is spawned exactly as a real session's
    * would be, or the options it reports are not the options it would have.
@@ -97,10 +96,9 @@ export type SessionManagerDeps = {
   };
 
   /**
-   * P5: the directories the bundled CAD runtime puts in front of a session's
-   * `PATH` — where its `cadgen` and its `python` are. Every adapter, and so
-   * every command a session runs, is spawned with them
-   * (`CadRuntime.sessionPath`).
+   * Directories put in front of a session's `PATH` (a plugin's bundled
+   * binaries, for one). Every adapter, and so every command a session runs,
+   * is spawned with them.
    */
   runtimePath?: () => string[];
 
@@ -218,12 +216,6 @@ export type SessionManagerDeps = {
    */
   keepAlive?: number;
 
-  /**
-   * P8: anonymous usage events (`../telemetry.ts`). Injected for the same
-   * reason as everything else here; the only thing this file reports is
-   * that a session was created, and with which agent.
-   */
-  track?: (event: TelemetryEvent) => void;
 
   /**
    * Start a timer that calls `fire` after `ms`; returns its cancel. The clock
@@ -555,7 +547,6 @@ export class SessionManager {
           this.deps.broadcast("session.state", { sessionId: session.id, state: connection.state });
         }
         // The registry id and nothing else — no directory, project or prompt.
-        this.deps.track?.({ name: "session_created", agent: session.agentId });
         return updated;
       } catch (error) {
         // A throw between `session/new` and the row going idle (the store
@@ -1471,12 +1462,8 @@ export class SessionManager {
   }
 
   /**
-   * The environment an adapter is spawned with: the login shell's, with the
-   * app's launcher directory (`cadgen`, `python3`, `python` — not the bundled
-   * runtime's own bin, whose pip is off the PATH) in front of `PATH`. A
-   * session's `cadgen` and `python` are then the app's own, whatever the
-   * person's shell would have found — and nothing about it is installed on
-   * the machine.
+   * The environment an adapter is spawned with: the login shell's, with
+   * `runtimePath`'s directories in front of `PATH`.
    */
   private async environment(): Promise<Record<string, string>> {
     const env = await this.deps.detector.environment();

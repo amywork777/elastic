@@ -34,8 +34,8 @@ const OTHER = "README.md";
 const ROOT_ENTRIES = [MARKDOWN, OTHER].map((path) => ({ path, name: path, kind: "file", size: 12, modifiedAt: 0, symlink: false }));
 
 /** Replace one `explorer.*` call on the preload bridge, which is read-only. */
-function stub(name: keyof typeof window.textToCad.explorer, implementation: unknown) {
-  (window.textToCad.explorer as unknown as Record<string, unknown>)[name] = vi.fn(implementation as never);
+function stub(name: keyof typeof window.workbench.explorer, implementation: unknown) {
+  (window.workbench.explorer as unknown as Record<string, unknown>)[name] = vi.fn(implementation as never);
 }
 
 beforeEach(() => {

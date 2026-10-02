@@ -15,7 +15,7 @@ type Handler = (payload: unknown) => void;
 let handlers: Record<string, Handler>;
 let replies: { text: string; resolve: () => void; reject: (error: Error) => void }[];
 let detach: () => void;
-const bridge = window.textToCad as unknown as Record<string, unknown>;
+const bridge = window.workbench as unknown as Record<string, unknown>;
 const saved = { on: bridge.on, sessions: bridge.sessions };
 
 const block = (text: string): PromptBlock[] => [{ type: "text", text }];

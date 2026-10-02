@@ -1,20 +1,20 @@
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { FileViewer } from '@text-to-cad/ui/file-viewer';
-import type { FileSource } from '@text-to-cad/ui/file-viewer';
-import { createCadClient } from '@text-to-cad/core/client';
-import { createTabStore, memoryTabRecord, useTabViewerState } from '@text-to-cad/ui/tab-store';
-import type { TabRecordStorage } from '@text-to-cad/ui/tab-store';
-import { createStepRenderer } from '@text-to-cad/ui/renderers/step';
-import { createDxfRenderer } from '@text-to-cad/ui/renderers/dxf';
-import { createGlbRenderer } from '@text-to-cad/ui/renderers/glb';
-import { createMeshRenderer } from '@text-to-cad/ui/renderers/mesh';
-import { createRobotRenderer } from '@text-to-cad/ui/renderers/robot';
-import { createHarnessRenderer } from '@text-to-cad/ui/renderers/shell-harness';
-import type { ViewerHost } from '@text-to-cad/ui/host';
-import type { CadLiveController } from '@text-to-cad/ui/renderers/step';
-import type { ViewerCommands as CadCommands } from '@text-to-cad/ui/renderers/workspace';
-import type { PromptDestinationState } from '@text-to-cad/core/prompt';
+import { FileViewer } from '@workbench/ui/file-viewer';
+import type { FileSource } from '@workbench/ui/file-viewer';
+import { createCadClient } from '@workbench/core/client';
+import { createTabStore, memoryTabRecord, useTabViewerState } from '@workbench/ui/tab-store';
+import type { TabRecordStorage } from '@workbench/ui/tab-store';
+import { createStepRenderer } from '@workbench/ui/renderers/step';
+import { createDxfRenderer } from '@workbench/ui/renderers/dxf';
+import { createGlbRenderer } from '@workbench/ui/renderers/glb';
+import { createMeshRenderer } from '@workbench/ui/renderers/mesh';
+import { createRobotRenderer } from '@workbench/ui/renderers/robot';
+import { createHarnessRenderer } from '@workbench/ui/renderers/shell-harness';
+import type { ViewerHost } from '@workbench/ui/host';
+import type { CadLiveController } from '@workbench/ui/renderers/step';
+import type { ViewerCommands as CadCommands } from '@workbench/ui/renderers/workspace';
+import type { PromptDestinationState } from '@workbench/core/prompt';
 
 // The one file both panes open: `?file=arm.urdf` for a test whose fixture is not the default mesh.
 const file = new URLSearchParams(location.search).get('file') || 'part.stl';

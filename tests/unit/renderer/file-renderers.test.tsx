@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { DocumentSession, FileRendererProps, FileSource } from "@text-to-cad/ui/file-viewer";
-import { ViewerHostContext } from "@text-to-cad/ui/host";
+import type { DocumentSession, FileRendererProps, FileSource } from "@workbench/ui/file-viewer";
+import { ViewerHostContext } from "@workbench/ui/host";
 import CodeRenderer from "@renderer/features/explorer/renderers/code/CodeRenderer";
 import ImageRenderer from "@renderer/features/explorer/renderers/image/ImageRenderer";
 import UnsupportedRenderer from "@renderer/features/explorer/renderers/unsupported/UnsupportedRenderer";
@@ -151,7 +151,7 @@ describe("asset and fallback renderers", () => {
 });
 
 // The image, PDF and fallback views are file-tab chrome, so they follow the shared viewer
-// design system (`@text-to-cad/ui`'s docs/settings-ui.md): type from the token scale and layout
+// design system (`@workbench/ui`'s docs/settings-ui.md): type from the token scale and layout
 // from the viewer's own breakpoint, never the window's `sm:`/`md:` or a pixel font size.
 // Markdown and code are document content and keep their own content styles.
 describe("file-tab chrome", () => {

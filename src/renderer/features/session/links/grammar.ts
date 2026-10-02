@@ -1,4 +1,4 @@
-import { SELECTOR_LIST_SOURCE, splitReference } from "@shared/cad-refs";
+import { FRAGMENT_SOURCE, splitReference } from "@shared/file-refs";
 
 /**
  * What in an agent's prose might be a file (plan §8: "reference files by
@@ -15,7 +15,7 @@ import { SELECTOR_LIST_SOURCE, splitReference } from "@shared/cad-refs";
  * when there is no such file.
  *
  * A trailing selector (`#o1.2`, `#label.f45`, `#o1,o2`) is kept on the
- * token when it parses as one (`@shared/cad-refs`); the file half is what
+ * token when it parses as one (`@shared/file-refs`); the file half is what
  * gets looked up.
  */
 export type PathToken = {
@@ -31,7 +31,7 @@ export type PathToken = {
 };
 
 /** Characters that end a token; they are never part of a path in prose. */
-const TOKEN_RE = new RegExp(`[^\\s()\\[\\]<>"'\`,;]+(?:#${SELECTOR_LIST_SOURCE})?`, "g");
+const TOKEN_RE = new RegExp(`[^\\s()\\[\\]<>"'\`,;]+(?:#${FRAGMENT_SOURCE})?`, "g");
 /** Punctuation a sentence hangs on the end of a path. */
 const TRAILING_RE = /[.,;:!?)\]'">`]+$/;
 const LEADING_RE = /^[([<'"`]+/;

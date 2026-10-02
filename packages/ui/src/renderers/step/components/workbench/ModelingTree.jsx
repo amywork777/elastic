@@ -1,10 +1,10 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Boxes, Circle, CornerUpRight, Focus, Layers, RotateCw, Shapes, Spline, SquareDashed } from 'lucide-react';
-import { Button } from '@text-to-cad/ui/primitives/button';
-import { TREE_ROW_DENSE_HEIGHT, TREE_ROW_DENSE_ICON_CLASS, TreeRowSurface, TreeRowChevron, TreeRowLabel } from '@text-to-cad/ui/primitives/tree-row';
-import { TreeFilterHighlight, TreeFilterInput } from '@text-to-cad/ui/primitives/tree-filter';
-import { cn } from '@text-to-cad/ui/utils';
+import { Button } from '@workbench/ui/primitives/button';
+import { TREE_ROW_DENSE_HEIGHT, TREE_ROW_DENSE_ICON_CLASS, TreeRowSurface, TreeRowChevron, TreeRowLabel } from '@workbench/ui/primitives/tree-row';
+import { TreeFilterHighlight, TreeFilterInput } from '@workbench/ui/primitives/tree-filter';
+import { cn } from '@workbench/ui/utils';
 import ModelPartMenu, { FeatureReferencesContext } from './ModelPartMenu.jsx';
 import ModelPartActions, { ROW_NAME_UNDER_ACTIONS, rowActionsLayout } from './ModelPartActions.jsx';
 import { modelingSelectionPaths } from '../../workbench/modelingSelection.js';

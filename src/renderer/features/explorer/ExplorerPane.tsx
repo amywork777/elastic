@@ -10,19 +10,18 @@ import type { ExplorerTab } from "@shared/types";
 import type { Project } from "@shared/types";
 
 import { BrowserTab } from "./BrowserTab";
-import { EmptyState } from "@text-to-cad/ui/navigation";
-import { DrawingTab } from "./DrawingTab";
+import { EmptyState } from "@workbench/ui/navigation";
+import { ToolTab } from "./ToolTab";
 import { FileTab } from "./FileTab";
 import { EXPLORER_TABPANEL_ID, TabStrip, explorerTabDomId } from "./TabStrip";
 import { focusTabBody } from "./focus";
 import { loadTerminal, preloadTerminal } from "./load-terminal";
 import type { ReviewTab as ReviewTabBody } from "./ReviewTab";
 import type { TerminalTab as TerminalTabBody } from "./TerminalTab";
-import { desktopCadConnectionForTab } from "./adapters/cadRuntime";
 
 // The review draws with Monaco (~9.6 MB of the window's first chunk when it was
 // imported here) and the terminal with xterm; both load with the first tab of
-// their kind, the way the drawing surface and the file renderers already do. The
+// their kind, the way the file renderers already do. The
 // terminal's is also fetched at idle and on a new-terminal request (`./load-terminal`).
 //
 // A chunk that fails to load (a dropped fetch, an update replacing the files under a
@@ -141,7 +140,7 @@ export function ExplorerPane() {
             }
             description={
               ready && tabs.length === 0
-                ? "Files, reviews, browsers, terminals and drawings all open here, in one strip."
+                ? "Files, reviews, browsers, terminals and plugin tools all open here, in one strip."
                 : "Restoring…"
             }
             icon={PanelsTopLeft}
@@ -170,7 +169,6 @@ function TabBody({ tab, project }: {
           project={project}
           root={tab.root}
           tabId={tab.id}
-          cadConnection={desktopCadConnectionForTab(tab)}
         />
       );
     case "review":
@@ -178,8 +176,8 @@ function TabBody({ tab, project }: {
         <LazyTab opening="Opening review…" tab={ReviewTab} what="review"
           props={{ project, scope: tab.scope, sessionId: tab.sessionId, tabId: tab.id }} />
       );
-    case "drawing":
-      return <DrawingTab sessionId={tab.sessionId} project={project} root={tab.root} tabId={tab.id} title={tab.title} />;
+    case "tool":
+      return <ToolTab sessionId={tab.sessionId} project={project} root={tab.root} tabId={tab.id} pluginId={tab.pluginId} toolId={tab.toolId} title={tab.title} />;
     case "browser":
       return <BrowserTab sessionId={tab.sessionId} projectId={project.id} root={tab.root} tabId={tab.id} url={tab.url} />;
     case "terminal":
@@ -278,7 +276,7 @@ export function useExplorerShortcuts() {
         // Secondary tab kinds. `Mod+B` is the sidebar,
         // so `Mod+Shift+B` had to stay clear of it — Shell's handler drops
         // anything with Shift held for exactly this reason.
-        const kind = key === "r" ? "review" : key === "b" ? "browser" : key === "d" ? "drawing" : null;
+        const kind = key === "r" ? "review" : key === "b" ? "browser" : null;
         if (kind) {
           event.preventDefault();
           if (!event.repeat) focusOpened(open(kind));

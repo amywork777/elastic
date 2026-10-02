@@ -1,8 +1,8 @@
 import { createRoot } from 'react-dom/client';
 import { useState } from 'react';
-import { FileViewer, type FileViewerState } from '@text-to-cad/ui/file-viewer';
-import type { LivePdfDocument } from '@text-to-cad/ui/host';
-import '@text-to-cad/ui/styles.css';
+import { FileViewer, type FileViewerState } from '@workbench/ui/file-viewer';
+import type { LivePdfDocument } from '@workbench/ui/host';
+import '@workbench/ui/styles.css';
 
 import { pdfRenderer } from '../../../src/renderer/features/explorer/renderers/pdf';
 import { testViewerHost } from '../../viewer-host';

@@ -1,5 +1,5 @@
 import type { FileUIPart } from "@renderer/components/ai-elements/types";
-import { isCadFile, type CadReference } from "@shared/cad-refs";
+import { isReferenceFile, type FileReference } from "@shared/file-refs";
 import { basename } from "@renderer/lib/paths";
 
 /**
@@ -211,7 +211,7 @@ async function findInProject(file: File, scope: NonNullable<AttachScope>, listin
   const named = listing.paths.filter((path) => basename(path) === file.name);
   const stats = await Promise.all(named.slice(0, 20).map(async (path) => {
     try {
-      const stat = await window.textToCad.explorer.stat({ ...at, path });
+      const stat = await window.workbench.explorer.stat({ ...at, path });
       return stat.kind === "file" && stat.size === file.size ? { path, fresh: Math.abs(stat.modifiedAt - file.lastModified) < MTIME_TOLERANCE_MS } : null;
     } catch {
       return null;
@@ -225,7 +225,7 @@ async function findInProject(file: File, scope: NonNullable<AttachScope>, listin
   return listing.truncated ? { kind: "unconfirmed" } : { kind: "outside" };
 }
 
-export type Screened = { attach: File[]; references: CadReference[]; refusals: string[] };
+export type Screened = { attach: File[]; references: FileReference[]; refusals: string[] };
 
 /**
  * Sort what was picked, pasted or dropped before any of it is attached:
@@ -241,7 +241,7 @@ export async function screenAttachments(files: readonly File[], scope: AttachSco
   // One walk of the project for the whole batch, and only when a CAD file needs it. A walk that
   // fails vouches for nothing, and says so — it is not a project with too many files.
   let listing: Promise<ProjectListing> | null = null;
-  const list = (at: NonNullable<AttachScope>) => listing ??= window.textToCad.explorer
+  const list = (at: NonNullable<AttachScope>) => listing ??= window.workbench.explorer
     .paths({ projectId: at.projectId, ...(at.root ? { root: at.root } : {}), path: "" })
     .catch((): ProjectListing => ({ paths: [], truncated: false, failed: true }));
   for (const file of files) {
@@ -251,7 +251,7 @@ export async function screenAttachments(files: readonly File[], scope: AttachSco
       else result.attach.push(file);
       continue;
     }
-    if (isCadFile(file.name)) {
+    if (isReferenceFile(file.name)) {
       const found: Found = scope ? await findInProject(file, scope, await list(scope)) : { kind: "outside" };
       if (found.kind === "one") result.references.push({ file: found.path, selector: "" });
       else if (found.kind === "ambiguous") result.refusals.push(attachmentRefusal.cadAmbiguous(file.name, found.paths));

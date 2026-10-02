@@ -1,4 +1,4 @@
-import type { FileChange as ViewerFileChange } from "@text-to-cad/ui/file-viewer";
+import type { FileChange as ViewerFileChange } from "@workbench/ui/file-viewer";
 import type { FileChange } from "@shared/ipc/explorer";
 
 /** The validated native event uses filesystem names; shared UI uses storage semantics. */

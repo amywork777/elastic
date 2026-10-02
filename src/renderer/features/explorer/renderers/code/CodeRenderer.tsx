@@ -2,8 +2,8 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { useViewerHost } from "@text-to-cad/ui/host";
-import type { FileRendererProps } from "@text-to-cad/ui/file-viewer";
+import { useViewerHost } from "@workbench/ui/host";
+import type { FileRendererProps } from "@workbench/ui/file-viewer";
 
 import {
   SHARED_EDITOR_OPTIONS,

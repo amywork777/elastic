@@ -37,8 +37,8 @@ const drawer = () => (
 );
 
 beforeEach(() => {
-  vi.mocked(window.textToCad.settings.set).mockReset();
-  vi.mocked(window.textToCad.settings.set).mockImplementation(async (patch) => ({ ...defaultSettings(), ...(patch as object) }));
+  vi.mocked(window.workbench.settings.set).mockReset();
+  vi.mocked(window.workbench.settings.set).mockImplementation(async (patch) => ({ ...defaultSettings(), ...(patch as object) }));
   useSettings.setState({ settings: defaultSettings(), ready: true });
 });
 
@@ -47,7 +47,7 @@ it("writes extra arguments typed into the field when the drawer closes without a
   const view = render(drawer());
   await user.type(await screen.findByLabelText("Extra arguments"), "--verbose");
   view.unmount();
-  expect(window.textToCad.settings.set).toHaveBeenCalledWith({
+  expect(window.workbench.settings.set).toHaveBeenCalledWith({
     agentOverrides: { codex: { extraArgs: ["--verbose"], env: {} } },
   });
 });
@@ -59,7 +59,7 @@ it("says which environment lines have no KEY= and will not be saved, and keeps t
   await user.type(env, "GOOD=1{Enter}oops{Enter}# note{Enter}=x");
   expect(screen.getByRole("status")).toHaveTextContent("Lines 2 and 4 have no KEY=value and will not be saved.");
   await user.tab();
-  expect(window.textToCad.settings.set).toHaveBeenCalledWith({
+  expect(window.workbench.settings.set).toHaveBeenCalledWith({
     agentOverrides: { codex: { extraArgs: [], env: { GOOD: "1" } } },
   });
 });

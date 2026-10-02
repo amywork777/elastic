@@ -735,7 +735,7 @@ export function agentProvider(id: string): AgentProvider | null {
 }
 
 /**
- * `TEXT_TO_CAD_FAKE_AGENT=<path to a stdio ACP agent>`: launch that instead of
+ * `WORKBENCH_FAKE_AGENT=<path to a stdio ACP agent>`: launch that instead of
  * whatever the table says, for every provider.
  *
  * The Playwright suite needs a session — a real thread with a real cwd — to
@@ -747,13 +747,13 @@ export function agentProvider(id: string): AgentProvider | null {
  * whoever started the binary. The renderer cannot reach it, and a packaged app
  * launched normally never sees it.
  */
-const FAKE_AGENT: AgentProvider["launch"] | null = process.env.TEXT_TO_CAD_FAKE_AGENT
+const FAKE_AGENT: AgentProvider["launch"] | null = process.env.WORKBENCH_FAKE_AGENT
   ? {
       // Electron's own binary as the runtime, rather than whatever `node` the
       // login shell finds: `ELECTRON_RUN_AS_NODE` makes it a plain Node, and
       // a machine with no `node` on its PATH still runs the suite.
       command: process.execPath,
-      args: [process.env.TEXT_TO_CAD_FAKE_AGENT],
+      args: [process.env.WORKBENCH_FAKE_AGENT],
       env: { ELECTRON_RUN_AS_NODE: "1" },
     }
   : null;

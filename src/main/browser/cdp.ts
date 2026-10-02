@@ -64,7 +64,7 @@ export class ScopedBrowserCdp {
       const { targetInfo } = await contents.debugger.sendCommand("Target.getTargetInfo");
       targetIds.set(targetInfo.targetId, tabId);
       liveTargetIds.set(tabId, targetInfo.targetId);
-      return { targetId: targetInfo.targetId, browserContextId: "text-to-cad-workspace", type: "page", title: target.title, url: target.url || "about:blank", attached: true, canAccessOpener: false };
+      return { targetId: targetInfo.targetId, browserContextId: "app-workspace", type: "page", title: target.title, url: target.url || "about:blank", attached: true, canAccessOpener: false };
     };
     const targetIdOf = (tabId: string) => liveTargetIds.get(tabId);
     const attaching = new Map<string, Promise<string>>();
@@ -196,14 +196,14 @@ export class ScopedBrowserCdp {
           if (socket.readyState !== WebSocket.OPEN) throw new Error("Browser connection closed");
           if (bytes.length > 64 * 1024 * 1024 || streams.size >= 4) throw new Error("PDF capture exceeds the connection's memory limit");
           if (params.transferMode !== "ReturnAsStream") return { data: bytes.toString("base64") };
-          const stream = `text-to-cad-pdf-${randomUUID()}`;
+          const stream = `app-pdf-${randomUUID()}`;
           streams.set(stream, { bytes, offset: 0 }); return { data: "", stream };
         }
         case "Browser.getVersion": return { protocolVersion: "1.3", product: `Chrome/${process.versions.chrome}`, revision: "", userAgent: `Mozilla/5.0 (${process.platform === "darwin" ? "Macintosh" : process.platform === "win32" ? "Windows" : "Linux"}) Chrome/${process.versions.chrome}`, jsVersion: process.versions.v8 };
         case "Target.getBrowserContexts": return { browserContextIds: [] };
         case "Target.getTargets": return { targetInfos: await Promise.all(this.service.list(this.scope).map(t => info(t.tabId))) };
         case "Target.getTargetInfo": return { targetInfo: !page && !params.targetId
-          ? { targetId: "text-to-cad-browser", type: "browser", title: "text-to-cad", url: "", attached: true, browserContextId: "text-to-cad-workspace" }
+          ? { targetId: "app-browser", type: "browser", title: "text-to-cad", url: "", attached: true, browserContextId: "app-workspace" }
           : await info(targetId()) };
         case "Target.setDiscoverTargets":
           discover = Boolean(params.discover);

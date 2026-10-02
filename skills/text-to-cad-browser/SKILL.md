@@ -1,5 +1,5 @@
 ---
-name: text-to-cad-browser
+name: app-browser
 description: Browse, inspect and interact with the same embedded pages the user sees in text-to-cad, using this session's scoped Playwright MCP tools.
 ---
 
@@ -11,7 +11,7 @@ background tool calls never switch the user's selected session. Use IDs returned
 by this session's tools.
 
 
-Use this session's `text-to-cad-browser` tools. They run the bundled Playwright MCP
+Use this session's `app-browser` tools. They run the bundled Playwright MCP
 against text-to-cad's actual browser tabs. No browser installer, separate browser,
 external profile or cloud account is needed. The session sees only its project's
 current workspace; the app shell and other workspaces are not browser targets.

@@ -17,7 +17,7 @@ Registry validation rejects duplicate IDs and method names. The same
 modules drive MCP tool registration and `scripts/build-skills.mjs`; changing
 one domain does not require maintaining a second tool/skill catalog.
 
-Each session receives separate `text-to-cad-<domain>` stdio MCP server entries.
+Each session receives separate `app-<domain>` stdio MCP server entries.
 They use the same packaged server executable with a different integration ID
 and a distinct per-session, per-integration bearer token. The loopback bridge
 validates the token, method ownership and input schema before dispatch. A PDF

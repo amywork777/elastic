@@ -3,7 +3,7 @@ import { expect, type ElectronApplication, type Page } from "@playwright/test";
 import { chooseDirectory } from "./launch";
 
 declare const window: {
-  textToCad: {
+  workbench: {
     sessions: {
       create(request: { projectId: string; agentId: string; gitMode: "none" }): Promise<{ id: string }>;
       rename(request: { id: string; title: string }): Promise<unknown>;
@@ -25,9 +25,9 @@ export async function selectFixtureSession(app: ElectronApplication, page: Page,
   if (!session) {
     const project = await chooseDirectory(app, directory);
     session = await page.evaluate(async (projectId) => {
-      const session = await window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" });
+      const session = await window.workbench.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" });
       const title = `Fixture ${session.id.slice(0, 8)}`;
-      await window.textToCad.sessions.rename({ id: session.id, title });
+      await window.workbench.sessions.rename({ id: session.id, title });
       return { id: session.id, projectId, title };
     }, project.id);
     byDirectory.set(directory, session);

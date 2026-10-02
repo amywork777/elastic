@@ -2,7 +2,7 @@ import { InputRule, Node, mergeAttributes } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 
-import type { CadReference } from "@shared/cad-refs";
+import type { FileReference } from "@shared/file-refs";
 
 import { ReferenceChip } from "./ReferenceChip";
 import { REFERENCE_NODE, parseSegments, referenceToken } from "./references";
@@ -55,7 +55,7 @@ export const ReferenceNode = Node.create({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const reference = node.attrs as CadReference;
+    const reference = node.attrs as FileReference;
     return [
       "span",
       mergeAttributes(HTMLAttributes, {
@@ -68,7 +68,7 @@ export const ReferenceNode = Node.create({
   },
 
   renderText({ node }) {
-    return referenceToken(node.attrs as CadReference);
+    return referenceToken(node.attrs as FileReference);
   },
 
   addNodeView() {

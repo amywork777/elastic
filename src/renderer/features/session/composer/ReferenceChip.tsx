@@ -1,11 +1,11 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { Box, Hash } from "lucide-react";
 import { useContext } from "react";
 import { toast } from "sonner";
 
 import { cn } from "@renderer/lib/utils";
-import type { CadReference } from "@shared/cad-refs";
+import type { FileReference } from "@shared/file-refs";
 import { useComposer } from "@renderer/state/composer";
 
 import { referenceToken } from "./references";
@@ -27,7 +27,7 @@ const CHIP_BODY =
 
 export function ReferenceChip({ node, selected }: NodeViewProps) {
   const scope = useContext(ReferenceScopeContext);
-  const reference = node.attrs as CadReference;
+  const reference = node.attrs as FileReference;
   const token = referenceToken(reference);
   const label = useComposer((state) => scope?.draftKey ? state.referenceLabels[scope.draftKey]?.[token] : undefined);
   // The hint is the chip's whole name, and only when the chip clips it (160px per part): the

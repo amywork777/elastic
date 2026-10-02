@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import { PNG } from 'pngjs';
-import { writeGlb } from '@text-to-cad/core/glb/writeGlb.js';
+import { writeGlb } from '@workbench/core/glb/writeGlb.js';
 
 // The robot renderer end to end in a real browser, over inline fixtures made of
 // primitives: a URDF, the SRDF paired with it (a "home" state, a named pose, an end

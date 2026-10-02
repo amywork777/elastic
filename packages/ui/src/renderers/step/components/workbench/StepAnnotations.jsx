@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Hash, MessageSquareDot, Trash2 } from "lucide-react";
-import { Button } from "@text-to-cad/ui/primitives/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@text-to-cad/ui/primitives/popover";
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
-import { cn } from "@text-to-cad/ui/utils";
+import { Button } from "@workbench/ui/primitives/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@workbench/ui/primitives/popover";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
+import { cn } from "@workbench/ui/utils";
 
 // The Select tool's annotations (`workbench/stepAnnotations.js`): the Annotate button, which is
 // the viewport's action while something is selected and, under Draw, the action on the sketch,

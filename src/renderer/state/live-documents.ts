@@ -1,6 +1,6 @@
 import { imageResult } from './image-result';
-import { movedFilePath } from '@text-to-cad/ui/file-viewer';
-import type { DocumentDrafts, LiveTextDocument, LivePdfDocument, ViewerHost, TextDraft, LiveTextSnapshot, LivePdfSnapshot } from '@text-to-cad/ui/host';
+import { movedFilePath } from '@workbench/ui/file-viewer';
+import type { DocumentDrafts, LiveTextDocument, LivePdfDocument, ViewerHost, TextDraft, LiveTextSnapshot, LivePdfSnapshot } from '@workbench/ui/host';
 
 export interface LiveDocumentScope { projectId: string; root: string | null; path?: string | null }
 type Binding<T> = LiveDocumentScope & { sourceId: string; path: string; target: T };

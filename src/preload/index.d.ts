@@ -1,9 +1,9 @@
-import type { TextToCadApi } from "../shared/ipc";
+import type { WorkbenchApi } from "../shared/ipc";
 
 declare global {
   interface Window {
     /** The preload bridge. The renderer's only way off the page. */
-    readonly textToCad: TextToCadApi;
+    readonly workbench: WorkbenchApi;
   }
 }
 

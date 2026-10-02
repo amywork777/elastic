@@ -1,7 +1,7 @@
 /**
  * The skills root every session is given (plan §8, as revised).
  *
- * text-to-cad installs nothing into an agent's global configuration. It ships the
+ * The app installs nothing into an agent's global configuration. It ships the
  * skills (`resources/skills/`, composed by `scripts/build-skills.mjs`),
  * materialises them once per app version under
  * `<userData>/skills/<appVersion>/`, and hands that one directory to every
@@ -18,7 +18,7 @@
  * Agents that ignore additional directories — Gemini, Copilot, OpenCode,
  * Goose, everything but Claude Code and Codex — get the root a second way:
  * `preamble()` names it, and its files in the first prompt of a session,
- * beside the `text-to-cad-workspace` MCP server's `list_skills` / `read_skill`
+ * beside the `app-workspace` MCP server's `list_skills` / `read_skill`
  * tools which read the same directory.
  *
  * Everything here is plain `node:fs` over paths passed in, so the materialiser
@@ -29,6 +29,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { APP_NAME } from "../../shared/brand";
+
 /** Claude Code reads `<dir>/.claude/skills/<name>/SKILL.md` from an added directory. */
 export const CLAUDE_LAYOUT = path.join(".claude", "skills");
 /** codex-acp registers `<root>/.agents/skills` as an extra skill root. */
@@ -36,10 +38,10 @@ export const AGENTS_LAYOUT = path.join(".agents", "skills");
 export const SKILL_LAYOUTS = [CLAUDE_LAYOUT, AGENTS_LAYOUT] as const;
 
 /** Written last into a materialised root; its version is what a later launch compares. */
-export const ROOT_MANIFEST = "text-to-cad-skills.json";
+export const ROOT_MANIFEST = "app-skills.json";
 
-/** How the MCP server (`resources/text-to-cad-mcp/server.mjs`) is told where the root is. */
-export const SKILLS_ROOT_ENV = "TEXT_TO_CAD_SKILLS_ROOT";
+/** How the MCP server (`resources/app-mcp/server.mjs`) is told where the root is. */
+export const SKILLS_ROOT_ENV = "WORKBENCH_SKILLS_ROOT";
 
 export type SkillSummary = { name: string; description: string };
 
@@ -321,7 +323,7 @@ function summarise(description: string): string {
  * The text block that goes in front of the first prompt of a session, for an
  * agent that does not load an additional directory's skills by itself
  * (`skillRoots: "preamble"` in the registry). One paragraph: where the skills
- * are, what they are, and which one to read before CAD work. It is sent once —
+ * are, what they are, and that the one fitting the task is read first. It is sent once —
  * the transcript keeps it — and never on a resumed session.
  */
 export function skillsPreamble(root: string, skills: readonly SkillSummary[]): string | null {
@@ -329,7 +331,7 @@ export function skillsPreamble(root: string, skills: readonly SkillSummary[]): s
     return null;
   }
   const opening = [
-    `You are running inside text-to-cad. Additional skills are at ${path.join(root, CLAUDE_LAYOUT)}.`,
+    `You are running inside ${APP_NAME}. Additional skills are at ${path.join(root, CLAUDE_LAYOUT)}.`,
     "Read the skill that fits the task using file tools or the workspace MCP list_skills/read_skill tools.",
     "Workspace tools open resources in the app; domain integrations operate on their contents.",
     "Tabs belong to this workspace. Add to prompt captures context without submitting it.",

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { VIEWER_PICK_MODE } from "@text-to-cad/core/lib/viewer/constants.js";
+import { VIEWER_PICK_MODE } from "@workbench/core/lib/viewer/constants.js";
 
-import { screenLimitedPickThreshold, worldUnitsPerPixelAtDistance } from "@text-to-cad/core/lib/viewer/pickingThresholds.js";
+import { screenLimitedPickThreshold, worldUnitsPerPixelAtDistance } from "@workbench/core/lib/viewer/pickingThresholds.js";
 import {
   classifyMeasurePick,
   measurementFromPicks
-} from "@text-to-cad/core/lib/viewer/measurement.js";
+} from "@workbench/core/lib/viewer/measurement.js";
 import {
   measureHitPointFromWorldIntersection,
   measureModelOffsetFromRuntime,

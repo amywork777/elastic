@@ -55,7 +55,7 @@ export function GeneralPage() {
           description="Where the Open folder chooser opens."
           keywords="directory workspace"
           onChoose={() => {
-            void window.textToCad.dialogs
+            void window.workbench.dialogs
               .chooseDirectory({
                 title: "Default project folder",
                 defaultPath: settings.defaultProjectFolder ?? undefined,
@@ -162,7 +162,7 @@ export function GeneralPage() {
           description="An aiff, wav, mp3, m4a or ogg file. Empty plays text-to-cad's own chime."
           keywords="audio file custom"
           onChoose={() => {
-            void window.textToCad.dialogs
+            void window.workbench.dialogs
               .chooseFile({
                 title: "Notification sound",
                 filters: [{ name: "Audio", extensions: ["aiff", "aif", "wav", "mp3", "m4a", "ogg"] }],

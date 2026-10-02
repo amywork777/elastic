@@ -1,9 +1,9 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
-import type { FileRendererProps } from "@text-to-cad/ui/file-viewer";
+import type { FileRendererProps } from "@workbench/ui/file-viewer";
 import { SOURCE_PANEL } from "./panels";
-import { cn } from "@text-to-cad/ui/utils";
+import { cn } from "@workbench/ui/utils";
 
 import { capturePristine, documentToMarkdown, markdownToDocument } from "./document";
 import { markdownExtensions } from "./schema";

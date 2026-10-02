@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { cn } from '@text-to-cad/ui/utils';
+import { cn } from '@workbench/ui/utils';
 
 export const TREE_ROW_HEIGHT = 28;
 // A tree in the viewer's tool stack (Features, Links): the panels' 11px text, 24px rows.

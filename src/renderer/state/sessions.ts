@@ -72,7 +72,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
   activeId: null,
 
   load: async () => {
-    const sessions = await window.textToCad.sessions.list({});
+    const sessions = await window.workbench.sessions.list({});
     get().receive(sessions);
   },
 
@@ -100,7 +100,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
       ),
     }));
     try {
-      await window.textToCad.sessions.rename({ id, title: trimmed });
+      await window.workbench.sessions.rename({ id, title: trimmed });
     } catch (error) {
       // Main refused: put the old title back — unless a `sessions.changed` has since
       // written another one, which is main's word and stays.
@@ -117,18 +117,18 @@ export const useSessions = create<SessionsState>((set, get) => ({
 
   archive: async (id, archived) => {
     if (archived) await flushSessionTabs(id);
-    await window.textToCad.sessions.archive({ id, archived });
+    await window.workbench.sessions.archive({ id, archived });
     if (archived && get().activeId === id) {
       set({ activeId: null });
     }
   },
 
   setPinned: async (id, pinned) => {
-    await window.textToCad.sessions.setPinned({ id, pinned });
+    await window.workbench.sessions.setPinned({ id, pinned });
   },
 
   remove: async (id) => {
-    await window.textToCad.sessions.delete({ id });
+    await window.workbench.sessions.delete({ id });
     if (get().activeId === id) {
       set({ activeId: null });
     }
@@ -167,7 +167,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
     if (!agentId) {
       throw new Error("no agent is installed; add one from Settings › Agents");
     }
-    const session = await window.textToCad.sessions.create({
+    const session = await window.workbench.sessions.create({
       projectId: input.projectId,
       agentId,
       ...(input.gitMode ? { gitMode: input.gitMode } : {}),

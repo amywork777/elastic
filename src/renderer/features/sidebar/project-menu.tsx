@@ -41,7 +41,7 @@ export function ProjectMenuItems({
       <MenuItem
         icon={<FolderOpen />}
         label="Reveal in Finder"
-        onSelect={() => void window.textToCad.shell.showItemInFolder({ projectId: project.id })}
+        onSelect={() => void window.workbench.shell.showItemInFolder({ projectId: project.id })}
       />
     </>
   );

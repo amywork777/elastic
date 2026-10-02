@@ -17,7 +17,7 @@ const manifest = JSON.parse(readFileSync(path.join(appRoot, "package.json"), "ut
   peerDependencies?: Record<string, string>;
 };
 
-const WORKSPACE_LINKS = new Set(["@text-to-cad/core", "@text-to-cad/ui"]);
+const WORKSPACE_LINKS = new Set(["@workbench/core", "@workbench/ui"]);
 const EXACT = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 it("stays at version 0.0.0", () => {

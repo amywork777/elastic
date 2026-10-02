@@ -151,7 +151,7 @@ export function useProjectGitInfo(projectId: string | null | undefined): Project
     // sets state synchronously in its own body cascades a render, and the
     // answer for "no project" is the same `null` the failure path writes.
     void (projectId
-      ? window.textToCad.git.projectInfo({ projectId })
+      ? window.workbench.git.projectInfo({ projectId })
       : Promise.resolve(null)
     )
       .then(settle)

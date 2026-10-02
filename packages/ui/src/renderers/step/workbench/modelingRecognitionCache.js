@@ -1,4 +1,4 @@
-import { cadResourceCacheKey } from "@text-to-cad/core/client";
+import { cadResourceCacheKey } from "@workbench/core/client";
 // Bump when inference rules, tolerances or serialized recognition results change.
 export const MODELING_RECOGNITION_VERSION = 1;
 // Hundreds of small unique parts can fit well below the byte budget. Keep a

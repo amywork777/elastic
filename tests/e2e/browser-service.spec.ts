@@ -16,7 +16,7 @@ let server: http.Server;
 const scope = { sessionId: "browser-session", projectId: "project-a", root: "/work/project-a" };
 
 test.beforeAll(async () => {
-  scratch = await fs.mkdtemp(path.join(os.tmpdir(), "text-to-cad-browser-"));
+  scratch = await fs.mkdtemp(path.join(os.tmpdir(), "app-browser-"));
   server = http.createServer((_request, response) => {
     response.setHeader("Content-Type", "text/html");
     response.end(`<!doctype html><html><head><title>Browser fixture</title></head><body>
@@ -30,7 +30,7 @@ test.beforeAll(async () => {
   origin = `http://127.0.0.1:${address.port}`;
   const entry = path.join(scratch, "service-app.cjs");
   await build({ entryPoints: [path.join(appRoot, "tests/fixtures/browser/service-app.ts")], outfile: entry, bundle: true, platform: "node", format: "cjs", external: ["electron"], target: "node22" });
-  application = await electron.launch({ args: [entry, `--user-data-dir=${path.join(scratch, "profile")}`], env: { ...process.env, TEXT_TO_CAD_E2E_HIDDEN: "1" } });
+  application = await electron.launch({ args: [entry, `--user-data-dir=${path.join(scratch, "profile")}`], env: { ...process.env, WORKBENCH_E2E_HIDDEN: "1" } });
   await application.firstWindow();
 });
 test.afterAll(async () => {

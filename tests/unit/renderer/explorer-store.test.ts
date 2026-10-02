@@ -58,8 +58,8 @@ describe("the explorer strip", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    vi.mocked(window.textToCad.explorer.saveTabs).mockReset().mockResolvedValue(undefined);
-    vi.mocked(window.textToCad.explorer.loadTabs).mockReset().mockResolvedValue([]);
+    vi.mocked(window.workbench.explorer.saveTabs).mockReset().mockResolvedValue(undefined);
+    vi.mocked(window.workbench.explorer.loadTabs).mockReset().mockResolvedValue([]);
     reset();
   });
 
@@ -96,10 +96,10 @@ describe("the explorer strip", () => {
 
   it("retains drawings and their mixed order across project switches without saving them", async () => {
     const saved = new Map<string, PersistedExplorerTab[]>();
-    vi.mocked(window.textToCad.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
+    vi.mocked(window.workbench.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
       saved.set(projectId, tabs.map((tab, order) => ({ ...tab, order }) as PersistedExplorerTab));
     });
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => saved.get(projectId) ?? []);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => saved.get(projectId) ?? []);
     const file = useExplorer.getState().open("file")!;
     const drawing = useExplorer.getState().open("drawing", { root: "/worktree", title: "Bracket sketch" })!;
     const review = useExplorer.getState().open("review")!;
@@ -109,7 +109,7 @@ describe("the explorer strip", () => {
     await useExplorer.getState().bindSession("project-2", "project-2");
     expect(getDrawingTab(drawing.id, PROJECT)).toMatchObject({ root: "/worktree", title: "Bracket sketch" });
     expect(saved.get(PROJECT)?.map(tab => tab.kind)).toEqual(["file", "review"]);
-    expect(JSON.stringify(vi.mocked(window.textToCad.explorer.saveTabs).mock.calls)).not.toContain("Bracket sketch");
+    expect(JSON.stringify(vi.mocked(window.workbench.explorer.saveTabs).mock.calls)).not.toContain("Bracket sketch");
     await useExplorer.getState().bindSession(PROJECT, PROJECT);
     expect(useExplorer.getState().tabs.map(tab => tab.id)).toEqual([secondDrawing.id, file.id, drawing.id, review.id]);
     expect(useExplorer.getState().activeId).toBe(drawing.id);
@@ -120,10 +120,10 @@ describe("the explorer strip", () => {
 
   it("retains both projects' drawings when navigating away from an unfinished restore", async () => {
     const stored = new Map<string, PersistedExplorerTab[]>();
-    vi.mocked(window.textToCad.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
+    vi.mocked(window.workbench.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
       stored.set(projectId, tabs.map(tab => PersistedExplorerTabSchema.parse(tab)));
     });
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
     const drawingA = useExplorer.getState().open("drawing", { title: "Drawing A" })!;
     await useExplorer.getState().bindSession("project-2", "project-2");
     const fileB = useExplorer.getState().open("file")!;
@@ -132,7 +132,7 @@ describe("the explorer strip", () => {
     expect(useExplorer.getState().activeId).toBe(drawingA.id);
 
     const lateRestore = deferred<PersistedExplorerTab[]>();
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementationOnce(() => lateRestore.promise);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementationOnce(() => lateRestore.promise);
     const unfinishedVisit = useExplorer.getState().bindSession("project-2", "project-2");
     expect(useExplorer.getState()).toMatchObject({ projectId: "project-2", ready: false, tabs: [] });
     expect(getDrawingTab(drawingB.id, "project-2")).toMatchObject({ title: "Drawing B" });
@@ -152,25 +152,25 @@ describe("the explorer strip", () => {
 
   it("ignores open requests during restoration without replacing retained drawings", async () => {
     const stored = new Map<string, PersistedExplorerTab[]>();
-    vi.mocked(window.textToCad.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
+    vi.mocked(window.workbench.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
       stored.set(projectId, tabs.map(tab => PersistedExplorerTabSchema.parse(tab)));
     });
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
     const file = useExplorer.getState().open("file")!;
     const drawing = useExplorer.getState().open("drawing", { title: "Keep this sketch" })!;
     await useExplorer.getState().bindSession("project-2", "project-2");
     const loading = deferred<PersistedExplorerTab[]>();
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementationOnce(() => loading.promise);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementationOnce(() => loading.promise);
     const restoring = useExplorer.getState().bindSession(PROJECT, PROJECT);
     expect(useExplorer.getState().ready).toBe(false);
-    vi.mocked(window.textToCad.explorer.saveTabs).mockClear();
+    vi.mocked(window.workbench.explorer.saveTabs).mockClear();
     for (const kind of ["file", "review", "browser", "terminal", "drawing"] as const) {
       expect(useExplorer.getState().open(kind)).toBeNull();
     }
     expect(useExplorer.getState().openFile("unexpected.txt")).toBeNull();
     expect(useExplorer.getState().tabs).toEqual([]);
     expect(getDrawingTab(drawing.id, PROJECT)).toMatchObject({ title: "Keep this sketch" });
-    expect(window.textToCad.explorer.saveTabs).not.toHaveBeenCalled();
+    expect(window.workbench.explorer.saveTabs).not.toHaveBeenCalled();
     loading.resolve(stored.get(PROJECT) ?? []);
     await restoring;
     expect(useExplorer.getState().tabs.map(tab => tab.id)).toEqual([file.id, drawing.id]);
@@ -183,12 +183,12 @@ describe("the explorer strip", () => {
     const drawing = useExplorer.getState().open("drawing")!;
     await useExplorer.getState().bindSession("project-2", "project-2");
     const loading = deferred<PersistedExplorerTab[]>();
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementationOnce(() => loading.promise);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementationOnce(() => loading.promise);
     const restoring = useExplorer.getState().bindSession(PROJECT, PROJECT);
-    vi.mocked(window.textToCad.explorer.saveTabs).mockClear();
+    vi.mocked(window.workbench.explorer.saveTabs).mockClear();
     useExplorer.getState().update("departed-terminal", { ptyId: "late-pty" });
     expect(getDrawingTab(drawing.id, PROJECT)).not.toBeNull();
-    expect(window.textToCad.explorer.saveTabs).not.toHaveBeenCalled();
+    expect(window.workbench.explorer.saveTabs).not.toHaveBeenCalled();
     loading.resolve([]);
     await restoring;
     expect(useExplorer.getState().tabs.map(tab => tab.id)).toEqual([drawing.id]);
@@ -202,7 +202,7 @@ describe("the explorer strip", () => {
     expect(getDrawingTab(drawing.id, PROJECT)).toBeNull();
     await useExplorer.getState().bindSession("project-2", "project-2");
     // Simulate a response written by an older or compromised persistence path.
-    vi.mocked(window.textToCad.explorer.loadTabs).mockResolvedValue([drawing as never]);
+    vi.mocked(window.workbench.explorer.loadTabs).mockResolvedValue([drawing as never]);
     await useExplorer.getState().bindSession(PROJECT, PROJECT);
     expect(useExplorer.getState().tabs).toEqual([]);
   });
@@ -293,7 +293,7 @@ describe("the explorer strip", () => {
     const tab = useExplorer.getState().open("terminal");
     useExplorer.getState().update(tab!.id, { ptyId: "pty-9" });
     useExplorer.getState().close(tab!.id);
-    expect(window.textToCad.terminal.kill).toHaveBeenCalledWith({ id: "pty-9", sessionId: expect.any(String) });
+    expect(window.workbench.terminal.kill).toHaveBeenCalledWith({ id: "pty-9", sessionId: expect.any(String) });
   });
 
   it("reuses the tab already showing a file", () => {
@@ -376,10 +376,10 @@ describe("the explorer strip", () => {
     open("review");
     open("terminal");
 
-    expect(window.textToCad.explorer.saveTabs).not.toHaveBeenCalled();
+    expect(window.workbench.explorer.saveTabs).not.toHaveBeenCalled();
     await vi.runAllTimersAsync();
-    expect(window.textToCad.explorer.saveTabs).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(window.textToCad.explorer.saveTabs).mock.calls[0]?.[0]).toMatchObject({
+    expect(window.workbench.explorer.saveTabs).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(window.workbench.explorer.saveTabs).mock.calls[0]?.[0]).toMatchObject({
       sessionId: PROJECT,
     });
   });
@@ -388,18 +388,18 @@ describe("the explorer strip", () => {
     const blank = useExplorer.getState().open("file")!;
     const stored = new Map<string, PersistedExplorerTab[]>([[PROJECT, [PersistedExplorerTabSchema.parse(blank)]]]);
     const saved = deferred<void>();
-    vi.mocked(window.textToCad.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
+    vi.mocked(window.workbench.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
       if (projectId === PROJECT) await saved.promise;
       stored.set(projectId, tabs.map(tab => PersistedExplorerTabSchema.parse(tab)));
     });
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
 
     useExplorer.getState().openFile("icon.png");
-    expect(window.textToCad.explorer.saveTabs).not.toHaveBeenCalled();
+    expect(window.workbench.explorer.saveTabs).not.toHaveBeenCalled();
     const leaving = useExplorer.getState().bindSession("project-2", "project-2");
     expect(useExplorer.getState()).toMatchObject({ projectId: "project-2", ready: false });
     await Promise.resolve();
-    expect(window.textToCad.explorer.saveTabs).toHaveBeenCalledExactlyOnceWith({
+    expect(window.workbench.explorer.saveTabs).toHaveBeenCalledExactlyOnceWith({
       sessionId: PROJECT, tabs: [expect.objectContaining({ id: blank.id, path: "icon.png" })],
     });
     // Loading B does not wait for A's delayed IPC write.
@@ -407,10 +407,10 @@ describe("the explorer strip", () => {
     expect(useExplorer.getState()).toMatchObject({ projectId: "project-2", ready: true });
     const returning = useExplorer.getState().bindSession(PROJECT, PROJECT);
     expect(useExplorer.getState()).toMatchObject({ projectId: PROJECT, ready: false });
-    expect(window.textToCad.explorer.loadTabs).not.toHaveBeenCalledWith({ sessionId: PROJECT });
+    expect(window.workbench.explorer.loadTabs).not.toHaveBeenCalledWith({ sessionId: PROJECT });
     saved.resolve();
     await returning;
-    expect(window.textToCad.explorer.loadTabs).not.toHaveBeenCalledWith({ sessionId: PROJECT });
+    expect(window.workbench.explorer.loadTabs).not.toHaveBeenCalledWith({ sessionId: PROJECT });
     expect(useExplorer.getState()).toMatchObject({ ready: true, activeId: blank.id });
     expect(useExplorer.getState().tabs).toMatchObject([{ id: blank.id, path: "icon.png" }]);
   });
@@ -418,12 +418,12 @@ describe("the explorer strip", () => {
   it.each(["resolved", "rejected"])("serializes a flushed update behind a %s earlier save before restoring", async outcome => {
     const earlier = deferred<void>();
     const stored = new Map<string, PersistedExplorerTab[]>();
-    const saveTabs = vi.mocked(window.textToCad.explorer.saveTabs);
+    const saveTabs = vi.mocked(window.workbench.explorer.saveTabs);
     saveTabs.mockImplementationOnce(async ({ sessionId: projectId, tabs }) => {
       await earlier.promise;
       stored.set(projectId, tabs.map(tab => PersistedExplorerTabSchema.parse(tab)));
     }).mockImplementation(async ({ sessionId: projectId, tabs }) => { stored.set(projectId, tabs.map(tab => PersistedExplorerTabSchema.parse(tab))); });
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
 
     const tab = useExplorer.getState().open("file")!;
     await vi.advanceTimersByTimeAsync(400);
@@ -432,7 +432,7 @@ describe("the explorer strip", () => {
     await useExplorer.getState().bindSession("project-2", "project-2");
     const returning = useExplorer.getState().bindSession(PROJECT, PROJECT);
     expect(saveTabs).toHaveBeenCalledTimes(1);
-    expect(window.textToCad.explorer.loadTabs).not.toHaveBeenCalledWith({ sessionId: PROJECT });
+    expect(window.workbench.explorer.loadTabs).not.toHaveBeenCalledWith({ sessionId: PROJECT });
     if (outcome === "rejected") earlier.reject(new Error("Temporary persistence failure"));
     else earlier.resolve();
     await returning;
@@ -444,7 +444,7 @@ describe("the explorer strip", () => {
 
   it("keeps the stored pane pair when a restore fails, so the retry shows only inside an open pane", async () => {
     const shut = `failing-${PROJECT}`;
-    vi.mocked(window.textToCad.explorer.loadTabs).mockRejectedValueOnce(new Error("disk said no"));
+    vi.mocked(window.workbench.explorer.loadTabs).mockRejectedValueOnce(new Error("disk said no"));
     await useExplorer.getState().bindSession(shut, PROJECT);
     // Only a person's toggle or drag writes the pair: a failure neither opens the pane nor records a choice.
     expect(useExplorer.getState()).toMatchObject({ sessionId: shut, loadError: "disk said no", ready: false, collapsed: true });
@@ -452,7 +452,7 @@ describe("the explorer strip", () => {
 
     const open = `open-${PROJECT}`;
     window.localStorage.setItem("text-to-cad.explorer.session.collapsed", JSON.stringify({ [open]: false }));
-    vi.mocked(window.textToCad.explorer.loadTabs).mockRejectedValueOnce(new Error("again"));
+    vi.mocked(window.workbench.explorer.loadTabs).mockRejectedValueOnce(new Error("again"));
     await useExplorer.getState().bindSession(open, PROJECT);
     expect(useExplorer.getState()).toMatchObject({ sessionId: open, loadError: "again", collapsed: false });
   });
@@ -461,7 +461,7 @@ describe("the explorer strip", () => {
     const earlier = deferred<PersistedExplorerTab[]>();
     const fresh = `unloaded-${PROJECT}`;
     const base = { kind: "file", sessionId: fresh, projectId: PROJECT, order: 0, root: null, panel: null } as const;
-    vi.mocked(window.textToCad.explorer.loadTabs).mockImplementationOnce(() => earlier.promise);
+    vi.mocked(window.workbench.explorer.loadTabs).mockImplementationOnce(() => earlier.promise);
     const firstVisit = useExplorer.getState().bindSession(fresh, PROJECT);
     await Promise.resolve();
     await useExplorer.getState().bindSession(PROJECT, PROJECT);
@@ -469,7 +469,7 @@ describe("the explorer strip", () => {
     earlier.resolve([{ ...base, id: "restored", path: "icon.png" }]);
     await Promise.all([firstVisit, returning]);
     expect(useExplorer.getState().tabs).toMatchObject([{ id: "restored", sessionId: fresh }]);
-    expect(window.textToCad.explorer.loadTabs).toHaveBeenCalledTimes(1);
+    expect(window.workbench.explorer.loadTabs).toHaveBeenCalledTimes(1);
   });
 
   it("ignores a change batch for another project", () => {
@@ -541,19 +541,19 @@ describe("the explorer strip", () => {
     it("switches the watcher with the root and keeps each root's tree", () => {
       useExplorer.getState().setRoot(null);
       useExplorer.getState().setTreeOpen(null, (open) => new Set([...open, "src"]));
-      vi.mocked(window.textToCad.explorer.watch).mockClear();
-      vi.mocked(window.textToCad.explorer.unwatch).mockClear();
+      vi.mocked(window.workbench.explorer.watch).mockClear();
+      vi.mocked(window.workbench.explorer.unwatch).mockClear();
       useExplorer.getState().setRoot(WORKTREE);
-      expect(window.textToCad.explorer.unwatch).toHaveBeenCalledWith({ projectId: PROJECT });
-      expect(window.textToCad.explorer.watch).toHaveBeenCalledWith({ projectId: PROJECT, root: WORKTREE });
+      expect(window.workbench.explorer.unwatch).toHaveBeenCalledWith({ projectId: PROJECT });
+      expect(window.workbench.explorer.watch).toHaveBeenCalledWith({ projectId: PROJECT, root: WORKTREE });
       expect(useExplorer.getState().root).toBe(WORKTREE);
       // The worktree's tree starts fresh; the checkout's keeps its open folder.
       expect(useExplorer.getState().trees[WORKTREE]).toBeUndefined();
       expect(useExplorer.getState().trees[""]?.open.has("src")).toBe(true);
       // Setting the same root again is a no-op.
-      vi.mocked(window.textToCad.explorer.watch).mockClear();
+      vi.mocked(window.workbench.explorer.watch).mockClear();
       useExplorer.getState().setRoot(WORKTREE);
-      expect(window.textToCad.explorer.watch).not.toHaveBeenCalled();
+      expect(window.workbench.explorer.watch).not.toHaveBeenCalled();
     });
 
     it("keeps a background session's open folders when a file changes, and drops only its listings", async () => {
@@ -562,7 +562,7 @@ describe("the explorer strip", () => {
       useExplorer.getState().setTreeListing(null, "src", [{ path: "src/a.py", name: "a.py", kind: "file", size: 1, modifiedAt: 0, symlink: false }]);
       await useExplorer.getState().bindSession("other-session", PROJECT, null);
       useExplorer.getState().receiveChanges(PROJECT, null, [{ kind: "changed", path: "src/a.py", directory: false }]);
-      vi.mocked(window.textToCad.explorer.loadTabs).mockClear();
+      vi.mocked(window.workbench.explorer.loadTabs).mockClear();
       await useExplorer.getState().bindSession(PROJECT, PROJECT, null);
       const tree = useExplorer.getState().trees[""];
       expect([...tree!.open].sort()).toEqual(["", "src", "src/deep"]);

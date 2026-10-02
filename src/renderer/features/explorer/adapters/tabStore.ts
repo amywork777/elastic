@@ -1,6 +1,6 @@
-import { createTabStore, type TabRecord, type TabRecordStorage, type TabStore } from "@text-to-cad/ui/tab-store";
+import { createTabStore, type TabRecord, type TabRecordStorage, type TabStore } from "@workbench/ui/tab-store";
 
-// The desktop's tab: each file tab's record (`@text-to-cad/ui/tab-store`: the tab's viewer settings
+// The desktop's tab: each file tab's record (`@workbench/ui/tab-store`: the tab's viewer settings
 // and its file views), one localStorage entry keyed by tab id. A record lives as long as its tab:
 // it survives a window reload and a restart, and a closed tab's record is forgotten, or the
 // store would grow with every file ever opened. The explorer's own chrome — the panel column's

@@ -1,4 +1,4 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AlertCircle, Settings2 } from "lucide-react";
 import { Spinner } from "@renderer/components/ui/spinner";

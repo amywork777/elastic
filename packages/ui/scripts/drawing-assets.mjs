@@ -1,5 +1,5 @@
 /**
- * Offline Excalidraw assets for every app that loads `@text-to-cad/ui/drawing`:
+ * Offline Excalidraw assets for every app that loads `@workbench/ui/drawing`:
  * HTTP development, file:// Electron production, and the static web build.
  */
 import fs from "node:fs";

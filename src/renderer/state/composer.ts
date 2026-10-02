@@ -6,10 +6,10 @@ import { PromptRefused, useAcp } from "./acp";
 import { useSessions } from "./sessions";
 import { parseSegments } from "../features/session/composer/references";
 import type { PromptBlock } from "@shared/acp/types";
-import { referenceText, type CadReference } from "@shared/cad-refs";
+import { referenceText, type FileReference } from "@shared/file-refs";
 import { errorMessage } from "@shared/ipc/errors";
 import { withoutKey } from "@renderer/lib/record";
-import type { PromptReference } from "@text-to-cad/core/prompt";
+import type { PromptReference } from "@workbench/core/prompt";
 
 /**
  * What the composer holds that is not yet a turn: the queue of prompts
@@ -100,7 +100,7 @@ export type TakenDraft = {
 export const NEW_SESSION_KEY = "__new__";
 export const newSessionKey = (projectId: string) => `${NEW_SESSION_KEY}:${projectId}`;
 
-export type DraftContext = { text?: string; references?: CadReference[]; files?: File[]; deduplicateText?: boolean };
+export type DraftContext = { text?: string; references?: FileReference[]; files?: File[]; deduplicateText?: boolean };
 export type DraftPart =
   | { id: string; kind: "text"; text: string }
   | { id: string; kind: "reference"; text: string; label?: string; reference?: PromptReference }
@@ -187,7 +187,7 @@ type ComposerState = {
   restoreDraft: (key: string, draft: TakenDraft, options?: { behind?: boolean }) => void;
   setDraft: (sessionId: string, text: string) => void;
   /** Append a reference to a draft, as its token, spaced from what is there. */
-  insertReference: (key: string, reference: CadReference) => void;
+  insertReference: (key: string, reference: FileReference) => void;
   /** Queue a file for a draft's attachments. */
   attachFile: (key: string, file: File) => void;
   /** The composer takes what was queued for it. */

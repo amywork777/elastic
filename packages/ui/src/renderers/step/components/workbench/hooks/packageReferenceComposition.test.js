@@ -12,11 +12,11 @@ import path from "node:path";
 import test from "node:test";
 import { createRequire } from "node:module";
 
-import { parseSurf } from "@text-to-cad/core/lib/surf/container.js";
-import { tessellateComponent } from "@text-to-cad/core/lib/surf/tessellate.js";
-import { buildMeshDataFromSurf } from "@text-to-cad/core/lib/surf/surfMeshData.js";
-import { buildSelectorBundleFromSurf } from "@text-to-cad/core/lib/surf/surfSelectorBundle.js";
-import { buildGlbFaceIdsForPart, TOPOLOGY_FACE_ID_NONE } from "@text-to-cad/core/lib/viewer/selectorPickGroups.js";
+import { parseSurf } from "@workbench/core/lib/surf/container.js";
+import { tessellateComponent } from "@workbench/core/lib/surf/tessellate.js";
+import { buildMeshDataFromSurf } from "@workbench/core/lib/surf/surfMeshData.js";
+import { buildSelectorBundleFromSurf } from "@workbench/core/lib/surf/surfSelectorBundle.js";
+import { buildGlbFaceIdsForPart, TOPOLOGY_FACE_ID_NONE } from "@workbench/core/lib/viewer/selectorPickGroups.js";
 import { buildEdgeChainGraph } from "../../../workbench/edgeChainSelection.js";
 import { buildTangentFaceGraph } from "../../../workbench/tangentFaceSelection.js";
 
@@ -33,7 +33,7 @@ import {
 
 const require = createRequire(import.meta.url);
 const FIXTURE = path.join(
-  path.dirname(require.resolve("@text-to-cad/core/lib/surf/container.js")),
+  path.dirname(require.resolve("@workbench/core/lib/surf/container.js")),
   "fixtures",
   "sun_gear.surf"
 );

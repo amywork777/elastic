@@ -22,7 +22,7 @@ const VALUE_ALLOWLIST = new Set([
   "types",
   "acp/options",
   "acp/reduce",
-  "cad-refs",
+  "file-refs",
   "diff-counts",
   "terminal-replies",
   "titlebar",

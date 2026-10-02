@@ -6,9 +6,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { _electron as electron, expect, test, type ElectronApplication } from "@playwright/test";
 import { MIGRATIONS } from "../../src/main/db/migrations";
-import type { TextToCadApi } from "../../src/shared/ipc";
+import type { WorkbenchApi } from "../../src/shared/ipc";
 
-declare const window: { textToCad: TextToCadApi };
+declare const window: { workbench: WorkbenchApi };
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const require = createRequire(path.join(appRoot, "package.json"));
 const electronBinary = require("electron") as string;
@@ -56,7 +56,7 @@ test("upgrade preserves sessions, snapshots and owned tabs; restart and deletion
   const launch = async () => {
     app = await electron.launch({
       args: [path.join(appRoot, "out/main/index.js"), `--user-data-dir=${profile}`],
-      env: { ...process.env, NODE_ENV: "test", TEXT_TO_CAD_FAKE_AGENT: path.join(appRoot, "tests/fake-agent/index.mjs") },
+      env: { ...process.env, NODE_ENV: "test", WORKBENCH_FAKE_AGENT: path.join(appRoot, "tests/fake-agent/index.mjs") },
     });
     const page = await app.firstWindow();
     await page.waitForLoadState("domcontentloaded");
@@ -64,27 +64,27 @@ test("upgrade preserves sessions, snapshots and owned tabs; restart and deletion
   };
   try {
     let page = await launch();
-    const rows = await page.evaluate(() => window.textToCad.sessions.list({}));
+    const rows = await page.evaluate(() => window.workbench.sessions.list({}));
     expect(rows.map(row => row.id).sort()).toEqual(["archived", "one", "two"]);
     expect(rows.find(row => row.id === "one")).toMatchObject({ projectId: directory, acpSessionId: "remote-one", pinned: true });
     expect(rows.find(row => row.id === "two")).toMatchObject({ worktreePath: worktree, sessionHead: "head", turnHead: "turn" });
     expect(rows.find(row => row.id === "archived")?.archived).toBe(true);
     const tabs = await page.evaluate(async () => ({
-      one: await window.textToCad.explorer.loadTabs({ sessionId: "one" }),
-      two: await window.textToCad.explorer.loadTabs({ sessionId: "two" }),
+      one: await window.workbench.explorer.loadTabs({ sessionId: "one" }),
+      two: await window.workbench.explorer.loadTabs({ sessionId: "two" }),
     }));
     expect(tabs.one.map(tab => tab.id)).toEqual(["checkout-tab"]);
     expect(tabs.two.map(tab => tab.id)).toEqual(["worktree-tab"]);
     expect(tabs.one[0]).toMatchObject({ sessionId: "one", projectId: directory });
     expect(await page.evaluate(async (tab) => {
-      try { await window.textToCad.explorer.saveTabs({ sessionId: "two", tabs: [tab] }); return "accepted"; }
+      try { await window.workbench.explorer.saveTabs({ sessionId: "two", tabs: [tab] }); return "accepted"; }
       catch { return "refused"; }
     }, tabs.one[0]!)).toBe("refused");
     // A new session in that same directory inherits no tab state.
-    const fresh = await page.evaluate(projectId => window.textToCad.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), directory);
-    expect(await page.evaluate(sessionId => window.textToCad.explorer.loadTabs({ sessionId }), fresh.id)).toEqual([]);
-    await page.evaluate(() => window.textToCad.sessions.delete({ id: "two" }));
-    expect(await page.evaluate(() => window.textToCad.explorer.loadTabs({ sessionId: "one" }))).toEqual(tabs.one);
+    const fresh = await page.evaluate(projectId => window.workbench.sessions.create({ projectId, agentId: "claude-code", gitMode: "none" }), directory);
+    expect(await page.evaluate(sessionId => window.workbench.explorer.loadTabs({ sessionId }), fresh.id)).toEqual([]);
+    await page.evaluate(() => window.workbench.sessions.delete({ id: "two" }));
+    expect(await page.evaluate(() => window.workbench.explorer.loadTabs({ sessionId: "one" }))).toEqual(tabs.one);
     await app!.close(); app = null;
 
     // The backup is named for the version the upgrade lands on, so the next
@@ -100,13 +100,13 @@ test("upgrade preserves sessions, snapshots and owned tabs; restart and deletion
     }))`)).toEqual({ projects: [], snapshots: { state: '{"preserved":"snapshot"}' }, foreignKeys: [], theme: { value: '"dark"' } });
 
     page = await launch();
-    const after = await page.evaluate(() => window.textToCad.sessions.list({}));
+    const after = await page.evaluate(() => window.workbench.sessions.list({}));
     expect(after.map(row => row.id).sort()).toEqual(["archived", "one", fresh.id].sort());
-    expect(await page.evaluate(() => window.textToCad.explorer.loadTabs({ sessionId: "one" }))).toEqual(tabs.one);
+    expect(await page.evaluate(() => window.workbench.explorer.loadTabs({ sessionId: "one" }))).toEqual(tabs.one);
     // Archiving never destroys a row and restoring needs no project creation.
-    await page.evaluate(() => window.textToCad.sessions.archive({ id: "one", archived: true }));
-    await page.evaluate(() => window.textToCad.sessions.archive({ id: "one", archived: false }));
-    expect(await page.evaluate(() => window.textToCad.sessions.get({ id: "one" }))).toMatchObject({ archived: false, projectId: directory });
+    await page.evaluate(() => window.workbench.sessions.archive({ id: "one", archived: true }));
+    await page.evaluate(() => window.workbench.sessions.archive({ id: "one", archived: false }));
+    expect(await page.evaluate(() => window.workbench.sessions.get({ id: "one" }))).toMatchObject({ archived: false, projectId: directory });
   } finally {
     await (app as ElectronApplication | null)?.close();
     fs.rmSync(scratch, { recursive: true, force: true });

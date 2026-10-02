@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { entryAssetUrl, entryUrdfAssetHash } from "@text-to-cad/core/lib/entryAssets.js";
-import { isAbortError, loadRenderText } from "@text-to-cad/core/lib/renderAssetClient.js";
+import { entryAssetUrl, entryUrdfAssetHash } from "@workbench/core/lib/entryAssets.js";
+import { isAbortError, loadRenderText } from "@workbench/core/lib/renderAssetClient.js";
 import {
   loadRobotDescription, loadRobotMeshes, peekRobotDescription, peekRobotMeshes, robotMeshUrls, robotModel
-} from "@text-to-cad/core/lib/urdf/loadRobot.js";
+} from "@workbench/core/lib/urdf/loadRobot.js";
 
 // Link meshes are fetched and parsed off the main thread where a worker exists, so the
 // cap only bounds sockets and the worker's queue; it is tied to cores because the

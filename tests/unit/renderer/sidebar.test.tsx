@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { Sidebar } from "@renderer/features/sidebar/Sidebar";
 import { SESSION_GLYPH_LABELS, sessionGlyphFor, sidebarSections } from "@renderer/lib/sidebar";
 import { useExplorer } from "@renderer/state/explorer";
@@ -250,7 +250,7 @@ describe("Sidebar", () => {
     useProjects.setState({ projects: [project("p1", "text-to-cad")], ready: true, activeId: "p1", draft: null });
     useSessions.setState({ sessions: [session({ id: "s1", title: "Bracket" })], ready: true, activeId: null });
     useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ status: "archived" }) }, ready: true });
-    vi.mocked(window.textToCad.settings.set).mockImplementationOnce(async (patch) => ({ ...useSettings.getState().settings!, ...(patch as Partial<Settings>) }));
+    vi.mocked(window.workbench.settings.set).mockImplementationOnce(async (patch) => ({ ...useSettings.getState().settings!, ...(patch as Partial<Settings>) }));
     wrap(<Sidebar />);
 
     expect(screen.getByText("No sessions match these filters")).toBeInTheDocument();
@@ -447,7 +447,7 @@ describe("Sidebar", () => {
       ...defaultSettings(),
       ...patch,
     }));
-    (window.textToCad.settings as unknown as Record<string, unknown>).set = set;
+    (window.workbench.settings as unknown as Record<string, unknown>).set = set;
     withProject();
     useSessions.setState({
       sessions: [session({ id: "s1", title: "Session 1" })],
@@ -467,7 +467,7 @@ describe("Sidebar", () => {
   it("pins from the row's menu, and the row moves to Pinned", async () => {
     const user = userEvent.setup();
     const setPinned = vi.fn(async () => undefined);
-    (window.textToCad.sessions as unknown as Record<string, unknown>).setPinned = setPinned;
+    (window.workbench.sessions as unknown as Record<string, unknown>).setPinned = setPinned;
     withProject();
     useSessions.setState({
       sessions: [session({ id: "s1", title: "Keeper" })],

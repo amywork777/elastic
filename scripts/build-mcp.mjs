@@ -1,13 +1,13 @@
 /**
  * Bundle the text-to-cad MCP server for shipping.
  *
- * `resources/text-to-cad-mcp/server.mjs` is the source: it imports
+ * `resources/app-mcp/server.mjs` is the source: it imports
  * `@modelcontextprotocol/sdk` and `zod`, which a checkout resolves from
  * `apps/desktop/node_modules`. The agent that spawns the server in a packaged
  * app runs it by absolute path from beside the asar (electron-builder.yml
- * unpacks `out/text-to-cad-mcp/**`), where there is no `node_modules` to resolve
+ * unpacks `out/app-mcp/**`), where there is no `node_modules` to resolve
  * anything from — so this writes an app bridge ESM bundle to
- * `out/text-to-cad-mcp/server.mjs`, upstream Playwright packages beside it,
+ * `out/app-mcp/server.mjs`, upstream Playwright packages beside it,
  * plus a `VERSION` the server reports to the
  * agent. `src/main/cad/index.ts` points at the source in a checkout and at
  * the bundle when packaged.
@@ -27,10 +27,10 @@ import { appVersion } from "./app-version.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export async function buildMcpServer({ out = path.join(appRoot, "out", "text-to-cad-mcp"), version = appVersion() } = {}) {
+export async function buildMcpServer({ out = path.join(appRoot, "out", "app-mcp"), version = appVersion() } = {}) {
   fs.mkdirSync(out, { recursive: true });
   await build({
-    entryPoints: [path.join(appRoot, "resources", "text-to-cad-mcp", "server.mjs")],
+    entryPoints: [path.join(appRoot, "resources", "app-mcp", "server.mjs")],
     outfile: path.join(out, "server.mjs"),
     bundle: true,
     platform: "node",
@@ -40,7 +40,7 @@ export async function buildMcpServer({ out = path.join(appRoot, "out", "text-to-
     // `import.meta.url` is how the server finds its VERSION and decides it is
     // the entry point; both hold for the bundle too.
     banner: {
-      js: "import { createRequire as __textToCadCreateRequire } from 'node:module'; const require = __textToCadCreateRequire(import.meta.url);",
+      js: "import { createRequire as __workbenchCreateRequire } from 'node:module'; const require = __workbenchCreateRequire(import.meta.url);",
     },
     logLevel: "warning",
   });
@@ -59,5 +59,5 @@ export async function buildMcpServer({ out = path.join(appRoot, "out", "text-to-
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const result = await buildMcpServer();
-  console.info(`bundled text-to-cad-mcp ${result.version} -> ${result.out}`);
+  console.info(`bundled app-mcp ${result.version} -> ${result.out}`);
 }

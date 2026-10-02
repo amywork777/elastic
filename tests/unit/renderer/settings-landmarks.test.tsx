@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it } from "vitest";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { SettingsRoute } from "@renderer/features/settings/SettingsRoute";
 import { useSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";

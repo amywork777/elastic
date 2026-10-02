@@ -1,7 +1,7 @@
 /**
- * The bridge between the text-to-cad MCP server and main (plan §8).
+ * The bridge between the app MCP server and main (plan §8).
  *
- * Every session gets a stdio MCP server (`resources/text-to-cad-mcp/server.mjs`)
+ * Every session gets a stdio MCP server (`resources/app-mcp/server.mjs`)
  * that the *agent* spawns — so it runs in the agent's process tree, not ours,
  * and has no handle on Electron. What it has is an environment: the URL of
  * this bridge, a token that names one session, and that session's cwd. Each
@@ -31,10 +31,10 @@ export const BRIDGE_METHODS: readonly string[] = integrations.flatMap(entry => [
 
 /** The environment the MCP server reads. One place, shared with server.mjs by name. */
 export const BRIDGE_ENV = {
-  url: "TEXT_TO_CAD_BRIDGE_URL",
-  token: "TEXT_TO_CAD_BRIDGE_TOKEN",
-  cwd: "TEXT_TO_CAD_CWD",
-  session: "TEXT_TO_CAD_SESSION_ID",
+  url: "WORKBENCH_BRIDGE_URL",
+  token: "WORKBENCH_BRIDGE_TOKEN",
+  cwd: "WORKBENCH_CWD",
+  session: "WORKBENCH_SESSION_ID",
 } as const;
 
 /**
@@ -90,7 +90,7 @@ export class McpBridge {
     const server = this.server;
     this.server = null;
     this.url = null;
-    for (const controller of this.inFlight.keys()) controller.abort(new Error("text-to-cad is shutting down"));
+    for (const controller of this.inFlight.keys()) controller.abort(new Error("the app is shutting down"));
     this.tokens.clear();
     this.byToken.clear();
     try {
@@ -148,7 +148,7 @@ export class McpBridge {
       ...script.env,
       [BRIDGE_ENV.url]: this.url,
       [BRIDGE_ENV.token]: this.tokenFor(session, integration),
-      TEXT_TO_CAD_INTEGRATION: integration,
+      WORKBENCH_INTEGRATION: integration,
       [BRIDGE_ENV.cwd]: session.cwd,
       [BRIDGE_ENV.session]: session.sessionId,
     };
@@ -156,7 +156,7 @@ export class McpBridge {
     // carries one as http/sse and drops it unless the type matches, and
     // reads an entry without one as stdio. Codex-acp accepts either.
     return {
-      name: `text-to-cad-${integration}`,
+      name: `app-${integration}`,
       command: script.command,
       args: script.args,
       env: Object.entries(env).map(([name, value]) => ({ name, value })),

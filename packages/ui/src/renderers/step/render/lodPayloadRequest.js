@@ -1,5 +1,5 @@
-import { surfTessellationCacheKey } from "@text-to-cad/core/lib/renderAssetClient.js";
-import { lodTessellationForLevel, normalizeLodLevel } from "@text-to-cad/core/lib/surf/lodPolicy.js";
+import { surfTessellationCacheKey } from "@workbench/core/lib/renderAssetClient.js";
+import { lodTessellationForLevel, normalizeLodLevel } from "@workbench/core/lib/surf/lodPolicy.js";
 
 export function lodPayloadRequest(component, level) {
   return Object.freeze({ descriptor: component.descriptor, file: component.file,

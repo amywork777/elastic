@@ -110,7 +110,7 @@ describe("the path-links store", () => {
     const exists = vi.fn(async ({ paths }: { paths: string[] }) =>
       Object.fromEntries(paths.map((path) => [path, path.endsWith(".md") ? "file" : path === "src" ? "directory" : null])),
     );
-    (window.textToCad.explorer as unknown as Record<string, unknown>).exists = exists;
+    (window.workbench.explorer as unknown as Record<string, unknown>).exists = exists;
     const scope = { projectId: "p1", root: null };
     usePathLinks.getState().lookup(scope, ["README.md", "src"]);
     usePathLinks.getState().lookup(scope, ["README.md", "nope.txt"]);
@@ -139,27 +139,27 @@ describe("PathLink", () => {
   beforeEach(() => {
     usePathLinks.setState({ kinds: {} });
     window.localStorage.clear();
-    useExplorer.setState({ sessionId: "s1", projectId: "p1", root: null, tabs: [], activeId: null, ready: true, collapsed: true, cadSelection: null, reveal: null });
+    useExplorer.setState({ sessionId: "s1", projectId: "p1", root: null, tabs: [], activeId: null, ready: true, collapsed: true, fileSelection: null, reveal: null });
   });
 
   it("is the words it was until the path is known to exist, then a link that opens the file", async () => {
     const user = userEvent.setup();
-    (window.textToCad.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ "models/x.step": "file" }));
+    (window.workbench.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ "models/x.step": "file" }));
     wrap("./models/x.step#o1.2", "models/x.step#o1.2");
     expect(screen.queryByRole("button")).toBeNull();
     await waitFor(() => expect(screen.getByRole("button", { name: /models\/x\.step#o1\.2/ })).toBeInTheDocument());
     const button = screen.getByRole("button");
     expect(button).toHaveAttribute("data-path-selector", "o1.2");
     await user.click(button);
-    const { tabs, cadSelection } = useExplorer.getState();
+    const { tabs, fileSelection } = useExplorer.getState();
     expect(tabs).toHaveLength(1);
     expect(tabs[0]).toMatchObject({ kind: "file", path: "models/x.step", root: null });
-    expect(cadSelection).toMatchObject({ tabId: tabs[0]!.id, selector: "o1.2" });
+    expect(fileSelection).toMatchObject({ tabId: tabs[0]!.id, selector: "o1.2" });
   });
 
   it("reveals a directory in the tree", async () => {
     const user = userEvent.setup();
-    (window.textToCad.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ src: "directory" }));
+    (window.workbench.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ src: "directory" }));
     wrap("./src/", "src/");
     await waitFor(() => expect(screen.getByRole("button")).toBeInTheDocument());
     await user.click(screen.getByRole("button"));
@@ -168,7 +168,7 @@ describe("PathLink", () => {
   });
 
   it("leaves a missing path as text and a URL as an outside link", async () => {
-    (window.textToCad.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ "gone.md": null }));
+    (window.workbench.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ "gone.md": null }));
     wrap("./gone.md", "gone.md");
     await usePathLinks.getState().flush();
     await waitFor(() => expect(usePathLinks.getState().kinds[scopeKey(scope)]?.["gone.md"]).toBeNull());

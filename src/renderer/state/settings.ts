@@ -72,7 +72,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   ready: false,
 
   load: async () => {
-    const settings = await window.textToCad.settings.get();
+    const settings = await window.workbench.settings.get();
     set({ settings: overlay(settings), ready: true });
   },
 
@@ -90,7 +90,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
       set({ settings: { ...current, ...patch } });
     }
     try {
-      const settings = await window.textToCad.settings.set(patch);
+      const settings = await window.workbench.settings.set(patch);
       for (const key of keys) {
         if (pending.get(key)?.id === id) {
           pending.delete(key);

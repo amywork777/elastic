@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { Transcript } from "@renderer/features/session/Transcript";
 import { initialSessionState, type SessionState, type ToolCallPart, type Turn } from "@shared/acp/types";
 

@@ -1,4 +1,4 @@
-import type { PromptReference } from "@text-to-cad/core/prompt";
+import type { PromptReference } from "@workbench/core/prompt";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -66,11 +66,11 @@ it("sending writes the annotations after the prompt as a numbered list of geomet
 
 it("pressing an annotation in the chat box opens its model and asks the viewer to open it", () => {
   const openFile = vi.fn(() => ({ id: "bracket-tab" }) as FileTab);
-  const openCadAnnotation = vi.fn();
-  useExplorer.setState({ projectId: "p", ready: true, tabs: [], activeId: null, openFile, openCadAnnotation });
+  const openAnnotation = vi.fn();
+  useExplorer.setState({ projectId: "p", ready: true, tabs: [], activeId: null, openFile, openAnnotation });
   openAnnotation({ projectId: "p", root: null }, { id: "a1", text: "fillet these", references: [edge("o1.1.f2", "Face 2")] });
   expect(openFile).toHaveBeenCalledWith("parts/bracket.step", null);
-  expect(openCadAnnotation).toHaveBeenCalledWith("bracket-tab", "a1");
+  expect(openAnnotation).toHaveBeenCalledWith("bracket-tab", "a1");
   expect(() => openAnnotation(null, { id: "a2", text: "", references: [edge("o1.1.f2")] })).toThrow(/project/);
 });
 

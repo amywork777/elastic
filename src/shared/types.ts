@@ -150,7 +150,7 @@ export type Session = z.infer<typeof SessionSchema>;
  * The explorer is one tab strip with no bottom panel —
  * the terminal is a tab like everything else (plan §2, §7).
  */
-export const ExplorerTabKindSchema = z.enum(["file", "review", "browser", "terminal", "drawing"]);
+export const ExplorerTabKindSchema = z.enum(["file", "review", "browser", "terminal", "tool"]);
 export type ExplorerTabKind = z.infer<typeof ExplorerTabKindSchema>;
 
 /** Each session owns an independent explorer, including sessions in the same directory. */
@@ -192,7 +192,7 @@ export const FileTabSchema = z.object({
   root: ExplorerRootSchema.default(null),
   /**
    * Which of the tab's panels is open, by id — and only one is
-   * (`@text-to-cad/ui/navigation`'s `panels.js`).
+   * (`@workbench/ui/navigation`'s `panels.js`).
    *
    * A file tab has one panel column and a list of things that can be in it:
    * the file tree (`FILE_PANEL_TREE`, in the shared shell), and whatever the file's renderer
@@ -355,30 +355,31 @@ export const TerminalTabSchema = z.object({
   agent: z.boolean().default(false),
 });
 
-/** A scratch drawing. Metadata and scene live only in renderer memory. */
-export const DrawingTabSchema = z.object({
+/**
+ * A plugin's tool: a view an enabled plugin contributes (`ui.tools` in its
+ * manifest), drawn from an MCP App UI resource (`ui://…`) in a sandboxed frame.
+ * Root-scoped like a browser tab; it outlives a relaunch as long as the plugin
+ * is still installed and enabled, and shows why when it is not.
+ */
+export const ToolTabSchema = z.object({
   ...ExplorerTabBase,
-  kind: z.literal("drawing"),
+  kind: z.literal("tool"),
   root: z.string().nullable().default(null),
-  title: z.string().default("Drawing"),
+  pluginId: z.string().min(1),
+  toolId: z.string().min(1),
+  title: z.string().default("Tool"),
 });
 
-/** The disk contract deliberately excludes scratch drawings. */
 export const PersistedExplorerTabSchema = z.discriminatedUnion("kind", [
   FileTabSchema,
   ReviewTabSchema,
   BrowserTabSchema,
   TerminalTabSchema,
+  ToolTabSchema,
 ]);
-export const ExplorerTabSchema = z.discriminatedUnion("kind", [
-  FileTabSchema,
-  ReviewTabSchema,
-  BrowserTabSchema,
-  TerminalTabSchema,
-  DrawingTabSchema,
-]);
+export const ExplorerTabSchema = PersistedExplorerTabSchema;
 export type PersistedExplorerTab = z.infer<typeof PersistedExplorerTabSchema>;
-export type DrawingTab = z.infer<typeof DrawingTabSchema>;
+export type ToolTab = z.infer<typeof ToolTabSchema>;
 export type ExplorerTab = z.infer<typeof ExplorerTabSchema>;
 export type FileTab = z.infer<typeof FileTabSchema>;
 export type ReviewTab = z.infer<typeof ReviewTabSchema>;
@@ -458,7 +459,7 @@ export const PANE_LIMITS = {
   /**
    * The maximum is the window less the session's floor and the sidebar. The
    * default clears the file viewer's 720px breakpoint (`VIEWER_MOBILE_BREAKPOINT`
-   * in `@text-to-cad/ui`, measured on the viewer's own width) with room to spare,
+   * in `@workbench/ui`, measured on the viewer's own width) with room to spare,
    * so a fresh pane shows a file's panels in a column beside the model, not as
    * phone sheets over it.
    */

@@ -1,4 +1,4 @@
-import { defineFileRenderer } from "@text-to-cad/ui/file-viewer";
+import { defineFileRenderer } from "@workbench/ui/file-viewer";
 
 export const imageRenderer = defineFileRenderer<{ url: string; mime?: string }>({
   id: "image",

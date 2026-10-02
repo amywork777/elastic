@@ -33,7 +33,7 @@ it("reads a failed probe's flagged rows as a check that did not happen, not as a
 
 it("reads the flagged rows a cold probe's failure answers agents.list with as a failure, not as ready and fine", async () => {
   const row = { id: "claude-code", installed: false, launchWithoutBinary: true, auth: "unknown", probeFailed: true } as AgentStatus;
-  const agentsApi = window.textToCad.agents as unknown as Record<string, unknown>;
+  const agentsApi = window.workbench.agents as unknown as Record<string, unknown>;
   agentsApi.list = vi.fn(async () => [row]);
   useAgents.setState({ agents: [], ready: false, loadError: null });
   await useAgents.getState().load();

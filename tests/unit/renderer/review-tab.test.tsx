@@ -33,7 +33,7 @@ if (!("ClipboardItem" in globalThis)) {
 }
 
 const PROJECT = { id: "p1", name: "bracket", path: "/bracket", createdAt: 0 };
-const git = window.textToCad.git as unknown as {
+const git = window.workbench.git as unknown as {
   status: ReturnType<typeof vi.fn>; commit: ReturnType<typeof vi.fn>; fileDiff: ReturnType<typeof vi.fn>;
 };
 const original = { status: git.status, commit: git.commit, fileDiff: git.fileDiff };

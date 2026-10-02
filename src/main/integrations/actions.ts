@@ -8,9 +8,8 @@
  * main pushes a `integrations.command` carrying a request id, the renderer's bridge
  * (`src/renderer/state/bridge.ts`) performs it against the stores and answers
  * on `integrations.reply`. A command nobody answers times out rather than hanging the
- * agent's tool call: after `REPLY_TIMEOUT_MS`, `VIEWER_REPLY_TIMEOUT_MS` for the
- * live viewer commands (the viewer's own ten-second bound must be able to answer first), or
- * `SLOW_REPLY_TIMEOUT_MS` for `document-save`, `capture-view`, `drawing-capture` and `pdf-capture`. Both
+ * agent's tool call: after `REPLY_TIMEOUT_MS`, or `SLOW_REPLY_TIMEOUT_MS` for
+ * `document-save` and `pdf-capture`. Both
  * the timeout and an abort after the send reject with a message that says the
  * command may have been applied ("may still complete", "may already have been
  * applied"): the window has the command by then, so the agent is told to
@@ -36,18 +35,11 @@ import { climbsOut, resolveInRoot, toRelative } from "../explorer/fs";
 import type { BridgeActions, BridgeSession } from "./mcp-bridge";
 
 const REPLY_TIMEOUT_MS = 10_000;
-// The viewer's live commands (`liveBinding.ts`) wait up to ten seconds for their effect to be on
-// screen and then answer "The viewer did not finish applying this command.". This clock starts
-// before the IPC send, so at the same ten seconds it would always fire first and the agent would
-// read "did not answer" (is a window open?) for a window that DID answer; the margin lets the
-// binding's own sentence arrive. Keep it strictly above the binding's bound.
-const VIEWER_REPLY_TIMEOUT_MS = 12_000;
-const VIEWER_KINDS: ReadonlySet<IntegrationCommandKind> = new Set(["select-reference", "cad-clear-selection", "cad-camera", "cad-reset-camera", "cad-render-mode"]);
 // A save waits on the disk and a capture on a frame and a PNG encode; a
 // timeout there reports failure for work that then finishes, and the retry
 // finds it already done (or conflicts with it).
 const SLOW_REPLY_TIMEOUT_MS = 30_000;
-const SLOW_KINDS: ReadonlySet<IntegrationCommandKind> = new Set(["document-save", "capture-view", "drawing-capture", "pdf-capture"]);
+const SLOW_KINDS: ReadonlySet<IntegrationCommandKind> = new Set(["document-save", "pdf-capture"]);
 const OVER_SNAPSHOT_CAP = "is over the model's 5 MB image limit, which counts the encoded size (about 3.75 MB of file); snapshots that large are not attached";
 
 const IMAGE_TYPES: Record<string, string> = {
@@ -98,13 +90,13 @@ export class RendererCommands {
   request(command: Omit<IntegrationCommand, "requestId">, signal?: AbortSignal): Promise<unknown> {
     signal?.throwIfAborted();
     const requestId = this.deps.newId();
-    const timeoutMs = this.deps.timeoutMs ?? (SLOW_KINDS.has(command.kind) ? SLOW_REPLY_TIMEOUT_MS : VIEWER_KINDS.has(command.kind) ? VIEWER_REPLY_TIMEOUT_MS : REPLY_TIMEOUT_MS);
+    const timeoutMs = this.deps.timeoutMs ?? (SLOW_KINDS.has(command.kind) ? SLOW_REPLY_TIMEOUT_MS : REPLY_TIMEOUT_MS);
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         cleanup();
         this.cancel(requestId);
         this.pending.delete(requestId);
-        reject(new Error(`the text-to-cad window did not answer within ${timeoutMs / 1000} s (is one open?); the command may still complete, so check before retrying`));
+        reject(new Error(`the app window did not answer within ${timeoutMs / 1000} s (is one open?); the command may still complete, so check before retrying`));
       }, timeoutMs);
       // `send` runs before anything can abort (an abort already raised threw
       // above), so by here the window has the command and may have applied it:
@@ -143,7 +135,7 @@ export class RendererCommands {
     for (const [requestId, entry] of this.pending) {
       this.cancel(requestId);
       clearTimeout(entry.timer);
-      entry.reject(new Error("text-to-cad is shutting down"));
+      entry.reject(new Error("the app is shutting down"));
     }
     this.pending.clear();
   }
@@ -162,7 +154,7 @@ export async function resolveForSession(
 ): Promise<{ directory: string; root: string | null; absolute: string; relative: string }> {
   const resolved = deps.sessionRoot(session);
   if (!resolved) {
-    throw new Error("this session's project is no longer open in text-to-cad");
+    throw new Error("this session's project is no longer open in the app");
   }
   const { directory, root } = resolved;
   // The cwd is realpath'd first so a path that does not exist yet is judged
@@ -247,7 +239,7 @@ async function readSnapshot(directory: string, absolute: string, target: string,
 export function createActions(deps: ActionDeps, commands: RendererCommands): BridgeActions {
   const relay = async (kind: IntegrationCommandKind, session: BridgeSession, params: Record<string, unknown>, signal?: AbortSignal, extra: Partial<IntegrationCommand> = {}) => {
     const workspace = deps.sessionRoot(session);
-    if (!workspace) throw new Error("this session's project is no longer open in text-to-cad");
+    if (!workspace) throw new Error("this session's project is no longer open in the app");
     return commands.request({ kind, sessionId: session.sessionId, projectId: session.projectId, root: workspace.root,
       ...(await workspaceDirectory(workspace.directory)), params,
       ...(typeof params.tabId === "string" ? { tabId: params.tabId } : {}),

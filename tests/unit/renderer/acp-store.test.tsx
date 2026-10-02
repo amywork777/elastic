@@ -130,7 +130,7 @@ describe("what the acp store lets go of", () => {
   });
 
   describe("a session archived while it loads", () => {
-    const sessionsApi = window.textToCad.sessions as unknown as Record<string, unknown>;
+    const sessionsApi = window.workbench.sessions as unknown as Record<string, unknown>;
     const deferred = <T,>() => {
       let settle!: { resolve: (value: T) => void; reject: (error: Error) => void };
       const promise = new Promise<T>((resolve, reject) => (settle = { resolve, reject }));
@@ -175,7 +175,7 @@ describe("what the acp store lets go of", () => {
 
 describe("Disconnect agent", () => {
   it("keeps the transcript on screen, marked closed", async () => {
-    const sessionsApi = window.textToCad.sessions as unknown as Record<string, unknown>;
+    const sessionsApi = window.workbench.sessions as unknown as Record<string, unknown>;
     sessionsApi.close = vi.fn(async () => undefined);
     useAcp.setState({ sessions: {}, terminalOutput: {}, loading: {}, reconnecting: {}, loadErrors: {} });
     useAcp.getState().receiveState("s1", { ...initialSessionState("s1", "codex"), status: "idle" as const });
@@ -195,7 +195,7 @@ describe("Disconnect agent", () => {
   });
 
   describe("during a Reconnect", () => {
-    const sessionsApi = window.textToCad.sessions as unknown as Record<string, unknown>;
+    const sessionsApi = window.workbench.sessions as unknown as Record<string, unknown>;
     const deferred = <T,>() => {
       let settle!: { resolve: (value: T) => void; reject: (error: Error) => void };
       const promise = new Promise<T>((resolve, reject) => (settle = { resolve, reject }));
@@ -245,7 +245,7 @@ describe("Disconnect agent", () => {
 });
 
 describe("opening a session main has just created", () => {
-  const sessionsApi = window.textToCad.sessions as unknown as Record<string, unknown>;
+  const sessionsApi = window.workbench.sessions as unknown as Record<string, unknown>;
   const live = () => ({ ...initialSessionState("s1", "codex"), status: "idle" as const });
 
   beforeEach(() => {

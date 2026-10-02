@@ -63,7 +63,7 @@ export const useBrowser = create<BrowserState>((set, get) => {
         const key = JSON.stringify(bounds);
         if (key === previousBox) return;
         previousBox = key;
-        void window.textToCad.browser.present({ ...binding, lease, bounds }).catch(error => failed(binding.tabId, error));
+        void window.workbench.browser.present({ ...binding, lease, bounds }).catch(error => failed(binding.tabId, error));
       };
       // Layout and overlays are read at most once per frame, however many
       // mutations a streamed transcript makes in it.
@@ -75,7 +75,7 @@ export const useBrowser = create<BrowserState>((set, get) => {
         if (disposed || !ready || pending || stopped) return;
         pending = true;
         const logs = Boolean(get().consoles[binding.tabId]);
-        try { const target = await window.textToCad.browser.metadata({ ...binding, logs }); if (!disposed) { accept(target, logs); schedule(); } }
+        try { const target = await window.workbench.browser.metadata({ ...binding, logs }); if (!disposed) { accept(target, logs); schedule(); } }
         catch (error) {
           // A workspace refusal will not change by asking again; anything else
           // (a transient failure) keeps polling.
@@ -84,7 +84,7 @@ export const useBrowser = create<BrowserState>((set, get) => {
       };
       const wake = () => { stopped = false; void poll(); };
       wakers.set(binding.tabId, wake);
-      void window.textToCad.browser.ensure({ ...binding, url }).then(target => {
+      void window.workbench.browser.ensure({ ...binding, url }).then(target => {
         if (disposed) return;
         ready = true;
         accept(target);
@@ -102,20 +102,20 @@ export const useBrowser = create<BrowserState>((set, get) => {
         if (wakers.get(binding.tabId) === wake) wakers.delete(binding.tabId);
         if (frame) cancelAnimationFrame(frame);
         resize.disconnect(); overlays.disconnect(); window.removeEventListener("resize", schedule); clearInterval(timer);
-        void window.textToCad.browser.present({ ...binding, lease, bounds: null }).catch(() => {});
+        void window.workbench.browser.present({ ...binding, lease, bounds: null }).catch(() => {});
       };
     },
     navigate: async (binding, navigation) => {
-      try { accept(await window.textToCad.browser.navigate({ ...binding, ...navigation })); wakers.get(binding.tabId)?.(); }
+      try { accept(await window.workbench.browser.navigate({ ...binding, ...navigation })); wakers.get(binding.tabId)?.(); }
       catch (error) { failed(binding.tabId, error); }
     },
     contextAttachment: async (binding, target, kind) => {
-      const captured = await window.textToCad.browser.capture({ ...binding, url: target.url, generation: target.generation, kind });
+      const captured = await window.workbench.browser.capture({ ...binding, url: target.url, generation: target.generation, kind });
       return new Blob([Uint8Array.from(atob(captured.base64), character => character.charCodeAt(0))], { type: captured.mimeType });
     },
     clearConsole: tabId => set(state => {
       const target = state.targets[tabId];
-      if (target) void window.textToCad.browser.clearConsole({ sessionId: target.sessionId, projectId: target.projectId, root: target.root, tabId }).catch(() => {});
+      if (target) void window.workbench.browser.clearConsole({ sessionId: target.sessionId, projectId: target.projectId, root: target.root, tabId }).catch(() => {});
       return target ? { targets: { ...state.targets, [tabId]: { ...target, logs: [], errors: 0 } } } : {};
     }),
   };

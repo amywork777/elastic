@@ -1,6 +1,6 @@
 import { Circle, Eraser, Hand, Minus, PaintBucket, SquareMousePointer, MoveUpRight, Pencil, Redo2, Square, Trash2, Type, Undo2 } from 'lucide-react';
 import { useState } from 'react';
-import { ToolbarButton } from '@text-to-cad/ui/primitives/toolbar-button';
+import { ToolbarButton } from '@workbench/ui/primitives/toolbar-button';
 
 /**
  * The shared drawing controls: a CAD tool dropdown, and the

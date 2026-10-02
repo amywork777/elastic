@@ -1,15 +1,15 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import * as React from "react"
 import { Pipette } from "lucide-react"
 
-import { cn } from "@text-to-cad/ui/utils"
-import { Button } from "@text-to-cad/ui/primitives/button"
-import { Input } from "@text-to-cad/ui/primitives/input"
+import { cn } from "@workbench/ui/utils"
+import { Button } from "@workbench/ui/primitives/button"
+import { Input } from "@workbench/ui/primitives/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@text-to-cad/ui/primitives/popover"
+} from "@workbench/ui/primitives/popover"
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 const FORMAT_OPTIONS = ["hex", "rgb", "hsl"]

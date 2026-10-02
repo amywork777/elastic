@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Camera, Pencil } from "lucide-react";
-import { clonePerspectiveSnapshot } from "@text-to-cad/core/lib/perspective.js";
-import { VIEWER_SCENE_SCALE } from "@text-to-cad/core/lib/viewer/sceneScale.js";
+import { clonePerspectiveSnapshot } from "@workbench/core/lib/perspective.js";
+import { VIEWER_SCENE_SCALE } from "@workbench/core/lib/viewer/sceneScale.js";
 import { ViewerElementContext, useViewerHost, usePromptDestination } from "../../../host/context.js";
 import { hasOpenPopup } from "../../../lib/popups.js";
 import { useDrawingSession } from "../../../drawing/session.js";
@@ -82,11 +82,11 @@ const EMPTY = Object.freeze({});
  * @param {{ preferences: { toolStack: object }, onPreferenceChange(patch: object): void, live?: object,
  *   captureRequest?: { key: string | number } | null,
  *   acknowledgeCommand?: (kind: string, key: string | number) => void }} options.services  `preferences` is the
- *   tab's settings (`@text-to-cad/ui/tab-store`), the person's in every file of the tab.
- * @param {import("@text-to-cad/core/prompt").ResourceRef} options.resource  The document on screen, for prompt context and live state.
+ *   tab's settings (`@workbench/ui/tab-store`), the person's in every file of the tab.
+ * @param {import("@workbench/core/prompt").ResourceRef} options.resource  The document on screen, for prompt context and live state.
  * @param {string} options.modelKey  Stable per file: scopes the camera and the presentation.
  * @param {string} [options.revisionKey]  Changes when the file's bytes do.
- * @param {import("@text-to-cad/core/common/viewSettings.js").ViewFeatures} options.features
+ * @param {import("@workbench/core/common/viewSettings.js").ViewFeatures} options.features
  * @param {object} [options.viewSettings]  The result of `useViewSettings`, when the renderer needs the
  *   display settings earlier in its own render than this hook could hand them back. It may also carry
  *   `applied`: the renderer's own `useAppliedViewSettings` result, for a renderer that must read the
@@ -118,7 +118,7 @@ const EMPTY = Object.freeze({});
  *   `HOST_LIVE_COMMANDS` must be one or the other. `resource` is the document the viewport is SHOWING, when that
  *   can lag the one being loaded (a rebuild whose predecessor is retained): live state reports what is on screen,
  *   never what is on its way in. Omitted: the resource the renderer was handed.
- * @param {() => import("@text-to-cad/core/prompt").PromptReference[]} [options.promptReferences]  What a snapshot
+ * @param {() => import("@workbench/core/prompt").PromptReference[]} [options.promptReferences]  What a snapshot
  *   depicts, when that is narrower than the whole file (a selection). Default: the file.
  * @param {(input: { resource: object, references: object[], capture: Promise<Blob> }) => object} [options.promptContext]
  *   How this renderer assembles a snapshot's prompt context. Default `createViewPromptContext`, which takes
@@ -276,7 +276,7 @@ export function useRendererShell({
         : sceneBackdropEdgeColor(resolvedScene.theme?.background, chromeBackdropColor),
     [chromeBackdropColor, resolvedScene.theme, resolvedScene.view.background]
   );
-  // The tab's settings (`@text-to-cad/ui/tab-store`): the person's, in every file of the tab. Read
+  // The tab's settings (`@workbench/ui/tab-store`): the person's, in every file of the tab. Read
   // through their own normalizers, so a host that hands over less is still whole here.
   const preferences = services.preferences;
   const previewOrbitSpeed = playback.orbitSpeed;

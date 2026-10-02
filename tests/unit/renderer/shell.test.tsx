@@ -8,7 +8,7 @@ import { Shell } from "@renderer/app/Shell";
 import { SettingCard, SettingRow } from "@renderer/features/settings/SettingCard";
 import { SettingsRoute } from "@renderer/features/settings/SettingsRoute";
 import { ExplorerPane } from "@renderer/features/explorer/ExplorerPane";
-import { TooltipProvider } from "@text-to-cad/ui/primitives/tooltip";
+import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { useExplorer } from "@renderer/state/explorer";
 import { useProjects } from "@renderer/state/projects";
 import { useUi } from "@renderer/state/ui";

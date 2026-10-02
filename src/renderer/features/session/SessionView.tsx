@@ -1,4 +1,4 @@
-import LoadingIcon from "@text-to-cad/ui/loading-icon";
+import LoadingIcon from "@workbench/ui/loading-icon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Loader2, RotateCcw, Unplug } from "lucide-react";
 import { toast } from "sonner";

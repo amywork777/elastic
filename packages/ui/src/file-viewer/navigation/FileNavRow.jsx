@@ -1,6 +1,6 @@
-import { TooltipHint } from "@text-to-cad/ui/primitives/tooltip";
-import { Button } from "@text-to-cad/ui/primitives/button";
-import { cn } from "@text-to-cad/ui/utils";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
+import { Button } from "@workbench/ui/primitives/button";
+import { cn } from "@workbench/ui/utils";
 
 import { Breadcrumbs } from "./Breadcrumbs.jsx";
 

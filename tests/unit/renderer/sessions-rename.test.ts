@@ -18,7 +18,7 @@ beforeEach(() => {
 
 describe("rename", () => {
   it("puts the old title back and says why when main refuses", async () => {
-    vi.mocked(window.textToCad.sessions.rename).mockRejectedValueOnce(new Error("disk full"));
+    vi.mocked(window.workbench.sessions.rename).mockRejectedValueOnce(new Error("disk full"));
     await useSessions.getState().rename("s1", "Renamed");
     expect(useSessions.getState().sessions.map((session) => session.title)).toEqual(["Bracket", "Other"]);
     expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("disk full"));
@@ -26,7 +26,7 @@ describe("rename", () => {
 
   it("shows the new title before main has answered", async () => {
     let answer!: () => void;
-    vi.mocked(window.textToCad.sessions.rename).mockReturnValueOnce(new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) as never);
+    vi.mocked(window.workbench.sessions.rename).mockReturnValueOnce(new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) as never);
     const pending = useSessions.getState().rename("s1", "Renamed");
     expect(useSessions.getState().sessions[0]?.title).toBe("Renamed");
     answer();
@@ -35,7 +35,7 @@ describe("rename", () => {
   });
 
   it("leaves a title main has written since alone", async () => {
-    vi.mocked(window.textToCad.sessions.rename).mockImplementationOnce(async () => {
+    vi.mocked(window.workbench.sessions.rename).mockImplementationOnce(async () => {
       useSessions.setState({ sessions: [row("s1", "From main"), row("s2", "Other")] });
       throw new Error("late");
     });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveViewSettings, viewSettingsAreCustom, VIEW_GROUP_KEYS } from "@text-to-cad/core/common/viewSettings.js";
+import { resolveViewSettings, viewSettingsAreCustom, VIEW_GROUP_KEYS } from "@workbench/core/common/viewSettings.js";
 import { createViewSettingsStore } from "./viewSettingsStore.js";
 import { createViewerRenderStateResolver } from "./renderState.js";
 

@@ -15,7 +15,7 @@ const stored = (key: string) => JSON.parse(localStorage.getItem(key) ?? "{}") as
 async function firstRun(sessionId: string, tabId: string) {
   vi.resetModules();
   const { useExplorer } = await import("@renderer/state/explorer");
-  vi.mocked(window.textToCad.explorer.loadTabs).mockResolvedValueOnce([
+  vi.mocked(window.workbench.explorer.loadTabs).mockResolvedValueOnce([
     { id: tabId, kind: "file", sessionId, projectId: "project", order: 0, path: "a.txt", root: null, panel: null },
   ] as never);
   await useExplorer.getState().bindSession(sessionId, "project");
@@ -28,7 +28,7 @@ async function firstRun(sessionId: string, tabId: string) {
 
 beforeEach(() => {
   localStorage.clear();
-  vi.mocked(window.textToCad.explorer.saveTabs).mockReset().mockResolvedValue(undefined);
+  vi.mocked(window.workbench.explorer.saveTabs).mockReset().mockResolvedValue(undefined);
 });
 
 it("a session deleted in a run that never loaded it takes its tab records and pane preferences", async () => {
@@ -65,7 +65,7 @@ it("a session made before the list has loaded prunes nothing: the others are not
   const { useSessions } = await import("@renderer/state/sessions");
   const { useAcp } = await import("@renderer/state/acp");
   expect(useSessions.getState().ready).toBe(false);
-  Object.assign(window.textToCad.sessions, { create: vi.fn(async () => (
+  Object.assign(window.workbench.sessions, { create: vi.fn(async () => (
     { id: "fresh", archived: false, projectId: "project", cwd: "/tmp/project", title: "", createdAt: 0, updatedAt: 0 }
   )) });
   await useAcp.getState().create({ projectId: "project", agentId: "claude" } as never);

@@ -1,5 +1,5 @@
 import { useState, type ComponentProps, type ReactNode } from 'react';
-import type { PromptContext, PromptDeliveryResult } from '@text-to-cad/core/prompt';
+import type { PromptContext, PromptDeliveryResult } from '@workbench/core/prompt';
 import { Button } from '../primitives/button.jsx';
 import { usePromptDestination, useViewerHost } from './context.js';
 

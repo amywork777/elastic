@@ -15,9 +15,8 @@ import type { AgentSnapshot } from "../acp/agent-options";
 import { spawnPtyTerminal } from "../acp/pty-backend";
 import { AgentOptionStore } from "../acp/agent-options";
 import { SessionManager } from "../acp/sessions";
+import { sessionRuntimePath } from "../runtime-path";
 import { forgetSession, mcpServersFor, sessionPreamble, skillsRoot } from "../integrations";
-import { forgetCadSession, sessionRuntimePath } from "../cad";
-import { track } from "../telemetry";
 import {
   agentOptions as agentOptionsRepo,
   projects,
@@ -33,11 +32,11 @@ import { clearBrowserSessionStorage } from "../browser/storage";
 import { explorerTerminals } from "./explorer";
 
 /**
- * `TEXT_TO_CAD_FAKE_AGENT=<path to tests/fake-agent/index.mjs>` makes every
+ * `WORKBENCH_FAKE_AGENT=<path to tests/fake-agent/index.mjs>` makes every
  * provider launch the scripted agent instead of its adapter. The Playwright
  * suite runs the built app this way; a packaged app ignores it.
  */
-const fakeAgent = app.isPackaged ? undefined : process.env.TEXT_TO_CAD_FAKE_AGENT;
+const fakeAgent = app.isPackaged ? undefined : process.env.WORKBENCH_FAKE_AGENT;
 
 /**
  * What each agent's sessions can be configured with, between sessions
@@ -79,13 +78,13 @@ export const sessionManager: SessionManager = new SessionManager({
   detector,
   spawnTerminal: spawnPtyTerminal,
   broadcast,
-  // Every session gets the text-to-cad MCP server, with a token that names it.
+  // Every session gets the app's MCP servers (with a token that names it) and its enabled plugins'.
   mcpServers: mcpServersFor,
   forgetProbe: (probeId) => forgetSession(probeId),
   // …the app's skills as an additional directory, and the preamble for an
   // agent that will not read one (src/main/integrations/skills.ts)…
   skills: { root: skillsRoot, preamble: sessionPreamble },
-  // …and the bundled runtime's `cadgen` and `python` in front of its PATH.
+  // …and what enabled plugins put in front of its PATH.
   runtimePath: sessionRuntimePath,
   agentOptions: {
     defaults: (agentId) => agentOptions.defaults(agentId),
@@ -97,7 +96,6 @@ export const sessionManager: SessionManager = new SessionManager({
   },
   clientVersion: app.isPackaged ? app.getVersion() : __APP_VERSION__,
   newId: () => randomUUID(),
-  track,
   // The transcript on this machine, so a row clicked paints before its agent
   // has said a word (migration 10, `src/main/acp/snapshots.ts`).
   snapshots: sessionStates,
@@ -105,7 +103,7 @@ export const sessionManager: SessionManager = new SessionManager({
     ? () => ({
         // Electron's own binary, told to be plain Node.
         command: process.execPath,
-        args: [fakeAgent, ...(process.env.TEXT_TO_CAD_FAKE_AGENT_ARGS?.split(" ").filter(Boolean) ?? [])],
+        args: [fakeAgent, ...(process.env.WORKBENCH_FAKE_AGENT_ARGS?.split(" ").filter(Boolean) ?? [])],
         env: { ELECTRON_RUN_AS_NODE: "1" },
       })
     : undefined,
@@ -172,8 +170,6 @@ export const acpHandlers = {
         forgetSession(id);
         browserService.disposeSession(id);
         explorerTerminals().disposeSession(id);
-        // An archived thread is not open: its worktree's viewer stops with the last open one.
-        forgetCadSession(id, session.worktreePath ?? null);
       }
       return session;
     }),
@@ -183,14 +179,13 @@ export const acpHandlers = {
       surfacing(async () => {
         // The row goes first, so a delete that fails leaves the session whole
         // with its tools; then everything running inside its directory, before
-        // `delete` may remove the worktree — a terminal, browser target or CAD
-        // viewer still holding it open would outlive its own directory.
+        // `delete` may remove the worktree — a terminal or browser target
+        // still holding it open would outlive its own directory.
         await sessionManager.delete(id, {
           beforeRelease: (row) => {
             forgetSession(id);
             browserService.disposeSession(id);
             explorerTerminals().disposeSession(id);
-            forgetCadSession(id, row?.worktreePath ?? null);
           },
         });
         // Delete, unlike archive, takes the session's logins, cookies, cache
@@ -218,7 +213,7 @@ const PREWARM_DELAY_MS = 1_500;
  * Delayed, so the spawn does not compete with the first paint, and gated the
  * way the CAD pre-warm is (`./cad.ts`): under `NODE_ENV=test` a dozen
  * launches spawning idle adapters is load no spec sees a result from, so
- * only `TEXT_TO_CAD_PREWARM=1` asks for it.
+ * only `WORKBENCH_PREWARM=1` asks for it.
  */
 export function prewarmAgents(): void {
   // Which agents are installed, probed now rather than when the renderer
@@ -229,7 +224,7 @@ export function prewarmAgents(): void {
   void detector.settled().catch((error: unknown) => {
     console.info(`[agents] the launch probe failed: ${String(error)}`);
   });
-  if (process.env.NODE_ENV === "test" && process.env.TEXT_TO_CAD_PREWARM !== "1") {
+  if (process.env.NODE_ENV === "test" && process.env.WORKBENCH_PREWARM !== "1") {
     return;
   }
   const timer = setTimeout(() => {

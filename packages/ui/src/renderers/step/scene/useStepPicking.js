@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef } from "react";
-import { VIEWER_PICK_MODE } from "@text-to-cad/core/lib/viewer/constants.js";
+import { VIEWER_PICK_MODE } from "@workbench/core/lib/viewer/constants.js";
 import {
   classifyMeasurePick,
   edgeGeometryFromSegments,
   isFinitePoint
-} from "@text-to-cad/core/lib/viewer/measurement.js";
-import { buildEdgeLinePositionsFromProxy } from "@text-to-cad/core/lib/viewer/referenceGeometry.js";
-import { pointVisibleByClipPlane } from "@text-to-cad/core/lib/viewer/clipPlane.js";
-import { screenLimitedPickThreshold } from "@text-to-cad/core/lib/viewer/pickingThresholds.js";
-import { PERF_MEASURE_NAMES, perfMeasure, perfStart } from "@text-to-cad/core/lib/viewer/perfMarks.js";
+} from "@workbench/core/lib/viewer/measurement.js";
+import { buildEdgeLinePositionsFromProxy } from "@workbench/core/lib/viewer/referenceGeometry.js";
+import { pointVisibleByClipPlane } from "@workbench/core/lib/viewer/clipPlane.js";
+import { screenLimitedPickThreshold } from "@workbench/core/lib/viewer/pickingThresholds.js";
+import { PERF_MEASURE_NAMES, perfMeasure, perfStart } from "@workbench/core/lib/viewer/perfMarks.js";
 import { partIdFromIntersection, shouldRaycastRecordForPick } from "./partPicking.js";
 import { createClickActivation } from "./clickActivation.js";
 import { prefersCoarsePointer } from "../../kit/viewport/dom.js";

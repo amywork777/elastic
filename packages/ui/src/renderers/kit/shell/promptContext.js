@@ -1,4 +1,4 @@
-import { createPromptContext, referencePart } from "@text-to-cad/core/prompt";
+import { createPromptContext, referencePart } from "@workbench/core/prompt";
 
 /**
  * One prompt context for a view: the file as a whole-resource reference (or the
