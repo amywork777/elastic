@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { app } from "electron";
+import { app, safeStorage, shell } from "electron";
 import type { McpServer } from "@agentclientprotocol/sdk";
 import type { IntegrationCommand } from "../../shared/ipc/integrations";
 import type { Session } from "../../shared/types";
@@ -22,6 +22,7 @@ import { pluginToolId, readToolUi } from "../../shared/plugins";
 import { loginEnv } from "../agents/shell-env";
 import { FORWARDED_METHODS, PluginHost, type ForwardedMethod } from "../plugins/host";
 import { readPlugin } from "../plugins/manifest";
+import { AuthStore, PLAIN_CODEC, type Codec } from "../plugins/oauth";
 import { PluginRegistry } from "../plugins/registry";
 import { PluginService, type PluginsSnapshot } from "../plugins/service";
 let bridgeInstance: McpBridge | null = null;
@@ -88,9 +89,24 @@ export function builtinMarketplace(): string {
   return path.join(resourcesDir(), "plugins");
 }
 
+/** Remote servers' credentials sealed by the OS keychain; plain only where the platform has no keychain. */
+function safeStorageCodec(): Codec {
+  if (!safeStorage.isEncryptionAvailable()) return PLAIN_CODEC;
+  return {
+    seal: (text) => `v1:${safeStorage.encryptString(text).toString("base64")}`,
+    open: (sealed) => sealed.startsWith("v1:") ? safeStorage.decryptString(Buffer.from(sealed.slice(3), "base64")) : sealed,
+  };
+}
+
 export async function initIntegrations(deps: { sendCommand: (command: IntegrationCommand) => void; cancelCommand: (requestId: string) => void; pluginsChanged?: (snapshot: PluginsSnapshot) => void }): Promise<void> {
   const userData = app.getPath("userData");
-  const host = new PluginHost({ environment: () => loginEnv(), clientName: APP_NAME, clientVersion: appVersion(), pathPrefix: sessionRuntimePath });
+  const host = new PluginHost({
+    environment: () => loginEnv(),
+    clientName: APP_NAME,
+    clientVersion: appVersion(),
+    pathPrefix: sessionRuntimePath,
+    auth: { store: new AuthStore(path.join(userData, "plugins", "auth.json"), safeStorageCodec()), open: (url) => shell.openExternal(url.href) },
+  });
   pluginsInstance = new PluginService({
     registry: new PluginRegistry(path.join(userData, "plugins", "installed.json")),
     host,

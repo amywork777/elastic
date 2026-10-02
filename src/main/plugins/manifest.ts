@@ -5,7 +5,7 @@
  * The manifest is the Codex plugin format, looked for where each host keeps
  * it: `.codex-plugin/plugin.json` (Codex), `.claude-plugin/plugin.json`
  * (Claude Code), or a bare `plugin.json`. Servers come from `mcpServers` (a
- * path to a JSON file holding `{ "mcpServers": {...} }`, or that map inline),
+ * path to a JSON file holding `{ "mcpServers": {...} }` or the bare map, or that map inline),
  * else from a `.mcp.json` beside the manifest's folder; skills from `skills`
  * (a directory of `<name>/SKILL.md`), else `skills/` when it exists.
  */
@@ -77,6 +77,8 @@ function readServers(root: string, manifest: PluginManifest): Record<string, Plu
     raw = readJson(path.join(root, ".mcp.json"));
   }
   if (raw === null) return {};
+  // Claude Code also accepts a bare map of servers, without the `mcpServers` key (Linear's plugin).
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && !("mcpServers" in raw)) raw = { mcpServers: raw };
   const parsed = PluginMcpConfigSchema.safeParse(raw);
   if (!parsed.success) {
     throw new Error(`the plugin's MCP servers are not valid: ${parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ")}`);

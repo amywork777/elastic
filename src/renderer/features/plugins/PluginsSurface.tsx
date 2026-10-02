@@ -87,7 +87,8 @@ function PluginsSidebar() {
             <button className={row(typeof view === "object" && view.plugin === plugin.id)} key={plugin.id} onClick={() => show({ plugin: plugin.id })} type="button">
               <PluginLogo className={cn("size-4", !plugin.enabled && "opacity-50")} plugin={plugin} />
               <span className={cn("truncate", !plugin.enabled && "text-muted-foreground")}>{plugin.displayName}</span>
-              {plugin.error || plugin.servers.some((server) => server.status === "failed") ? <span aria-label="Has a problem" className="ml-auto size-1.5 shrink-0 rounded-full bg-destructive" /> : null}
+              {plugin.error || plugin.servers.some((server) => server.status === "failed") ? <span aria-label="Has a problem" className="ml-auto size-1.5 shrink-0 rounded-full bg-destructive" />
+                : plugin.servers.some((server) => server.status === "signin") ? <span aria-label="Needs sign-in" className="ml-auto size-1.5 shrink-0 rounded-full bg-amber-500" /> : null}
             </button>
           ))}
         </div>
@@ -286,8 +287,18 @@ function DetailPage({ plugin }: { plugin: PluginRecord }) {
           <Row key={server.name} primary={server.name}
             secondary={server.status === "failed" ? server.error ?? "Failed to start"
               : server.status === "ready" ? `${server.toolNames.length} tool${server.toolNames.length === 1 ? "" : "s"}: ${server.toolNames.join(", ")}`
-                : server.status === "starting" ? "Starting…" : plugin.enabled ? "Not started" : "Off"}
-            tone={server.status === "failed" ? "error" : undefined} />
+                : server.status === "signin" ? "Sign in to use its tools. The sign-in opens in your browser."
+                  : server.status === "starting" ? "Starting…" : plugin.enabled ? "Not started" : "Off"}
+            tone={server.status === "failed" ? "error" : undefined}
+            action={server.status === "signin"
+              ? <Button className="h-7 text-xs" disabled={busy} onClick={() => void act(async () => {
+                toast("Finish signing in in your browser.");
+                await window.workbench.plugins.signIn({ id: plugin.id, server: server.name });
+                toast.success(`Signed in to ${server.name}`);
+              })} size="sm">Sign in</Button>
+              : server.signedIn
+                ? <Button className="h-7 text-xs" disabled={busy} onClick={() => void act(() => window.workbench.plugins.signOut({ id: plugin.id, server: server.name }))} size="sm" variant="ghost">Sign out</Button>
+                : null} />
         ))}
       </Section>
 

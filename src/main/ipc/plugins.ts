@@ -54,6 +54,12 @@ export const pluginsHandlers = {
     setEnabled: async ({ id, enabled }) => {
       try { return await plugins().setEnabled(id, enabled); } catch (error) { throw sentence(error); }
     },
+    signIn: async ({ id, server }) => {
+      try { return await plugins().signIn(id, server); } catch (error) { throw sentence(error); }
+    },
+    signOut: async ({ id, server }) => {
+      try { return await plugins().signOut(id, server); } catch (error) { throw sentence(error); }
+    },
     addMarketplace: async ({ path: given }, ctx) => {
       const folder = given ?? await chooseFolder(ctx, "Choose a marketplace folder");
       if (!folder) return null;

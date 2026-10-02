@@ -110,8 +110,10 @@ export type PluginTool = z.infer<typeof PluginToolSchema>;
 export const PluginServerStateSchema = z.object({
   name: z.string(),
   transport: z.enum(["stdio", "http"]),
-  /** idle: not started yet; ready: listed its tools; failed: see `error`. */
-  status: z.enum(["idle", "starting", "ready", "failed"]),
+  /** idle: not started yet; ready: listed its tools; signin: a remote server that needs the person to sign in; failed: see `error`. */
+  status: z.enum(["idle", "starting", "ready", "signin", "failed"]),
+  /** A remote server with saved credentials (Sign out is offered). */
+  signedIn: z.boolean().default(false),
   error: z.string().nullable().default(null),
   /** Every tool it lists, by name: the model's and the app's. */
   toolNames: z.array(z.string()).default([]),

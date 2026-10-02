@@ -49,6 +49,10 @@ describe("readPlugin", () => {
     write("b/.claude-plugin/plugin.json", { name: "beside" });
     write("b/.mcp.json", { mcpServers: { t: { url: "https://example.com/mcp" } } });
     expect(readPlugin(path.join(dir, "b")).servers.t!.url).toBe("https://example.com/mcp");
+    // Linear's plugin: a bare map of servers, no `mcpServers` key.
+    write("c/.claude-plugin/plugin.json", { name: "bare" });
+    write("c/.mcp.json", { linear: { type: "http", url: "https://mcp.linear.app/mcp" } });
+    expect(readPlugin(path.join(dir, "c")).servers.linear!.url).toBe("https://mcp.linear.app/mcp");
   });
 
   it("says why a folder is not a plugin", () => {

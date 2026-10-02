@@ -118,6 +118,7 @@ export class PluginService {
       (tools) => ({ status: "ready" as const, error: null, tools }),
       async (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
+        if (error instanceof Error && error.name === "SignInRequired") return { status: "signin" as const, error: null, tools: [] };
         return { status: "failed" as const, error: message, tools: [] };
       },
     ).then((result) => {
@@ -141,6 +142,7 @@ export class PluginService {
         status: plugin.enabled ? listed?.status ?? "idle" : "idle",
         error: listed?.error ?? null,
         toolNames: listed?.tools.map((tool) => tool.name) ?? [],
+        signedIn: config.url ? this.host.signedIn(plugin.id, name) : false,
       };
     }) : [];
     const tools: PluginTool[] = read && plugin.enabled ? Object.keys(read.servers).flatMap((name) =>
@@ -238,6 +240,24 @@ export class PluginService {
     this.reload();
     this.emit();
     await this.listAll();
+    return this.plugin(id)!;
+  }
+
+  /** Sign in to a plugin's remote server (the system browser), then list its tools again. */
+  async signIn(id: string, server: string): Promise<PluginRecord> {
+    await this.host.signIn(id, server);
+    return this.relist(id, server);
+  }
+
+  async signOut(id: string, server: string): Promise<PluginRecord> {
+    await this.host.signOut(id, server);
+    return this.relist(id, server);
+  }
+
+  private async relist(id: string, server: string): Promise<PluginRecord> {
+    this.listing.delete(`${id}/${server}`);
+    await this.listServer(id, server);
+    this.emit();
     return this.plugin(id)!;
   }
 

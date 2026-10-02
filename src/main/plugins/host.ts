@@ -39,6 +39,7 @@ import {
   type PluginServerConfig,
 } from "../../shared/plugins";
 import { expandPluginRoot, insidePlugin } from "./manifest";
+import { isAuthError, ServerAuthProvider, SignInRequired, signIn, type AuthStore } from "./oauth";
 
 /** The MCP methods a proxy may forward, and the result each is read as. */
 export const FORWARDED_METHODS = {
@@ -68,6 +69,8 @@ export type PluginHostDeps = {
   clientVersion: string;
   /** Extra directories in front of PATH (the app's own runtime, if any). */
   pathPrefix?: () => string[];
+  /** Credentials for remote servers that need a sign-in, and how to open the browser for one. */
+  auth?: { store: AuthStore; open: (url: URL) => void | Promise<void>; fetchFn?: typeof fetch };
 };
 
 export class PluginHost {
@@ -116,8 +119,22 @@ export class PluginHost {
     client.onclose = () => { connection.closed = true; };
     const timeout = (config.startup_timeout_sec ?? DEFAULT_STARTUP_SECONDS) * 1000;
     if (config.url) {
-      const transport = new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers: config.headers ?? {} } });
-      await client.connect(transport, { timeout });
+      // Saved credentials go with the request (and refresh); without any, a 401 means "Sign in".
+      const authProvider = this.deps.auth?.store.signedIn(config.url)
+        ? new ServerAuthProvider(config.url, this.deps.auth.store, this.deps.clientName)
+        : undefined;
+      const transport = new StreamableHTTPClientTransport(new URL(config.url), {
+        requestInit: { headers: config.headers ?? {} },
+        authProvider,
+        fetch: this.deps.auth?.fetchFn,
+      });
+      try {
+        await client.connect(transport, { timeout });
+      } catch (error) {
+        await client.close().catch(() => {});
+        if (isAuthError(error)) throw new SignInRequired(config.url);
+        throw error;
+      }
       return connection;
     }
     const shell = await this.deps.environment();
@@ -193,6 +210,31 @@ export class PluginHost {
       cursor = page.nextCursor;
     } while (cursor);
     return tools;
+  }
+
+  /** Whether a remote server has saved credentials. */
+  signedIn(pluginId: string, serverName: string): boolean {
+    const url = this.servers.get(PluginHost.key(pluginId, serverName))?.config.url;
+    return Boolean(url && this.deps.auth?.store.signedIn(url));
+  }
+
+  /** The person's sign-in to a remote server, in the system browser; its connections restart after. */
+  async signIn(pluginId: string, serverName: string): Promise<void> {
+    const key = PluginHost.key(pluginId, serverName);
+    const url = this.servers.get(key)?.config.url;
+    if (!url) throw new Error(`${serverName} is not a remote server`);
+    if (!this.deps.auth) throw new Error("sign-in is not available");
+    const provider = new ServerAuthProvider(url, this.deps.auth.store, this.deps.clientName, this.deps.auth.open);
+    await signIn(url, provider, { fetchFn: this.deps.auth.fetchFn });
+    await this.closeServer(key);
+  }
+
+  /** Forget a remote server's credentials and close its connections. */
+  async signOut(pluginId: string, serverName: string): Promise<void> {
+    const key = PluginHost.key(pluginId, serverName);
+    const url = this.servers.get(key)?.config.url;
+    if (url) this.deps.auth?.store.set(url, undefined);
+    await this.closeServer(key);
   }
 
   /** A server's last stderr lines, for a failure the person can act on. */

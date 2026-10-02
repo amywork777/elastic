@@ -48,6 +48,9 @@ export const pluginsContract = {
     installFromMarketplace: invoke(z.object({ marketplace: z.string().min(1), name: z.string().min(1) }), PluginRecordSchema),
     uninstall: invoke(Id, z.void()),
     setEnabled: invoke(z.object({ id: z.string().min(1), enabled: z.boolean() }), PluginRecordSchema),
+    /** Sign in to one of a plugin's remote servers, in the system browser. Resolves when it is done. */
+    signIn: invoke(z.object({ id: z.string().min(1), server: z.string().min(1) }), PluginRecordSchema),
+    signOut: invoke(z.object({ id: z.string().min(1), server: z.string().min(1) }), PluginRecordSchema),
     /** A folder chooser (or a path), then add the marketplace it holds. Null when cancelled. */
     addMarketplace: invoke(z.object({ path: z.string().min(1).optional() }), MarketplaceSchema.nullable()),
     removeMarketplace: invoke(z.object({ file: z.string().min(1) }), z.void()),
