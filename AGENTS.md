@@ -1,6 +1,6 @@
 # AGENTS.md — elastic
 
-Read `README.md` first: dev, checks, packaging and the layout tree are there.
+Read `README.md` first, then `docs/design.md`: dev, checks, packaging and the layout tree are there.
 
 ## Where the design lives
 
@@ -180,12 +180,12 @@ the rule is about.
 - **Nothing is installed into an agent's configuration.** elastic's skills
   and its tools are given to each session — the skills root as an additional
   directory on `session/new` and `session/load` (both spellings) plus a
-  preamble for the agents that ignore it, the MCP server in `mcpServers`, the
-  runtime in front of the session's `PATH` (README, "Skills and tools in a
-  session"). There is no plugin, no marketplace, no write to `~/.claude` or
-  `~/.codex`, and no first-launch install step. Do not add one back: a
-  person's own agent configuration is theirs, and an app that edits it is an
-  app they cannot uninstall cleanly.
+  preamble for the agents that ignore it, the app's MCP servers and a proxy per
+  enabled plugin server in `mcpServers`, plugin PATH entries in front of the
+  session's `PATH` (`docs/design.md`, "Skills and tools in a session";
+  `docs/plugins.md`). Plugins are installed into the app (`<userData>/plugins`),
+  never into `~/.claude` or `~/.codex`. A person's own agent configuration is
+  theirs, and an app that edits it is an app they cannot uninstall cleanly.
   (`tests/unit/main/agent-config-untouched.test.ts`.)
 - **Adapter versions are pinned exactly.** `CLAUDE_ADAPTER` and
   `CODEX_ADAPTER` in `src/main/agents/registry.ts` name one version each,

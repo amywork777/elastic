@@ -132,12 +132,14 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
     };
   }, [pluginId, server, resourceUri, scopeKey, loadKey]);
 
-  // Connect once the frame has loaded the staged document.
-  const onLoad = () => {
+  // Connect as soon as the frame exists, before its document runs: an app sends
+  // `ui/initialize` from its first script, before the frame's load event fires.
+  // The frame's window proxy outlives the navigation, so the transport bound to it
+  // here hears the document that loads into it.
+  useEffect(() => {
     const frame = frameRef.current;
     const target = frame?.contentWindow;
     if (!frame || !target || !url) return;
-    bridgeRef.current?.close().catch(() => {});
     const box = boxRef.current?.getBoundingClientRect();
     const context: McpUiHostContext = {
       theme,
@@ -188,7 +190,13 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
     void bridge.connect(new PostMessageTransport(target, target)).catch((error: unknown) => {
       setConnected({ url, error: error instanceof Error ? error.message : String(error) });
     });
-  };
+    // Torn down with the frame, so the app can save what it holds.
+    return () => {
+      if (bridgeRef.current === bridge) bridgeRef.current = null;
+      void bridge.teardownResource({}).catch(() => {}).finally(() => void bridge.close().catch(() => {}));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one bridge per staged document; theme and size reach it below
+  }, [url]);
 
   // Theme and size changes reach the app.
   useEffect(() => {
@@ -207,19 +215,12 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
     return () => observer.disconnect();
   }, []);
 
-  // Torn down with the frame, so the app can save what it holds.
-  useEffect(() => () => {
-    const bridge = bridgeRef.current;
-    bridgeRef.current = null;
-    if (bridge) void bridge.teardownResource({}).catch(() => {}).finally(() => void bridge.close().catch(() => {}));
-  }, [url]);
 
   return (
     <div className="relative h-full w-full bg-background" data-plugin-frame={`${pluginId}/${server}/${tool}`} ref={boxRef}>
       {url && phase.kind !== "error" ? (
         <iframe
           className="absolute inset-0 size-full border-0 bg-background"
-          onLoad={onLoad}
           ref={frameRef}
           // No allow-same-origin: the app is an opaque origin, reachable by postMessage only.
           sandbox="allow-scripts allow-forms allow-popups allow-downloads"

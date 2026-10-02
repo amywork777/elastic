@@ -284,7 +284,7 @@ agent's `limits` turn), `session-cancelled`, `session-error`,
 `activity-expanded-light` and `transcript-links`. From
 `transcript-layout.spec.ts`: `transcript-light`, `transcript-dark` and
 `transcript-expanded`; from `browser-service.spec.ts`, `browser-use-native`
-(the native page as Browser Use captured it). The committed
+(the native page as Browser Use captured it). From `plugins.spec.ts`: `plugins-browse`, `plugins-detail`, `plugins-file-view` (a CSV in the Tables plugin's view) and `plugins-rail-page`. The committed
 `tests/e2e/__screenshots__/` (`file-markdown-editable`,
 `file-markdown-raw-blocks`, `file-tree-deep`) is older evidence no spec
 rewrites. Look at them; they are the cheapest review of
