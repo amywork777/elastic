@@ -28,6 +28,8 @@ const VALUE_ALLOWLIST = new Set([
   "titlebar",
   "ipc/errors",
   "image-cap",
+  "brand",
+  "plugins",
 ]);
 
 /** `.ts`/`.tsx` sources, declaration files excluded. */

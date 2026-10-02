@@ -80,6 +80,7 @@ describe("the elastic MCP server", () => {
         "list_open_tabs",
         "list_skills",
         "open_file",
+        "open_tool",
         "show_tab",
         "close_tab",
         "read_skill",
@@ -115,16 +116,13 @@ describe("the elastic MCP server", () => {
     expect(content[1]!.text).toContain("tmp/review.png");
   });
 
-  it("keeps domain tools independent and drawing scenes ephemeral", async () => {
+  it("keeps domain tools independent", async () => {
     const fake = fakeBridge();
-    const drawing = await connect(fake.bridge, { integration: "drawings" });
+    const pdf = await connect(fake.bridge, { integration: "pdf" });
     const workspace = await connect(fake.bridge);
-    expect((await drawing.listTools()).tools.map(tool => tool.name)).toEqual(["open_drawing", "drawing_state", "rename_drawing", "capture_drawing"]);
-    expect((await workspace.callTool({ name: "open_drawing", arguments: {} })).isError).toBe(true);
-    expect((await drawing.callTool({ name: "open_drawing", arguments: { title: "Plan" } })).isError).toBeFalsy();
-    expect((await drawing.callTool({ name: "open_drawing", arguments: { path: "saved.excalidraw" } })).isError).toBe(true);
-    expect((await drawing.callTool({ name: "save_drawing", arguments: {} })).isError).toBe(true);
-    expect(fake.calls).toEqual([{ method: "open_drawing", params: { title: "Plan" } }]);
+    expect((await pdf.listTools()).tools.map(tool => tool.name)).toEqual(["pdf_state", "read_pdf", "set_pdf_page", "capture_pdf"]);
+    expect((await workspace.callTool({ name: "read_pdf", arguments: {} })).isError).toBe(true);
+    expect(fake.calls).toEqual([]);
   });
 
   it("turns a bridge refusal into an error result rather than a protocol failure", async () => {
@@ -144,13 +142,13 @@ describe("the elastic MCP server", () => {
   });
 
   it("carries app-owned tools through the same bridge call", async () => {
-    const fake = fakeBridge({ list_open_tabs: { tabs: [] }, viewer_state: { file: null }, reveal: { revealed: "src" } });
+    const fake = fakeBridge({ list_open_tabs: { tabs: [] }, pdf_state: { file: null }, reveal: { revealed: "src" } });
     const client = await connect(fake.bridge);
     await client.callTool({ name: "list_open_tabs", arguments: {} });
-    const cad = await connect(fake.bridge, { integration: "cad" });
-    await cad.callTool({ name: "viewer_state", arguments: {} });
+    const pdf = await connect(fake.bridge, { integration: "pdf" });
+    await pdf.callTool({ name: "pdf_state", arguments: { tabId: "t1" } });
     await client.callTool({ name: "reveal", arguments: { path: "src" } });
-    expect(fake.calls.map((call) => call.method)).toEqual(["list_open_tabs", "viewer_state", "reveal"]);
+    expect(fake.calls.map((call) => call.method)).toEqual(["list_open_tabs", "pdf_state", "reveal"]);
   });
 });
 

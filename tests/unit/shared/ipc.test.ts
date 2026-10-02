@@ -70,11 +70,22 @@ describe("the contract", () => {
       "agentOptions.setDefaults",
       "agentOptions.setEffort",
       "skills.info",
-      "runtime.status",
-      "runtime.repair",
-      "runtime.revealLog",
+      // Plugins
+      "plugins.list",
+      "plugins.refresh",
+      "plugins.installFolder",
+      "plugins.installFromMarketplace",
+      "plugins.uninstall",
+      "plugins.setEnabled",
+      "plugins.addMarketplace",
+      "plugins.removeMarketplace",
+      "plugins.setFileHandler",
+      "plugins.allowFiles",
+      "plugins.request",
+      "plugins.openFile",
+      "plugins.stageApp",
+      "plugins.releaseApp",
       "onboarding.status",
-      "onboarding.createSample",
       "dialogs.chooseDirectory",
       "dialogs.chooseFile",
       "settings.get",
@@ -130,9 +141,6 @@ describe("the contract", () => {
       "git.pullRequest",
       "git.worktrees",
       "git.removeWorktree",
-      // P5 — src/shared/ipc/cad.ts
-      "cad.viewerOrigin",
-      "cad.warm",
       "integrations.reply",
     ]);
   });
@@ -166,12 +174,6 @@ describe("the contract", () => {
     // of — `/` included — and then read from on the renderer's word.
     const channels = Object.fromEntries(ipcChannels(ipcContract));
     expect(Object.keys(channels)).not.toContain("projects.addPath");
-    // The sample answers with the project it selected, never a path to hand back.
-    const sample = channels["onboarding.createSample"]!;
-    expect(sample.response.safeParse({ path: "/Users/me/Documents/elastic Sample" }).success).toBe(false);
-    expect(
-      sample.response.safeParse({ id: "/s", name: "elastic Sample", path: "/s", createdAt: 0 }).success,
-    ).toBe(true);
   });
 
   it("keeps non-URLs out of openExternal before main even sees them", () => {

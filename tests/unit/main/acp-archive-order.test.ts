@@ -54,18 +54,6 @@ test("an archive that lands tears the session's tools down; an unarchive does no
   expect(calls.disposePages).toHaveBeenCalledWith("s");
   expect(calls.disposeShells).toHaveBeenCalledWith("s");
   calls.forgetSession.mockClear();
-  calls.forgetCad.mockClear();
   await archive({ id: "s", archived: false });
   expect(calls.forgetSession).not.toHaveBeenCalled();
-  expect(calls.forgetCad).not.toHaveBeenCalled();
-});
-
-test("an archive stops the CAD viewer of the session's worktree; a session without one has none to stop", async () => {
-  calls.archive.mockReturnValue({ id: "s", worktreePath: "/wt" });
-  await archive({ id: "s", archived: true });
-  expect(calls.forgetCad).toHaveBeenCalledWith("s", "/wt");
-  calls.forgetCad.mockClear();
-  calls.archive.mockReturnValue({ id: "s" });
-  await archive({ id: "s", archived: true });
-  expect(calls.forgetCad).toHaveBeenCalledWith("s", null);
 });

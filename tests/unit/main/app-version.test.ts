@@ -28,12 +28,12 @@ describe("the release version", () => {
   });
 
   it("stops `package.mjs` before it prepares anything when the checkout has no VERSION", () => {
-    // A checkout without VERSION: <repo>/apps/desktop/scripts, and no <repo>/VERSION.
-    const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "elastic-package-")));
-    temps.push(repo);
-    const appRoot = path.join(repo, "apps", "desktop");
+    // A checkout without VERSION: <root>/scripts, and no <root>/VERSION.
+    const appRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "elastic-package-")));
+    temps.push(appRoot);
     fs.mkdirSync(path.join(appRoot, "scripts"), { recursive: true });
-    for (const file of ["package.mjs", "app-version.mjs", "bundle-runtime.mjs", "node-bin.mjs", "python-build.json"]) {
+    fs.copyFileSync(path.join(scripts, "..", "package.json"), path.join(appRoot, "package.json"));
+    for (const file of ["package.mjs", "app-version.mjs", "node-bin.mjs"]) {
       fs.copyFileSync(path.join(scripts, file), path.join(appRoot, "scripts", file));
     }
 

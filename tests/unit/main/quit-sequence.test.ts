@@ -27,12 +27,10 @@ const h = vi.hoisted(() => ({
   windows: [] as EventEmitter[],
   app: null as unknown as EventEmitter,
   manager: null as { closeAll(): void } | null,
-  cadFails: false,
+  integrationsFail: false,
   /** The database handle's `close()` throws. */
   dbCloseFails: false,
   ready: false,
-  /** `app.isReady()` at each call of Aptabase's `initialize`. */
-  aptabaseInitReady: [] as boolean[],
   teardown: [] as string[],
   /** `armQuitDeadline`, the watchdog's arm. */
   arm: vi.fn(),
@@ -92,6 +90,7 @@ vi.mock("electron", async () => {
     BrowserWindow,
     dialog,
     nativeImage: { createFromPath: () => ({}) },
+    protocol: { registerSchemesAsPrivileged: () => undefined, handle: () => undefined },
     nativeTheme: { shouldUseDarkColors: false },
     shell: { openExternal: async () => undefined },
     screen: { getAllDisplays: () => [], getPrimaryDisplay: () => ({ workArea: { x: 0, y: 0, width: 1440, height: 900 } }) },
@@ -137,16 +136,12 @@ vi.mock("@main/ipc/acp", () => {
   };
 });
 vi.mock("@main/integrations", () => ({
-  initIntegrations: async () => undefined,
-  shutdownIntegrations: async () => void h.teardown.push("integrations"),
-}));
-vi.mock("@main/cad", () => ({
-  initCad: async () => {
-    if (h.cadFails) {
-      throw new Error("the CAD runtime could not start");
+  initIntegrations: async () => {
+    if (h.integrationsFail) {
+      throw new Error("the MCP bridge could not start");
     }
   },
-  shutdownCad: async () => void h.teardown.push("cad"),
+  shutdownIntegrations: async () => void h.teardown.push("integrations"),
 }));
 vi.mock("@main/browser/service", () => ({ browserService: { dispose: () => undefined } }));
 vi.mock("@main/children", async (importOriginal) => ({
@@ -160,16 +155,6 @@ vi.mock("@main/ipc/explorer", () => ({ disposeExplorerServices: () => undefined 
 vi.mock("@main/menu", () => ({ installMenu: () => undefined }));
 vi.mock("@main/quit-deadline", () => ({ armQuitDeadline: h.arm }));
 vi.mock("@main/settings-effects", () => ({ disposeSettingsEffects: () => undefined }));
-// The real telemetry module over a fake Aptabase: which side of whenReady
-// index.ts initializes it on is the bug this pins (Aptabase disables itself
-// when `initialize` runs after ready).
-vi.stubGlobal("__APTABASE_KEY__", "A-US-0000000000");
-vi.mock("@aptabase/electron/main", () => ({
-  initialize: async () => {
-    h.aptabaseInitReady.push(h.ready);
-  },
-  trackEvent: async () => undefined,
-}));
 vi.mock("@main/updater", () => ({ initUpdater: () => undefined, stopUpdater: () => undefined }));
 
 afterEach(() => {
@@ -258,9 +243,7 @@ describe("quit sequence", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
     await import("@main/index");
     await vi.waitFor(() => expect(h.windows).toHaveLength(1));
-    // index.ts initialized Aptabase once, while the app was not yet ready.
     expect(h.ready).toBe(true);
-    expect(h.aptabaseInitReady).toEqual([false]);
     const [window] = h.windows;
 
     // The app's page gets the clipboard and nothing else: Electron grants
@@ -319,18 +302,18 @@ describe("quit sequence", () => {
     vi.resetModules();
     h.windows.length = 0;
     h.teardown.length = 0;
-    h.cadFails = true;
+    h.integrationsFail = true;
     h.ready = false;
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     await import("@main/index");
     await vi.waitFor(() => expect(h.teardown).toContain("exit"));
 
-    expect(h.electron.dialog.showErrorBox).toHaveBeenCalledWith("elastic could not start", "the CAD runtime could not start");
+    expect(h.electron.dialog.showErrorBox).toHaveBeenCalledWith("elastic could not start", "the MCP bridge could not start");
     expect(h.electron.app.exit).toHaveBeenCalledWith(1);
     // app.exit skips before-quit and will-quit: their teardown ran first,
     // the database connection closed among it (the handle's own close()).
-    expect(h.teardown).toEqual(["cad", "integrations", "database", "children", "exit"]);
+    expect(h.teardown).toEqual(["integrations", "database", "children", "exit"]);
     expect(h.windows).toHaveLength(0);
     error.mockRestore();
     info.mockRestore();
@@ -341,7 +324,7 @@ describe("quit sequence", () => {
     vi.resetModules();
     h.windows.length = 0;
     h.teardown.length = 0;
-    h.cadFails = false;
+    h.integrationsFail = false;
     h.dbCloseFails = false;
     h.ready = false;
     h.arm.mockClear();

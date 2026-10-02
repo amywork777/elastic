@@ -42,7 +42,7 @@ function recordingActions() {
     open_file: record("open_file"),
     reveal: record("reveal"),
     open_url: record("open_url"),
-    open_drawing: record("open_drawing"),
+    pdf_state: record("pdf_state"),
     list_open_tabs: record("list_open_tabs"),
     viewer_state: record("viewer_state"),
     attach_snapshot: async (session: BridgeSession, params: Record<string, unknown>) => {
@@ -232,15 +232,15 @@ describe("McpBridge", () => {
     const answer = await rpc(url, token, { method: "open_file", params: { path: "a.step" } });
     expect(answer.body).toEqual({ ok: true, result: { done: "open_file" } });
     expect(actions.calls).toEqual([{ method: "open_file", session: SESSION, params: { path: "a.step" } }]);
-    expect((await rpc(url, token, { method: "open_drawing", params: {} })).status).toBe(403);
-    const drawings = bridge.tokenFor(SESSION, "drawings");
-    expect(drawings).not.toBe(token);
-    expect((await rpc(url, drawings, { method: "open_drawing", params: { title: "Plan" } })).body.ok).toBe(true);
-    expect((await rpc(url, drawings, { method: "open_drawing", params: { path: "saved.excalidraw" } })).status).toBe(400);
-    expect((await rpc(url, drawings, { method: "save_drawing", params: {} })).status).toBe(400);
+    expect((await rpc(url, token, { method: "pdf_state", params: {} })).status).toBe(403);
+    const pdf = bridge.tokenFor(SESSION, "pdf");
+    expect(pdf).not.toBe(token);
+    expect((await rpc(url, pdf, { method: "pdf_state", params: { tabId: "t1" } })).body.ok).toBe(true);
+    expect((await rpc(url, pdf, { method: "pdf_state", params: { tabId: "t1", extra: true } })).status).toBe(400);
+    expect((await rpc(url, pdf, { method: "open_file", params: { path: "a.txt" } })).status).toBe(403);
     expect((await rpc(url, token, { method: "open_file", params: { path: 42 } })).status).toBe(400);
     bridge.revoke(SESSION.sessionId);
-    expect((await rpc(url, drawings, { method: "open_drawing", params: {} })).status).toBe(401);
+    expect((await rpc(url, pdf, { method: "pdf_state", params: { tabId: "t1" } })).status).toBe(401);
     expect((await rpc(url, token, { method: "not_a_tool" })).status).toBe(401);
   });
 

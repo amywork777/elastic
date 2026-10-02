@@ -158,11 +158,6 @@ describe("Session", () => {
 });
 
 describe("ExplorerTab", () => {
-  it("recognizes scratch drawing metadata but refuses it in the persisted contract", () => {
-    const drawing = { id: "scratch", sessionId: "s1", projectId: "p1", order: 1, kind: "drawing" };
-    expect(ExplorerTabSchema.parse(drawing)).toMatchObject({ title: "Drawing", root: null });
-    expect(PersistedExplorerTabSchema.safeParse(drawing).success).toBe(false);
-  });
   it("restores retired CAD Theme panels to the renderer default without changing other choices", () => {
     const row = { id: "t1", sessionId: "s1", projectId: "p1", order: 0, kind: "file", path: "part.step" };
     for (const [saved, expected] of [["cad-theme", null], ["cad-display", null], [null, null], ["", ""], ["tree", "tree"], ["cad-file", "cad-file"], ["source", "source"]]) {

@@ -631,9 +631,6 @@ export const SettingsSchema = z.object({
   /** Free text appended to the agent's instructions when it opens a PR (P7). */
   pullRequestInstructions: z.string().default(""),
 
-  /* CAD runtime */
-  cadPythonOverride: z.string().nullable().default(null),
-
   /* Updates */
   checkUpdatesOnLaunch: z.boolean().default(true),
 
