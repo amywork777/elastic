@@ -4,11 +4,14 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "text-to-cad \u2014 a CAD-first agent workbench desktop app.",
+  "description": "text-to-cad — a CAD-first agent workbench desktop app.",
   "author": "text-to-cad contributors",
   "license": "MIT",
   "homepage": "https://github.com/earthtojake/text-to-cad",
   "main": "./out/main/index.js",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "electron-vite dev",
     "build": "node scripts/build.mjs",
