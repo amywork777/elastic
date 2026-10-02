@@ -77,7 +77,7 @@ test("a CSV opens behind the consent screen, then in the plugin's view; Open wit
   // Sorting is the app's own: a click on the column header, inside the frame.
   await frame.getByRole("columnheader", { name: "size" }).click();
   await expect(frame.locator("tbody tr").first()).toContainText("alpha.txt");
-  await shootInto(explorer, "plugins-file-view.png", test.info());
+  await shoot("plugins-file-view.png");
 
   await explorer.getByRole("button", { name: "Open with" }).click();
   await page.getByRole("menuitem", { name: "Built-in" }).click();
