@@ -96,7 +96,9 @@ export function composedSkills(source: string): SkillSummary[] {
   }
   const skills: SkillSummary[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) {
+    // Followed, not read off the entry: the composed source links each
+    // plugin's skills in (`composeSkillSources`), and a link is not a directory.
+    if (!fs.statSync(path.join(source, entry.name), { throwIfNoEntry: false })?.isDirectory()) {
       continue;
     }
     const file = path.join(source, entry.name, "SKILL.md");
@@ -338,4 +340,28 @@ export function skillsPreamble(root: string, skills: readonly SkillSummary[]): s
   ].join(" ");
   const list = skills.map((skill) => `- ${skill.name}: ${summarise(skill.description)}`).join("\n");
   return `${opening}\n\n${list}`;
+}
+
+/**
+ * One source folder holding the app's skills and every enabled plugin's, as
+ * links: what `materialiseSkillsRoot` copies from. A plugin skill whose name
+ * an earlier one already took is left out, and said so in the log: the app's
+ * own come first, then plugins in install order.
+ */
+export function composeSkillSources(target: string, sources: ReadonlyArray<{ owner: string; dir: string; names: readonly string[] }>): string {
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.mkdirSync(target, { recursive: true });
+  const taken = new Map<string, string>();
+  for (const source of sources) {
+    for (const name of source.names) {
+      const previous = taken.get(name);
+      if (previous) {
+        console.warn(`[skills] ${source.owner}'s skill "${name}" is skipped: ${previous} already has one by that name`);
+        continue;
+      }
+      taken.set(name, source.owner);
+      fs.symlinkSync(path.join(source.dir, name), path.join(target, name), "dir");
+    }
+  }
+  return target;
 }

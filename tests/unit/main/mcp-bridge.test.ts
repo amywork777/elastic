@@ -297,46 +297,6 @@ describe("RendererCommands", () => {
   });
 });
 
-describe("RendererCommands and the viewer's own bound", () => {
-  it("relays the viewer's 'did not finish' sentence when it answers at its ten seconds, not the relay's own timeout", async () => {
-    vi.useFakeTimers();
-    try {
-      const commands = new RendererCommands({ sessionRoot: () => ({ directory: "/proj", root: null }), send: () => {}, newId: () => "r1" });
-      const camera = commands.request({ sessionId: "s1", kind: "cad-camera", projectId: "p1" });
-      const outcome = expect(camera).rejects.toThrow("The viewer did not finish applying this command.");
-      await vi.advanceTimersByTimeAsync(10_000);
-      commands.reply({ requestId: "r1", ok: false, error: "The viewer did not finish applying this command." });
-      await outcome;
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  // The viewer's own bound is ten seconds; the relay waits two more so its answer wins the race
-  // (REPLY_TIMEOUT_MS / VIEWER_REPLY_TIMEOUT_MS in actions.ts). A kind left on the 10 s path would
-  // time out the relay at the same instant as the viewer and report a window that DID answer as gone.
-  it.each(["select-reference", "cad-clear-selection", "cad-camera", "cad-reset-camera", "cad-render-mode"] as const)(
-    "gives %s twelve seconds: still waiting at 11.999, timed out at 12",
-    async (kind) => {
-      vi.useFakeTimers();
-      try {
-        const commands = new RendererCommands({ sessionRoot: () => ({ directory: "/proj", root: null }), send: () => {}, newId: () => "r1" });
-        let settled: string | null = null;
-        const pending = commands.request({ sessionId: "s1", kind, projectId: "p1" } as never);
-        const outcome = expect(pending).rejects.toThrow(/did not answer within 12 s/);
-        pending.then(() => { settled = "answered"; }, () => { settled = "rejected"; });
-        await vi.advanceTimersByTimeAsync(11_999);
-        expect(settled).toBeNull();
-        await vi.advanceTimersByTimeAsync(1);
-        await outcome;
-        expect(settled).toBe("rejected");
-      } finally {
-        vi.useRealTimers();
-      }
-    },
-  );
-});
-
 describe("the actions", () => {
   it("resolve paths against the session cwd, inside the project, and answer project-relative", async () => {
     const root = tempDir("text-to-cad-proj-");

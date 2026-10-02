@@ -45,6 +45,7 @@ import { agentsContract, agentsEvents } from "./agents";
 import { dialogsContract } from "./dialogs";
 import { onboardingContract } from "./onboarding";
 import { skillsContract } from "./skills";
+import { pluginsContract, pluginsEvents } from "./plugins";
 import { integrationsIpc, integrationsEvents } from "./integrations";
 import { explorerEvents, explorerIpc } from "./explorer";
 import { gitIpc } from "./git";
@@ -55,6 +56,7 @@ export * from "./define";
 export * from "./agent-options";
 export * from "./explorer";
 export * from "./git";
+export * from "./plugins";
 
 /** The menu (or a shortcut) asked the renderer to navigate. */
 export const UiCommandSchema = z.object({
@@ -119,6 +121,9 @@ export const ipcContract = defineIpc({
 
   /** P5: the skills root every session is handed. */
   ...skillsContract,
+
+  /** Installed plugins, and the renderer's way to their MCP servers. */
+  ...pluginsContract,
 
   /** First run: whether onboarding shows, and the sample project. */
   ...onboardingContract,
@@ -230,6 +235,7 @@ export const ipcEvents = {
   ...explorerEvents,
   // `integrations.command` — the app MCP server's way into the explorer (P5).
   ...integrationsEvents,
+  ...pluginsEvents,
 } as const;
 
 export type IpcEvents = typeof ipcEvents;

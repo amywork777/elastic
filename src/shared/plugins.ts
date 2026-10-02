@@ -14,6 +14,8 @@
  *   { type: "thread" }                    a tab a session's explorer can open
  *   { type: "file", extensions: [...] }   how files of those extensions render
  *
+ * A UI tool that names none is a `thread` tool.
+ *
  * See docs/plugins.md for the authoring guide and docs/research/codex-plugins.md
  * for where each shape comes from.
  */
@@ -210,7 +212,8 @@ export function readToolUi(server: string, tool: { name: string; title?: string;
     title: tool.title ?? tool.annotations?.title ?? tool.name,
     description: tool.description ?? "",
     resourceUri,
-    entrypoints,
+    // A UI tool that names no place still has one: a tab a session can open.
+    entrypoints: entrypoints.length > 0 ? entrypoints : [{ type: "thread" }],
     visibility: visibility.length > 0 ? visibility : ["model", "app"],
     icon: tool.icons?.find((icon) => typeof icon.src === "string")?.src ?? null,
   };

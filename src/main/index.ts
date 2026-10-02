@@ -278,7 +278,8 @@ if (!app.requestSingleInstanceLock()) {
     // The skills root, the plugins and the MCP bridge, before the first
     // window: the first session's `mcpServers` and `additionalDirectories`
     // need them up.
-    await initIntegrations({ sendCommand: (command) => broadcast("integrations.command", command), cancelCommand: requestId => broadcast("integrations.cancel", { requestId }) });
+    await initIntegrations({ sendCommand: (command) => broadcast("integrations.command", command), cancelCommand: requestId => broadcast("integrations.cancel", { requestId }),
+      pluginsChanged: (snapshot) => broadcast("plugins.changed", snapshot) });
     installMenu(() => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null, createWindow);
     createWindow();
     initUpdater();

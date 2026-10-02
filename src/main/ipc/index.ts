@@ -25,6 +25,7 @@ import { explorerHandlers, initExplorerServices, revealProjectDirectory } from "
 import { gitHandlers } from "./git";
 import { onboardingHandlers } from "./onboarding";
 import { skillsHandlers } from "./skills";
+import { pluginsHandlers } from "./plugins";
 import { installE2eDoor } from "../test-door";
 import { IpcError, broadcast, registerIpc, type IpcContext } from "./register";
 
@@ -73,6 +74,9 @@ const handlers = {
 
   /** P5: the skills root every session is handed. */
   ...skillsHandlers,
+
+  /** Installed plugins and their MCP servers. */
+  ...pluginsHandlers,
 
   /** First run: whether onboarding shows, and the sample project. */
   ...onboardingHandlers,

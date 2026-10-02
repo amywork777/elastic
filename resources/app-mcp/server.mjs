@@ -1,7 +1,7 @@
 /**
- * The text-to-cad MCP server (plan §8): the app's actions, as tools an agent
+ * The app's MCP server: the app's actions, as tools an agent
  * can call. One process per integration per session, on stdio, spawned by the agent because
- * text-to-cad passes it in `session/new`'s `mcpServers`.
+ * the app passes it in `session/new`'s `mcpServers`.
  *
  * The server knows nothing about Electron. It reads four environment
  * variables: `WORKBENCH_BRIDGE_URL` and `WORKBENCH_BRIDGE_TOKEN` (the
@@ -33,6 +33,16 @@ import { fileURLToPath } from "node:url";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import {
+  CallToolRequestSchema,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ListToolsRequestSchema,
+  ReadResourceRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { integrationById } from "../../src/main/integrations/registry.mjs";
 
 export const BRIDGE_ENV = {
@@ -151,7 +161,7 @@ export function httpBridge(env = process.env) {
   const token = env[BRIDGE_ENV.token];
   if (!url || !token) {
     throw new Error(
-      `${BRIDGE_ENV.url} and ${BRIDGE_ENV.token} must be set — this server is started by text-to-cad, not by hand`,
+      `${BRIDGE_ENV.url} and ${BRIDGE_ENV.token} must be set — this server is started by the app, not by hand`,
     );
   }
   return async (method, params, signal) => {
@@ -214,8 +224,52 @@ export function createServer(bridge, options = {}) {
   return server;
 }
 
+/** The MCP requests a plugin proxy forwards, by the schema the SDK routes them with. */
+const PLUGIN_FORWARDED = [
+  ["tools/list", ListToolsRequestSchema],
+  ["tools/call", CallToolRequestSchema],
+  ["resources/list", ListResourcesRequestSchema],
+  ["resources/templates/list", ListResourceTemplatesRequestSchema],
+  ["resources/read", ReadResourceRequestSchema],
+  ["prompts/list", ListPromptsRequestSchema],
+  ["prompts/get", GetPromptRequestSchema],
+];
+
+/**
+ * A plugin server, as an agent reaches it (`WORKBENCH_INTEGRATION=plugin:<id>/<server>`).
+ *
+ * The agent never runs a plugin's server itself: this proxy forwards each MCP
+ * request to the app (`plugin_rpc`), which runs the real server once per
+ * session as its own MCP client (`src/main/plugins/host.ts`). So the agent's
+ * tool call and the plugin's tab in the explorer reach one process and see
+ * one state, and the app can keep app-only tools away from the model.
+ */
+export function createPluginProxy(bridge, options = {}) {
+  const name = options.name ?? process.env.WORKBENCH_INTEGRATION ?? "plugin";
+  const server = new Server(
+    { name, version: options.version ?? "0.0.0" },
+    { capabilities: { tools: {}, resources: {}, prompts: {} } },
+  );
+  for (const [method, schema] of PLUGIN_FORWARDED) {
+    server.setRequestHandler(schema, async (request, extra) => {
+      const { _meta, ...params } = request.params ?? {};
+      try {
+        return await bridge("plugin_rpc", { method, params }, extra.signal);
+      } catch (error) {
+        if (method === "tools/call") return failure(error);
+        throw error;
+      }
+    });
+  }
+  return server;
+}
+
 export async function main() {
   const version = readVersion();
+  if ((process.env.WORKBENCH_INTEGRATION ?? "").startsWith("plugin:")) {
+    await createPluginProxy(httpBridge(), { version }).connect(new StdioServerTransport());
+    return;
+  }
   if (integrationById(process.env.WORKBENCH_INTEGRATION ?? "workspace").runtime === "playwright") {
     const connection = await httpBridge()("browser_connection", {});
     process.chdir(connection.root);

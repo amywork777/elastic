@@ -46,6 +46,9 @@
   "devDependencies": {
     "@betteroffice/fonts": "0.2.0",
     "@eslint/js": "10.0.1",
+    "@modelcontextprotocol/server-basic-vanillajs": "^2.0.3",
+    "@modelcontextprotocol/server-filesystem": "^2026.8.31",
+    "@modelcontextprotocol/server-memory": "^2026.8.31",
     "@monaco-editor/react": "4.7.0",
     "@playwright/mcp": "0.0.81",
     "@playwright/test": "1.63.0",

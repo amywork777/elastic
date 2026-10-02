@@ -29,6 +29,29 @@ import { integrations, integrationById, toolByName } from "./registry.mjs";
 import { MAX_DOCUMENT_CHARS } from "./documents/module.mjs";
 export const BRIDGE_METHODS: readonly string[] = integrations.flatMap(entry => [...entry.tools, ...(entry.hostTools ?? [])].map(tool => tool.name));
 
+/**
+ * A plugin server's proxy authenticates as `plugin:<pluginId>/<server>` and
+ * may call one method, `plugin_rpc`: an MCP request (`{ method, params }`) the
+ * app forwards to the plugin server it runs for that session.
+ */
+export const PLUGIN_INTEGRATION_PREFIX = "plugin:";
+export const PLUGIN_RPC = "plugin_rpc";
+export type PluginRpcHandler = (session: BridgeSession, target: { pluginId: string; server: string }, request: { method: string; params: Record<string, unknown> }, signal?: AbortSignal) => Promise<unknown>;
+
+/** The plugin and server a `plugin:` integration names, or null for an app integration. */
+export function pluginTarget(integration: string): { pluginId: string; server: string } | null {
+  if (!integration.startsWith(PLUGIN_INTEGRATION_PREFIX)) return null;
+  const rest = integration.slice(PLUGIN_INTEGRATION_PREFIX.length);
+  const slash = rest.lastIndexOf("/");
+  if (slash <= 0 || slash === rest.length - 1) throw new Error(`Unknown integration: ${integration}`);
+  return { pluginId: rest.slice(0, slash), server: rest.slice(slash + 1) };
+}
+
+/** An app integration must exist; a plugin one must be well formed (the handler checks it is enabled). */
+function checkIntegration(integration: string): void {
+  if (!pluginTarget(integration)) integrationById(integration);
+}
+
 /** The environment the MCP server reads. One place, shared with server.mjs by name. */
 export const BRIDGE_ENV = {
   url: "WORKBENCH_BRIDGE_URL",
@@ -61,6 +84,7 @@ export class McpBridge {
       disposePages?(session: BridgeSession): void | Promise<void>;
       dispose(): Promise<void>;
     },
+    private readonly pluginRpc?: PluginRpcHandler,
   ) {}
 
   /** Listen. Idempotent. */
@@ -106,7 +130,7 @@ export class McpBridge {
 
   /** The token for a session, minted once. */
   tokenFor(session: BridgeSession, integration = "workspace"): string {
-    integrationById(integration);
+    checkIntegration(integration);
     const key = `${session.sessionId}:${integration}`;
     const existing = this.tokens.get(key);
     if (existing) {
@@ -138,8 +162,8 @@ export class McpBridge {
   }
 
   /** The ACP `McpServer` entry for a session — what `session/new` carries. */
-  serverFor(session: BridgeSession, integration = "workspace"): McpServer {
-    integrationById(integration);
+  serverFor(session: BridgeSession, integration = "workspace", name = `app-${integration}`): McpServer {
+    checkIntegration(integration);
     if (!this.url) {
       throw new Error("the MCP bridge is not listening");
     }
@@ -156,7 +180,7 @@ export class McpBridge {
     // carries one as http/sse and drops it unless the type matches, and
     // reads an entry without one as stdio. Codex-acp accepts either.
     return {
-      name: `app-${integration}`,
+      name,
       command: script.command,
       args: script.args,
       env: Object.entries(env).map(([name, value]) => ({ name, value })),
@@ -204,6 +228,11 @@ export class McpBridge {
     const current = this.byToken.get(token)?.session;
     if (!current || current.cwd !== session.cwd || current.projectId !== session.projectId) { send(401, { ok: false, error: "session authorization changed" }); return; }
     const method = parsed.method;
+    const target = pluginTarget(integration);
+    if (target) {
+      await this.handlePlugin(session, target, method, parsed.params, response, send);
+      return;
+    }
     if (typeof method !== "string" || !(BRIDGE_METHODS as readonly string[]).includes(method)) {
       send(400, { ok: false, error: `unknown method ${String(method)}` });
       return;
@@ -233,6 +262,25 @@ export class McpBridge {
     } catch (error) {
       if (!response.destroyed) send(200, { ok: false, error: error instanceof Error ? error.message : String(error) });
     } finally { this.inFlight.delete(controller); response.off("close", disconnected); }
+  }
 
+  /** `plugin_rpc` from a plugin server's proxy: `{ method, params }`, forwarded by `pluginRpc`. */
+  private async handlePlugin(session: BridgeSession, target: { pluginId: string; server: string }, method: unknown, params: unknown, response: http.ServerResponse, send: (status: number, body: unknown) => void) {
+    if (method !== PLUGIN_RPC || !this.pluginRpc) { send(403, { ok: false, error: "method is outside this integration" }); return; }
+    const request = params as { method?: unknown; params?: unknown } | null;
+    if (!request || typeof request !== "object" || typeof request.method !== "string"
+      || (request.params !== undefined && (typeof request.params !== "object" || request.params === null || Array.isArray(request.params)))) {
+      send(400, { ok: false, error: "plugin_rpc needs { method, params }" }); return;
+    }
+    const controller = new AbortController();
+    this.inFlight.set(controller, session);
+    const disconnected = () => { if (!response.writableEnded) controller.abort(new Error("tool request cancelled")); };
+    response.once("close", disconnected);
+    try {
+      const result = await this.pluginRpc(session, target, { method: request.method, params: (request.params ?? {}) as Record<string, unknown> }, controller.signal);
+      if (!response.destroyed) send(200, { ok: true, result });
+    } catch (error) {
+      if (!response.destroyed) send(200, { ok: false, error: error instanceof Error ? error.message : String(error) });
+    } finally { this.inFlight.delete(controller); response.off("close", disconnected); }
   }
 }
