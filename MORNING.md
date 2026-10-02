@@ -103,16 +103,25 @@ What happened overnight on `amywork777/elastic`, and what is left for you.
 - Then text-to-cad's Codex plugin should install in elastic as it is: Plugins
   › Add › Install a plugin folder, or add its marketplace.
 
+## Done after the run (2026-10-02 afternoon)
+
+- **Icon:** a pink rubber band stretched around three plum pegs on a dot-grid
+  geoboard (pegs are plugins, the band is the app stretching to fit them).
+  `scripts/make-icons.mjs` draws it and writes both `build/icon.png` and the
+  in-app mark. Commit `ece98ba6`.
+- **Packaged .dmg:** `release/elastic-0.1.0-mac-arm64.dmg` (146 MB, unsigned).
+  The packaged app launched and stayed up. Attached to a draft GitHub release
+  for v0.1.0.
+- **CI:** `.github/workflows/test.yml` (typecheck, lint, unit, build, bundle
+  check, e2e on macOS for PRs and main) and `release.yml` (tag `v<VERSION>` to
+  package and draft a release; signs once the Apple secrets exist).
+- **Jake:** invited to the repo with write access.
+- **Flaky:** `tests/unit/main/quit-deadline.test.ts` ("kills the app at the
+  deadline even when ps hangs") failed once in a full run, passed alone twice.
+
 ## Not done
 
-- **Packaged .dmg:** not built. Free disk was 4.4 GB at the end of the run,
-  under the 8 GB the plan asked for before packaging. `npm run package:mac`
-  when you have room.
-- **No CI workflow:** the monorepo's release workflow did not come along.
-- **Submodule hookup:** the text-to-cad side of the plan (pinning this repo
-  as a submodule) is untouched.
-- **Docker:** I didn't touch it.
-- **Disk:** free space fell from about 11 GB to about 4.4 GB during the night.
-  My own footprint is `node_modules` (1.2 GB, shrank after the prune), `out/`
-  (78 MB) and the git history (140 MB). The rest is something else on the
-  machine.
+- **Submodule hookup:** the text-to-cad side (pinning this repo as a
+  submodule) is Jake's repo; untouched.
+- **Signing and notarising:** needs an Apple Developer certificate as secrets.
+- **Docker:** not touched; its unused volumes hold about 15 GB.
