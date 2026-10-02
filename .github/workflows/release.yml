@@ -1,0 +1,50 @@
+# Push a tag `v<VERSION>` to build the macOS .dmg and attach it to a draft GitHub
+# release. Unsigned until the signing secrets exist: scripts/package.mjs decides
+# signing from the environment alone, so adding CSC_LINK, CSC_KEY_PASSWORD,
+# APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID as repository secrets is
+# the whole switch.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    name: Package (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Tag matches VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        run: test "v$(cat VERSION)" = "${GITHUB_REF_NAME}"
+
+      - run: npm ci
+
+      - name: Package
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run package:mac -- --arm64 --x64
+
+      - name: Draft release with the installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(cat VERSION)"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --title "elastic $tag" --notes "elastic $tag"
+          gh release upload "$tag" release/*.dmg release/*.zip release/*.blockmap --clobber

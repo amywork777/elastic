@@ -1,0 +1,84 @@
+# Typecheck, lint, unit tests, build and the Electron end-to-end suite.
+# macOS because node-pty and better-sqlite3 are rebuilt against Electron's ABI and
+# the e2e suite drives the real app (hidden: WORKBENCH_E2E_HIDDEN, playwright.config.ts).
+# macOS minutes count 10x against a private repository's quota, so this runs on
+# pull requests and on main only.
+name: Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  app:
+    name: App (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Read the Electron version
+        id: electron
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Only the two addons' build output depends on Electron's ABI, so they are the cache.
+      - name: Restore the native modules
+        id: native
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/node-pty/build
+            node_modules/better-sqlite3/build
+          key: native-${{ runner.os }}-${{ runner.arch }}-electron${{ steps.electron.outputs.version }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Rebuild the native modules
+        if: steps.native.outputs.cache-hit != 'true'
+        run: npm run native:rebuild --workspace elastic
+
+      - name: Headless Chromium for the browser suites
+        run: npx playwright install chromium --only-shell
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Bundle check
+        env:
+          WORKBENCH_BUNDLE_CHECK: "1"
+        run: npx vitest run tests/unit/main/renderer-bundle.test.ts
+
+      - name: End-to-end
+        run: npm run e2e
+
+      - name: Keep the e2e report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore
