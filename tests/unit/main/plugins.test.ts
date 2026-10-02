@@ -157,6 +157,8 @@ describe("mcp-app:// documents", () => {
     expect(policy).toContain("connect-src https://api.example.com");
     expect(policy).toContain("script-src 'unsafe-inline' 'wasm-unsafe-eval' blob: https://cdn.example.com");
     expect(policy).not.toContain("bad domain");
+    // text-to-cad's CAD page declares the schemes its workers fetch from.
+    expect(appPolicy({ connectDomains: ["data:", "blob:", "javascript:"] })).toContain("connect-src data: blob:;");
     const url = stageApp("<p>hi</p>", undefined);
     expect(url).toMatch(/^mcp-app:\/\/[0-9a-f]{24}\/index\.html$/);
     releaseApp(url);

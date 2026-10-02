@@ -41,8 +41,11 @@ export function serveAppScheme(): void {
 
 const DOMAIN = /^(https?:\/\/|wss?:\/\/)?[A-Za-z0-9*.-]+(:\d+|:\*)?(\/[^\s;,'"]*)?$/;
 
+/** Scheme sources an app may name too: a page that builds workers and models from `blob:`/`data:` URLs fetches them (text-to-cad's CAD page). */
+const SCHEMES = new Set(["data:", "blob:"]);
+
 function domains(list: unknown): string[] {
-  return Array.isArray(list) ? list.filter((entry): entry is string => typeof entry === "string" && DOMAIN.test(entry)) : [];
+  return Array.isArray(list) ? list.filter((entry): entry is string => typeof entry === "string" && (SCHEMES.has(entry) || DOMAIN.test(entry))) : [];
 }
 
 /** The policy for one app, from its resource's `_meta.ui.csp` (MCP Apps: `connectDomains`, `resourceDomains`, `frameDomains`). */
