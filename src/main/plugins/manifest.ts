@@ -58,7 +58,7 @@ function readJson(file: string): unknown {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
   } catch (error) {
-    throw new Error(`${path.basename(file)} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`${path.basename(file)} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
   }
 }
 

@@ -1,8 +1,8 @@
 import { AppBridge, PostMessageTransport } from "@modelcontextprotocol/ext-apps/app-bridge";
 import type { McpUiHostContext, McpUiStyles } from "@modelcontextprotocol/ext-apps/app-bridge";
-import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { RotateCw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Button } from "@renderer/components/ui/button";
 import { Spinner } from "@renderer/components/ui/spinner";
@@ -72,6 +72,9 @@ function textOf(contents: Array<{ text?: string; blob?: string; mimeType?: strin
 
 type Phase = { kind: "loading" } | { kind: "ready" } | { kind: "error"; message: string };
 
+/** One load of the app's document: its key, then its staged URL or why there is none. */
+type Staged = { key: string; url: string | null; error: string | null };
+
 /**
  * An MCP App (a plugin tool's `ui://` resource), drawn borderless and full
  * size in whatever it is mounted in: a tab, a rail page, a file.
@@ -92,38 +95,42 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const bridgeRef = useRef<AppBridge | null>(null);
-  const [url, setUrl] = useState<string | null>(null);
-  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [staged, setStaged] = useState<Staged | null>(null);
+  /** The URL whose app said it is initialised, or the failure connecting to it. */
+  const [connected, setConnected] = useState<{ url: string; error: string | null } | null>(null);
   const theme = useResolvedTheme();
   const callRef = useRef(call);
-  callRef.current = call;
+  useLayoutEffect(() => { callRef.current = call; }, [call]);
   const scopeKey = JSON.stringify(scope);
+  const loadKey = JSON.stringify([pluginId, server, resourceUri, scopeKey, attempt]);
+  const url = staged?.key === loadKey ? staged.url : null;
+  const phase: Phase = staged?.key !== loadKey ? { kind: "loading" }
+    : staged.error ? { kind: "error", message: staged.error }
+      : connected?.url === url && connected.error ? { kind: "error", message: connected.error }
+        : connected?.url === url ? { kind: "ready" } : { kind: "loading" };
 
   // Stage the document.
   useEffect(() => {
     let cancelled = false;
-    let staged: string | null = null;
-    setPhase({ kind: "loading" });
-    setUrl(null);
+    let stagedUrl: string | null = null;
     void (async () => {
-      const read = await window.workbench.plugins.request({ pluginId, server, method: "resources/read", params: { uri: resourceUri }, scope }) as {
+      const read = await window.workbench.plugins.request({ pluginId, server, method: "resources/read", params: { uri: resourceUri }, scope: JSON.parse(scopeKey) as FrameScope }) as {
         contents: Array<{ text?: string; blob?: string; mimeType?: string; _meta?: { ui?: { csp?: unknown } } }>;
       };
       const html = textOf(read.contents);
       const { url: next } = await window.workbench.plugins.stageApp({ html, csp: read.contents[0]?._meta?.ui?.csp });
-      staged = next;
+      stagedUrl = next;
       if (cancelled) { void window.workbench.plugins.releaseApp({ url: next }); return; }
-      setUrl(next);
+      setStaged({ key: loadKey, url: next, error: null });
     })().catch((error: unknown) => {
-      if (!cancelled) setPhase({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+      if (!cancelled) setStaged({ key: loadKey, url: null, error: error instanceof Error ? error.message : String(error) });
     });
     return () => {
       cancelled = true;
-      if (staged) void window.workbench.plugins.releaseApp({ url: staged });
+      if (stagedUrl) void window.workbench.plugins.releaseApp({ url: stagedUrl });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the scope is compared by value
-  }, [pluginId, server, resourceUri, scopeKey, attempt]);
+  }, [pluginId, server, resourceUri, scopeKey, loadKey]);
 
   // Connect once the frame has loaded the staged document.
   const onLoad = () => {
@@ -160,10 +167,13 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
     bridge.onopenlink = async ({ url: link }) => {
       try { await window.workbench.shell.openExternal({ url: link }); return {}; } catch { return { isError: true }; }
     };
-    bridge.onloggingmessage = ({ level, data }) => console[level === "error" || level === "critical" ? "error" : "log"](`[${pluginName}]`, data);
+    bridge.onloggingmessage = ({ level, data }) => {
+      if (level === "error" || level === "critical" || level === "alert" || level === "emergency") console.error(`[${pluginName}]`, data);
+      else console.info(`[${pluginName}]`, data);
+    };
     bridge.onrequestdisplaymode = async () => ({ mode: placement === "page" ? "fullscreen" : "inline" });
     bridge.oninitialized = () => {
-      setPhase({ kind: "ready" });
+      setConnected({ url, error: null });
       void (async () => {
         const shown = await callRef.current();
         if (!shown || bridgeRef.current !== bridge) return;
@@ -176,7 +186,7 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
       });
     };
     void bridge.connect(new PostMessageTransport(target, target)).catch((error: unknown) => {
-      setPhase({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+      setConnected({ url, error: error instanceof Error ? error.message : String(error) });
     });
   };
 

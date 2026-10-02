@@ -36,7 +36,7 @@ it("starts a second session in the same directory with no tabs and restores each
   expect(useExplorer.getState().tabs).toEqual([first]);
 });
 it("background opens and closes address only their owning session without navigating the user", async () => {
-  const active = useExplorer.getState().open("drawing")!;
+  const active = useExplorer.getState().open("browser", { url: "https://example.com" })!;
   useUi.getState().openSettings();
   const opened = await open(sessionB) as { tabId: string };
   expect(useExplorer.getState()).toMatchObject({ sessionId: sessionA, activeId: active.id, tabs: [active] });
@@ -47,8 +47,8 @@ it("background opens and closes address only their owning session without naviga
   expect((await readSessionStrip(sessionB)).tabs).toEqual([]);
   expect(useExplorer.getState().tabs).toEqual([active]);
 });
-it.each(["tab-resource", "show-tab", "close-tab", "drawing-state"] as const)("refuses %s with another same-directory session's tab ID", async kind => {
-  const tab = useExplorer.getState().open("drawing")!;
+it.each(["tab-resource", "show-tab", "close-tab"] as const)("refuses %s with another same-directory session's tab ID", async kind => {
+  const tab = useExplorer.getState().open("browser", { url: "https://example.com" })!;
   await expect(performIntegrationCommand({ sessionId: sessionB, projectId, requestId: "cross-session", kind, tabId: tab.id })).rejects.toThrow(/closed|workspace/);
   expect(useExplorer.getState().tabs).toEqual([tab]);
 });
@@ -80,7 +80,6 @@ it('deduplicates filesystem receipts for inactive sessions even while a differen
 it('archive flushes the latest metadata before disposing ephemeral resources', async () => {
   vi.mocked(window.workbench.explorer.saveTabs).mockClear();
   const file = useExplorer.getState().open('file', { path: 'keep.txt' })!;
-  useExplorer.getState().open('drawing');
   useExplorer.getState().discardSessionResources(sessionA, { preserveTabs: true });
   await vi.waitFor(() => expect(window.workbench.explorer.saveTabs).toHaveBeenCalledWith({ sessionId: sessionA, tabs: [expect.objectContaining({ id: file.id, path: 'keep.txt' })] }));
 });

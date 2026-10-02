@@ -182,7 +182,7 @@ export const acpHandlers = {
         // `delete` may remove the worktree — a terminal or browser target
         // still holding it open would outlive its own directory.
         await sessionManager.delete(id, {
-          beforeRelease: (row) => {
+          beforeRelease: (_row) => {
             forgetSession(id);
             browserService.disposeSession(id);
             explorerTerminals().disposeSession(id);

@@ -133,7 +133,7 @@ export class PluginHost {
     } catch (error) {
       await client.close().catch(() => {});
       const tail = connection.stderr.slice(-5).join("\n");
-      throw new Error(`${server.name} did not start: ${error instanceof Error ? error.message : String(error)}${tail ? `\n${tail}` : ""}`);
+      throw new Error(`${server.name} did not start: ${error instanceof Error ? error.message : String(error)}${tail ? `\n${tail}` : ""}`, { cause: error });
     }
     return connection;
   }

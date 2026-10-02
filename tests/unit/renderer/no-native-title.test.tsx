@@ -26,7 +26,6 @@ import { useComposer } from "@renderer/state/composer";
 import { useExplorer } from "@renderer/state/explorer";
 import { usePathLinks } from "@renderer/state/path-links";
 import { useProjects } from "@renderer/state/projects";
-import { useRuntime } from "@renderer/state/runtime";
 import { useSessions } from "@renderer/state/sessions";
 import { useSettings } from "@renderer/state/settings";
 import { SETTINGS_SECTIONS, useUi } from "@renderer/state/ui";
@@ -183,9 +182,6 @@ describe("Settings", () => {
     useAgents.setState({ agents: [agent(true), agent(false)], ready: true, loadError: null });
     vi.mocked(window.workbench.agents.list).mockResolvedValue([agent(true), agent(false)]);
     vi.mocked(window.workbench.skills.info).mockResolvedValue({ root: "/Users/me/Library/skills/0.0.0", skills: [] });
-    const status = { state: "missing", python: null, source: null, cadgenVersion: null, viewerBuilt: false, log: "/Users/me/cad-runtime.log", message: "No runtime" } as const;
-    vi.mocked(window.workbench.runtime.status).mockResolvedValue(status);
-    useRuntime.setState({ status });
     // A project with a worktree that has uncommitted work: Delete is off, and says why.
     useProjects.setState({ projects: [{ id: "p", name: "p", path: "/p", createdAt: 0 }], activeId: "p" });
     vi.mocked(window.workbench.git.worktrees).mockResolvedValue([

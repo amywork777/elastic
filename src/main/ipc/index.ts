@@ -87,7 +87,6 @@ const handlers = {
   settings: {
     get: () => settings.get(),
     set: (patch: Parameters<typeof settings.set>[0]) => {
-      const previous = settings.get();
       const next = settings.set(patch);
       broadcast("settings.changed", next);
       // Three of these fields are instructions to the OS or to the window, not

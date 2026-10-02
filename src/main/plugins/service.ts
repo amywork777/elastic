@@ -26,9 +26,9 @@ import {
   type PluginSource,
   type PluginTool,
 } from "../../shared/plugins";
-import { APP_SCOPE, PluginHost, type ForwardedMethod, type HostedServer } from "./host";
+import { APP_SCOPE, type ForwardedMethod, type HostedServer, type PluginHost } from "./host";
 import { readMarketplace, readPlugin, type ReadPlugin } from "./manifest";
-import { PluginRegistry } from "./registry";
+import type { PluginRegistry } from "./registry";
 
 export type PluginsSnapshot = {
   plugins: PluginRecord[];

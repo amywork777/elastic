@@ -5,7 +5,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { createDesktopPromptContext } from "@renderer/features/explorer/host/promptContext";
 import { Composer } from "@renderer/features/session/Composer";
-import { openAnnotation, withAnnotations } from "@renderer/features/session/composer/AnnotationsChip";
+import { withAnnotations } from "@renderer/features/session/composer/AnnotationsChip";
 import { useAcp } from "@renderer/state/acp";
 import { useComposer } from "@renderer/state/composer";
 import type { DraftPart, TakenDraft } from "@renderer/state/composer";

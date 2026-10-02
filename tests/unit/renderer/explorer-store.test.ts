@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { dedupeFileTabs, getDrawingTab, tabTitle, useExplorer } from "@renderer/state/explorer";
-import { deleteDrawingScene } from "@renderer/state/drawings";
+import { dedupeFileTabs, tabTitle, useExplorer } from "@renderer/state/explorer";
 
-vi.mock("@renderer/state/drawings", () => ({ deleteDrawingScene: vi.fn() }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }) }));
 vi.mock("@renderer/state/live-documents", async (importOriginal) => {
   const actual = await importOriginal<typeof LiveDocuments>();
@@ -80,141 +78,13 @@ describe("the explorer strip", () => {
     vi.mocked(hasDirtyDocument).mockReset();
   });
 
-  it("opens each of the five kinds into one strip", () => {
+  it("opens each kind into one strip", () => {
     const { open } = useExplorer.getState();
-    for (const kind of ["file", "review", "browser", "terminal", "drawing"] as const) {
+    for (const kind of ["file", "review", "browser", "terminal"] as const) {
       open(kind);
     }
-    expect(useExplorer.getState().tabs.map((tab) => tab.kind)).toEqual([
-      "file",
-      "review",
-      "browser",
-      "terminal",
-      "drawing",
-    ]);
-  });
-
-  it("retains drawings and their mixed order across project switches without saving them", async () => {
-    const saved = new Map<string, PersistedExplorerTab[]>();
-    vi.mocked(window.workbench.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
-      saved.set(projectId, tabs.map((tab, order) => ({ ...tab, order }) as PersistedExplorerTab));
-    });
-    vi.mocked(window.workbench.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => saved.get(projectId) ?? []);
-    const file = useExplorer.getState().open("file")!;
-    const drawing = useExplorer.getState().open("drawing", { root: "/worktree", title: "Bracket sketch" })!;
-    const review = useExplorer.getState().open("review")!;
-    const secondDrawing = useExplorer.getState().open("drawing")!;
-    useExplorer.getState().move(secondDrawing.id, 0);
-    useExplorer.getState().setActive(drawing.id);
-    await useExplorer.getState().bindSession("project-2", "project-2");
-    expect(getDrawingTab(drawing.id, PROJECT)).toMatchObject({ root: "/worktree", title: "Bracket sketch" });
-    expect(saved.get(PROJECT)?.map(tab => tab.kind)).toEqual(["file", "review"]);
-    expect(JSON.stringify(vi.mocked(window.workbench.explorer.saveTabs).mock.calls)).not.toContain("Bracket sketch");
-    await useExplorer.getState().bindSession(PROJECT, PROJECT);
-    expect(useExplorer.getState().tabs.map(tab => tab.id)).toEqual([secondDrawing.id, file.id, drawing.id, review.id]);
-    expect(useExplorer.getState().activeId).toBe(drawing.id);
-    expect(useExplorer.getState().tabs.map(tab => tab.order)).toEqual([0, 1, 2, 3]);
-    expect(tabTitle(getDrawingTab(drawing.id, PROJECT)!)).toBe("Bracket sketch");
-    expect(deleteDrawingScene).not.toHaveBeenCalledWith(drawing.id);
-  });
-
-  it("retains both projects' drawings when navigating away from an unfinished restore", async () => {
-    const stored = new Map<string, PersistedExplorerTab[]>();
-    vi.mocked(window.workbench.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
-      stored.set(projectId, tabs.map(tab => PersistedExplorerTabSchema.parse(tab)));
-    });
-    vi.mocked(window.workbench.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
-    const drawingA = useExplorer.getState().open("drawing", { title: "Drawing A" })!;
-    await useExplorer.getState().bindSession("project-2", "project-2");
-    const fileB = useExplorer.getState().open("file")!;
-    const drawingB = useExplorer.getState().open("drawing", { title: "Drawing B" })!;
-    await useExplorer.getState().bindSession(PROJECT, PROJECT);
-    expect(useExplorer.getState().activeId).toBe(drawingA.id);
-
-    const lateRestore = deferred<PersistedExplorerTab[]>();
-    vi.mocked(window.workbench.explorer.loadTabs).mockImplementationOnce(() => lateRestore.promise);
-    const unfinishedVisit = useExplorer.getState().bindSession("project-2", "project-2");
-    expect(useExplorer.getState()).toMatchObject({ projectId: "project-2", ready: false, tabs: [] });
-    expect(getDrawingTab(drawingB.id, "project-2")).toMatchObject({ title: "Drawing B" });
-    await useExplorer.getState().bindSession(PROJECT, PROJECT);
-    expect(useExplorer.getState().activeId).toBe(drawingA.id);
-    lateRestore.resolve([]);
-    await unfinishedVisit;
-    expect(useExplorer.getState().activeId).toBe(drawingA.id);
-
-    await useExplorer.getState().bindSession("project-2", "project-2");
-    expect(useExplorer.getState().tabs.map(tab => tab.id)).toEqual([fileB.id, drawingB.id]);
-    expect(useExplorer.getState().activeId).toBe(drawingB.id);
-    expect(getDrawingTab(drawingA.id, PROJECT)).toMatchObject({ title: "Drawing A" });
-    expect(deleteDrawingScene).not.toHaveBeenCalledWith(drawingA.id);
-    expect(deleteDrawingScene).not.toHaveBeenCalledWith(drawingB.id);
-  });
-
-  it("ignores open requests during restoration without replacing retained drawings", async () => {
-    const stored = new Map<string, PersistedExplorerTab[]>();
-    vi.mocked(window.workbench.explorer.saveTabs).mockImplementation(async ({ sessionId: projectId, tabs }) => {
-      stored.set(projectId, tabs.map(tab => PersistedExplorerTabSchema.parse(tab)));
-    });
-    vi.mocked(window.workbench.explorer.loadTabs).mockImplementation(async ({ sessionId: projectId }) => stored.get(projectId) ?? []);
-    const file = useExplorer.getState().open("file")!;
-    const drawing = useExplorer.getState().open("drawing", { title: "Keep this sketch" })!;
-    await useExplorer.getState().bindSession("project-2", "project-2");
-    const loading = deferred<PersistedExplorerTab[]>();
-    vi.mocked(window.workbench.explorer.loadTabs).mockImplementationOnce(() => loading.promise);
-    const restoring = useExplorer.getState().bindSession(PROJECT, PROJECT);
-    expect(useExplorer.getState().ready).toBe(false);
-    vi.mocked(window.workbench.explorer.saveTabs).mockClear();
-    for (const kind of ["file", "review", "browser", "terminal", "drawing"] as const) {
-      expect(useExplorer.getState().open(kind)).toBeNull();
-    }
-    expect(useExplorer.getState().openFile("unexpected.txt")).toBeNull();
-    expect(useExplorer.getState().tabs).toEqual([]);
-    expect(getDrawingTab(drawing.id, PROJECT)).toMatchObject({ title: "Keep this sketch" });
-    expect(window.workbench.explorer.saveTabs).not.toHaveBeenCalled();
-    loading.resolve(stored.get(PROJECT) ?? []);
-    await restoring;
-    expect(useExplorer.getState().tabs.map(tab => tab.id)).toEqual([file.id, drawing.id]);
-    const accepted = useExplorer.getState().open("drawing");
-    expect(accepted?.kind).toBe("drawing");
-    expect(useExplorer.getState().tabs).toHaveLength(3);
-  });
-
-  it("ignores late updates from a departed tab while another strip is restoring", async () => {
-    const drawing = useExplorer.getState().open("drawing")!;
-    await useExplorer.getState().bindSession("project-2", "project-2");
-    const loading = deferred<PersistedExplorerTab[]>();
-    vi.mocked(window.workbench.explorer.loadTabs).mockImplementationOnce(() => loading.promise);
-    const restoring = useExplorer.getState().bindSession(PROJECT, PROJECT);
-    vi.mocked(window.workbench.explorer.saveTabs).mockClear();
-    useExplorer.getState().update("departed-terminal", { ptyId: "late-pty" });
-    expect(getDrawingTab(drawing.id, PROJECT)).not.toBeNull();
-    expect(window.workbench.explorer.saveTabs).not.toHaveBeenCalled();
-    loading.resolve([]);
-    await restoring;
-    expect(useExplorer.getState().tabs.map(tab => tab.id)).toEqual([drawing.id]);
-  });
-
-  it("disposes closed drawings and cannot resurrect them from storage", async () => {
-    const drawing = useExplorer.getState().open("drawing")!;
-    expect(drawing).toMatchObject({ root: null, title: "Drawing" });
-    useExplorer.getState().close(drawing.id);
-    expect(deleteDrawingScene).toHaveBeenCalledWith(drawing.id);
-    expect(getDrawingTab(drawing.id, PROJECT)).toBeNull();
-    await useExplorer.getState().bindSession("project-2", "project-2");
-    // Simulate a response written by an older or compromised persistence path.
-    vi.mocked(window.workbench.explorer.loadTabs).mockResolvedValue([drawing as never]);
-    await useExplorer.getState().bindSession(PROJECT, PROJECT);
-    expect(useExplorer.getState().tabs).toEqual([]);
-  });
-
-  it("disposes drawings of a removed background project", async () => {
-    const drawing = useExplorer.getState().open("drawing")!;
-    await useExplorer.getState().bindSession("project-2", "project-2");
-    useExplorer.getState().discardSessionResources(PROJECT);
-    expect(deleteDrawingScene).toHaveBeenCalledWith(drawing.id);
-    expect(getDrawingTab(drawing.id, PROJECT)).toBeNull();
-    await useExplorer.getState().bindSession(PROJECT, PROJECT);
-    expect(useExplorer.getState().tabs).toEqual([]);
+    open("tool", { pluginId: "tables", toolId: "tables/show_table", title: "Table" });
+    expect(useExplorer.getState().tabs.map((tab) => tab.kind)).toEqual(["file", "review", "browser", "terminal", "tool"]);
   });
 
   it("focuses a newly opened tab", () => {
@@ -578,7 +448,7 @@ describe("the explorer strip", () => {
   });
 
   it("opens the pane when a tab of any kind opens, without writing a preference", () => {
-    for (const kind of ["file", "review", "browser", "terminal", "drawing"] as const) {
+    for (const kind of ["file", "review", "browser", "terminal"] as const) {
       useExplorer.setState({ collapsed: true, tabs: [], activeId: null });
       useExplorer.getState().open(kind);
       expect(useExplorer.getState().collapsed, kind).toBe(false);

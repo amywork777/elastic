@@ -16,6 +16,8 @@ export default tseslint.config(
       "dist/**",
       "tmp/**", // Local comparison builds and disposable verification scripts.
       "node_modules/**",
+      // The workspace packages carry their own typecheck and tests (packages/*/package.json).
+      "packages/**",
       "tests/e2e/__screenshots__/**",
       // Build outputs: the composed skills and the bundled CAD runtime, which
       // carries JavaScript of its own inside site-packages.
