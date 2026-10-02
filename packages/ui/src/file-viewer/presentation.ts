@@ -1,8 +1,8 @@
 import { createElement } from 'react';
-import Overlay from '../renderers/kit/status/ViewerLoadingOverlay.js';
+import Overlay from './status/ViewerLoadingOverlay.js';
 
-export { default as MissingFileAlert } from '../renderers/kit/status/MissingFileAlert.js';
-export type { MissingFileAlertProps } from '../renderers/kit/status/MissingFileAlert.js';
+export { default as MissingFileAlert } from './status/MissingFileAlert.js';
+export type { MissingFileAlertProps } from './status/MissingFileAlert.js';
 
 export interface CadArtifactProgress {
   phase: string;
@@ -19,7 +19,7 @@ export interface ViewerLoadingOverlayProps {
   viewerLoading: boolean;
   progress?: CadArtifactProgress | null;
 }
-/** The original CAD loading artwork, available before loading the renderer. */
+/** The viewer's loading artwork, available before loading the renderer. */
 export function ViewerLoadingOverlay({ viewerLoading, progress }: ViewerLoadingOverlayProps) {
-  return createElement(Overlay, { loading: { opening: viewerLoading, headline: "Opening model", progress }, operationKey: "preparing-document" });
+  return createElement(Overlay, { loading: { opening: viewerLoading, headline: "Opening file", progress }, operationKey: "preparing-document" });
 }

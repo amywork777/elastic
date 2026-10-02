@@ -1,7 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { drawingAssetsPlugin } from "@workbench/ui/drawing-assets";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
@@ -85,7 +84,7 @@ export default defineConfig({
     // default to leave in place.
     worker: { format: "es" },
     define: { __APP_VERSION__: JSON.stringify(appVersion()) },
-    plugins: [monacoWorkersOncePlugin(), pdfAssetsPlugin(), drawingAssetsPlugin(), react(), tailwindcss()],
+    plugins: [monacoWorkersOncePlugin(), pdfAssetsPlugin(), react(), tailwindcss()],
     // Off Vite's default 5173, which `npm --prefix apps/web run dev` claims
     // with strictPort — the two dev servers have to be able to run together.
     // Matches the `desktop-dev` entry in the repo's .claude/launch.json.

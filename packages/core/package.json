@@ -3,27 +3,17 @@
   "version": "0.7.2",
   "private": true,
   "type": "module",
-  "description": "Reusable CAD render/viewer runtime for docs, CAD Viewer, and generated snapshot browser assets.",
+  "description": "Prompt-context contracts and file-format tables shared by the app and @workbench/ui.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./client": {
-      "types": "./dist/client/index.d.ts",
-      "import": "./dist/client/index.js"
-    },
-    "./common/*": "./dist/common/*",
-    "./glb/*": "./dist/lib/glb/*",
     "./lib/*": "./dist/lib/*",
     "./package.json": "./package.json",
     "./prompt": {
       "types": "./dist/prompt/index.d.ts",
       "import": "./dist/prompt/index.js"
-    },
-    "./drawing": {
-      "types": "./dist/drawing/index.d.ts",
-      "import": "./dist/drawing/index.js"
     }
   },
   "scripts": {
@@ -31,25 +21,14 @@
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "sideEffects": [
-    "./dist/common/headlessRenderEntry.js"
-  ],
-  "dependencies": {
-    "meshoptimizer": "^1.2.0",
-    "three": "0.186.1",
-    "three-mesh-bvh": "0.9.15"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "22.20.1",
-    "@types/three": "^0.186.0",
     "esbuild": "0.28.2",
-    "playwright": "^1.63.0",
     "typescript": "5.9.3"
   },
   "files": [
     "dist",
-    "bin",
-    "docs",
     "README.md"
   ]
 }

@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest';
 import { createTabStore, memoryTabRecord } from './tabStore.js';
 import { TAB_FILE_LIMIT, TAB_RECORD_VERSION, defaultTabRecord, readTabRecord, tabFileKey, writeTabFile } from './tabRecord.js';
-import { readFileView, writeFileView } from '../renderers/kit/shell/fileView.js';
 
 const view = (camera: unknown) => ({ version: 2, camera, display: null, renderer: {} });
 
@@ -87,33 +86,4 @@ test('the preferences a renderer reads are the settings: patched by key, normali
   preferences.update({ toolStack: { panels: {}, collapsed: {} } });
   expect(preferences.getSnapshot().toolStack).toEqual({ panels: {}, collapsed: {} });
   expect(preferences.getSnapshot()).toBe(store.getSnapshot().settings);
-});
-
-test("a root's views come as FileViewer's records, stable per snapshot, and a view's changes merge without reverting another's", () => {
-  const store = createTabStore(memoryTabRecord());
-  store.files.write('one', 'a.step', 'step', view('a'));
-  store.files.write('two', 'a.step', 'step', view('other root'));
-  const views = store.files.forRoot('one');
-  expect(views).toEqual({ [JSON.stringify(['a.step', 'step'])]: view('a') });
-  expect(store.files.forRoot('one')).toBe(views);
-  // A stale view of root one changes `b` while `a` moved on: only `b` lands.
-  const baseline = { ...views, [JSON.stringify(['b.step', 'step'])]: view('b0') };
-  store.files.write('one', 'a.step', 'step', view('a2'));
-  store.files.merge('one', baseline, { ...baseline, [JSON.stringify(['b.step', 'step'])]: view('b1') });
-  expect(store.files.forRoot('one')).toEqual({ [JSON.stringify(['a.step', 'step'])]: view('a2'), [JSON.stringify(['b.step', 'step'])]: view('b1') });
-  // A key the view dropped is removed; the other root is untouched.
-  store.files.merge('one', store.files.forRoot('one'), { [JSON.stringify(['a.step', 'step'])]: view('a2') });
-  expect(Object.keys(store.files.forRoot('one'))).toEqual([JSON.stringify(['a.step', 'step'])]);
-  expect(store.files.forRoot('two')).toEqual({ [JSON.stringify(['a.step', 'step'])]: view('other root') });
-});
-
-test("a file view's slices drop by signature while its camera and display are kept, whatever store it came through", () => {
-  const store = createTabStore(memoryTabRecord());
-  const camera = { position: [1, 2, 3], target: [0, 0, 0], up: [0, 0, 1] };
-  store.files.write('root', 'a.step', 'step', writeFileView({ camera, display: { mode: 'render' }, renderer: { tree: { open: ['o1'] } }, signatures: { tree: 'geo:1' } }) as never);
-  const reopened = createTabStore(memoryTabRecord(JSON.parse(JSON.stringify(store.getSnapshot()))));
-  const same = readFileView(reopened.files.read('root', 'a.step', 'step'), { tree: 'geo:1' });
-  expect([same.camera, same.display.mode, same.renderer]).toEqual([camera, 'render', { tree: { open: ['o1'] } }]);
-  const rebuilt = readFileView(reopened.files.read('root', 'a.step', 'step'), { tree: 'geo:2' });
-  expect([rebuilt.camera, rebuilt.display.mode, rebuilt.renderer]).toEqual([camera, 'render', {}]);
 });

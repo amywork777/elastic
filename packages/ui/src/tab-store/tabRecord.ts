@@ -1,6 +1,6 @@
 import type { JsonValue } from '../file-viewer/types.js';
 import { clampPanelWidth, PANEL_DEFAULT_WIDTH } from '../file-viewer/navigation/panelWidth.js';
-import { normalizeToolStack } from '../renderers/kit/tools/toolStackLayout.js';
+import { normalizeToolStack } from './toolStackLayout.js';
 
 /**
  * The tab record: everything the viewer keeps, kept for one tab and thrown out with it.
