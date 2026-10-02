@@ -6,7 +6,7 @@ import documents from "./documents/module.mjs";
 import terminals from "./terminals/module.mjs";
 
 /**
- * @typedef {{ id: string, description: string, skills: string[], tools: Array<{name: string, description: string, inputSchema: import('zod').ZodType<Record<string, unknown>>, output: string}>, hostTools?: Array<{name: string, description: string, inputSchema: import('zod').ZodType<Record<string, unknown>>, output: string}>, runtime?: string, rendererCommands?: Record<string, string> }} Integration
+ * @typedef {{ id: string, description: string, tools: Array<{name: string, description: string, inputSchema: import('zod').ZodType<Record<string, unknown>>, output: string}>, hostTools?: Array<{name: string, description: string, inputSchema: import('zod').ZodType<Record<string, unknown>>, output: string}>, runtime?: string, rendererCommands?: Record<string, string> }} Integration
  */
 /** @param {Integration[]} entries */
 export function defineIntegrations(entries) {

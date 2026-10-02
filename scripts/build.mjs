@@ -1,9 +1,8 @@
 /**
  * `npm run build`: everything a runnable `out/` needs, in order.
  *
- *   1. compose the app's skills into resources/skills (build-skills.mjs);
- *   2. electron-vite build — main, preload, renderer into out/;
- *   3. bundle the MCP server into out/app-mcp (build-mcp.mjs), after
+ *   1. electron-vite build — main, preload, renderer into out/;
+ *   2. bundle the MCP server into out/app-mcp (build-mcp.mjs), after
  *      electron-vite because it empties its output directories first.
  *
  * `scripts/package.mjs` runs this before electron-builder, so a packaged app
@@ -15,7 +14,6 @@ import { fileURLToPath } from "node:url";
 
 import { appVersion } from "./app-version.mjs";
 import { buildMcpServer } from "./build-mcp.mjs";
-import { buildSkills } from "./build-skills.mjs";
 import { nodeTool } from "./node-bin.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -30,9 +28,6 @@ export function electronViteBuild() {
 
 export function buildAll({ env = process.env } = {}) {
   const version = appVersion();
-
-  const skills = buildSkills({ out: path.join(appRoot, "resources", "skills") });
-  console.info(`composed ${skills.skills.length} skills -> resources/skills`);
 
   // Rollup holds the whole renderer graph in memory, and this renderer is a
   // large one — Monaco, three.js, shiki's grammars, the CAD Viewer's client.

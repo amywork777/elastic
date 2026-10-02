@@ -1,0 +1,16 @@
+{
+  "name": "elastic-browser",
+  "description": "Agents read, drive and capture the pages open in elastic's browser tabs, through Playwright.",
+  "author": {
+    "name": "elastic"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Browser",
+    "shortDescription": "Agents read, drive and capture the pages open in elastic's browser tabs, through Playwright.",
+    "developerName": "elastic",
+    "category": "Developer tools"
+  }
+}

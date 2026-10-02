@@ -11,6 +11,3 @@ tests/perf/
 .vite
 tmp/
 *.tmp
-# Composed skills (scripts/build-skills.mjs); the directory stays for electron-builder.
-resources/skills/*
-!resources/skills/.gitkeep

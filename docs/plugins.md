@@ -126,6 +126,27 @@ A plugin's skills (`skills/<name>/SKILL.md`) are added to the skills root every
 new session gets while the plugin is on. A name another skill already has is
 skipped, and the log says so.
 
+## Bundled plugins
+
+elastic's own tools are plugins too, the way Codex ships its browser and code
+review: `resources/bundled/` is a marketplace of four plugins (Browser,
+Documents, PDF, Terminals, ids `elastic-<domain>`), installed on start and
+listed on the Plugins page under Built in. Each carries its skill and names an
+app server in its `.mcp.json`:
+
+```json
+{ "mcpServers": { "app-browser": { "builtin": "browser" } } }
+```
+
+`builtin` is a server the app serves itself instead of a process: it acts on
+the app's live state (the open browser pages, unsaved editor buffers, the
+terminal tabs), so it runs behind the per-session bridge with its own token,
+and its methods are the integration's (`docs/integrations.md`). Only a plugin
+under `resources/bundled/` may name one; another plugin that tries is listed
+with the reason. A bundled plugin can be turned off, which takes its tools and
+its skill out of later sessions, but not uninstalled. The workspace tools
+(open, reveal, list tabs) are the shell's and every session has them.
+
 ## Marketplaces
 
 A marketplace is Codex's `.agents/plugins/marketplace.json`, Claude Code's

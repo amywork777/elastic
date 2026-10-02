@@ -26,7 +26,6 @@
     "package:mac": "node scripts/package.mjs --mac",
     "package:win": "node scripts/package.mjs --win",
     "package:linux": "node scripts/package.mjs --linux",
-    "build:skills": "node scripts/build-skills.mjs",
     "build:mcp": "node scripts/build-mcp.mjs",
     "brand": "node scripts/make-brand.mjs",
     "native:rebuild": "electron-builder install-app-deps"

@@ -42,6 +42,12 @@ export type PluginServiceDeps = {
   host: PluginHost;
   /** Marketplaces that ship with the app: always listed, never removable. */
   builtinMarketplaces?: () => string[];
+  /**
+   * The plugins that ship with the app and carry its own tools: their marketplace, whose
+   * plugins are installed on start and kept pointing at the app's copy, and the tool names
+   * of each app server (`builtin`) they may name. Turned off, never uninstalled.
+   */
+  bundled?: { marketplace: string; appServers: Readonly<Record<string, readonly string[]>> };
   /** Called after anything a snapshot shows has changed. */
   changed?: (snapshot: PluginsSnapshot) => void;
 };
@@ -56,6 +62,9 @@ type Loaded = {
 
 type ServerTools = { status: PluginServerState["status"]; error: string | null; tools: Tool[] };
 
+/** One of the app's own servers a bundled plugin carries: `integration` is what the bridge serves. */
+export type AppServer = { pluginId: string; name: string; integration: string };
+
 /** A plugin's id: its manifest name, which is also its folder's identity in a marketplace. */
 export function pluginIdFor(read: ReadPlugin): string {
   return read.manifest.name;
@@ -69,7 +78,39 @@ export class PluginService {
   private generation = 0;
 
   constructor(private readonly deps: PluginServiceDeps) {
+    this.installBundled();
     this.reload();
+  }
+
+  /** The bundled marketplace's folder, or null when the app ships none. */
+  private bundledRoot(): string | null {
+    if (!this.deps.bundled) return null;
+    try { return readMarketplace(this.deps.bundled.marketplace).root; } catch { return null; }
+  }
+
+  private isBundled(root: string | undefined): boolean {
+    const bundled = this.bundledRoot();
+    if (!bundled || !root) return false;
+    const back = path.relative(bundled, path.resolve(root));
+    return back !== "" && !back.startsWith("..") && !path.isAbsolute(back);
+  }
+
+  /**
+   * Every bundled plugin is installed, at the app's copy: a first run adds them (on), an
+   * update or a move of the app repoints them and keeps whether the person turned one off.
+   */
+  private installBundled(): void {
+    if (!this.deps.bundled) return;
+    let market: ReturnType<typeof readMarketplace>;
+    try { market = readMarketplace(this.deps.bundled.marketplace); } catch (error) {
+      console.warn("[plugins] the bundled marketplace could not be read:", error instanceof Error ? error.message : error);
+      return;
+    }
+    for (const entry of market.plugins) {
+      const current = this.registry.get(entry.name);
+      if (current?.source.kind === "marketplace" && current.source.marketplace === market.file && path.resolve(current.source.path) === path.resolve(entry.path)) continue;
+      this.registry.install(entry.name, { kind: "marketplace", marketplace: market.file, name: entry.name, path: entry.path });
+    }
   }
 
   private get registry(): PluginRegistry { return this.deps.registry; }
@@ -96,11 +137,26 @@ export class PluginService {
     this.listing = new Map();
   }
 
-  /** Every server of every enabled, readable plugin. */
+  /** Every server the host starts: of every enabled, readable plugin, but the app's own. */
   hostedServers(): HostedServer[] {
     return this.loaded.flatMap((plugin) => plugin.enabled && plugin.read
-      ? Object.entries(plugin.read.servers).map(([name, config]) => ({ pluginId: plugin.id, root: plugin.read!.root, name, config }))
+      ? Object.entries(plugin.read.servers).filter(([, config]) => !config.builtin).map(([name, config]) => ({ pluginId: plugin.id, root: plugin.read!.root, name, config }))
       : []);
+  }
+
+  /** The app's own servers the enabled bundled plugins carry; a session gets each (`mcpServersFor`). */
+  appServers(): AppServer[] {
+    return this.loaded.flatMap((plugin) => plugin.enabled && plugin.read
+      ? Object.entries(plugin.read.servers).flatMap(([name, config]) => config.builtin && this.appServerError(plugin, config.builtin) === null
+        ? [{ pluginId: plugin.id, name, integration: config.builtin }] : [])
+      : []);
+  }
+
+  /** Why a plugin may not have this app server, or null when it may. */
+  private appServerError(plugin: Loaded, integration: string): string | null {
+    if (!this.isBundled(plugin.read?.root)) return "only the plugins that ship with elastic can use its own tools";
+    if (!this.deps.bundled?.appServers[integration]) return `elastic has no tools called "${integration}"`;
+    return null;
   }
 
   /** Start listing every enabled server's tools, once per reload. Resolves when all have answered or failed. */
@@ -135,6 +191,17 @@ export class PluginService {
     const manifest = read?.manifest;
     const author = manifest?.author;
     const servers: PluginServerState[] = read ? Object.entries(read.servers).map(([name, config]) => {
+      if (config.builtin) {
+        const error = this.appServerError(plugin, config.builtin);
+        return {
+          name,
+          transport: "app" as const,
+          status: error ? "failed" as const : plugin.enabled ? "ready" as const : "idle" as const,
+          error,
+          toolNames: error ? [] : [...(this.deps.bundled?.appServers[config.builtin] ?? [])],
+          signedIn: false,
+        };
+      }
       const listed = this.tools.get(`${plugin.id}/${name}`);
       return {
         name,
@@ -167,6 +234,7 @@ export class PluginService {
       skills: read?.skills ?? [],
       tools,
       defaultPrompts: manifest?.interface?.defaultPrompt ?? [],
+      bundled: this.isBundled(read?.root ?? plugin.source.path),
     };
   }
 
@@ -262,6 +330,8 @@ export class PluginService {
   }
 
   async uninstall(id: string): Promise<void> {
+    const found = this.loaded.find((plugin) => plugin.id === id);
+    if (found && this.isBundled(found.read?.root ?? found.source.path)) throw new Error(`${id} ships with elastic: turn it off instead`);
     await this.host.closePlugin(id);
     this.registry.uninstall(id);
     this.reload();

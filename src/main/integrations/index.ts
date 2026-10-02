@@ -10,13 +10,13 @@ import { appVersion, appRoot, resourcesDir } from "../app-paths";
 import { projects, sessions } from "../db/repositories";
 import * as git from "../projects/git";
 import { createActions, RendererCommands, workspaceDirectory } from "./actions";
-import { integrationServers } from "./manager";
 import { createTerminalActions } from "./terminals/actions";
 import { explorerTerminals } from "../ipc/explorer";
 import { sessionRuntimePath } from "../runtime-path";
 import { BrowserConnections } from "../browser/connections";
+import { integrations } from "./registry.mjs";
 import { McpBridge, PLUGIN_INTEGRATION_PREFIX, type BridgeSession, type PluginRpcHandler } from "./mcp-bridge";
-import { composeSkillSources, composedSkills, EMPTY_SKILLS, materialiseSkillsRoot, skillsPreamble, SKILLS_ROOT_ENV, type SkillSummary, type SkillsRoot } from "./skills";
+import { composeSkillSources, EMPTY_SKILLS, materialiseSkillsRoot, skillsPreamble, SKILLS_ROOT_ENV, type SkillSummary, type SkillsRoot } from "./skills";
 import { APP_NAME } from "../../shared/brand";
 import { pluginToolId, readToolUi } from "../../shared/plugins";
 import { loginEnv } from "../agents/shell-env";
@@ -84,9 +84,23 @@ export function plugins(): PluginService {
   return pluginsInstance;
 }
 
-/** The marketplace that ships inside the app: `resources/plugins`. */
+/** The examples marketplace that ships inside the app: `resources/plugins`. */
 export function builtinMarketplace(): string {
   return path.join(resourcesDir(), "plugins");
+}
+
+/** The plugins that carry elastic's own tools and skills (browser, documents, PDF, terminals): `resources/bundled`. */
+export function bundledMarketplace(): string {
+  return path.join(resourcesDir(), "bundled");
+}
+
+/** The integration every session gets whatever is on: opening, revealing and listing its tabs. */
+const CORE_INTEGRATION = "workspace";
+
+/** Each app integration a bundled plugin may name, with the tool names it serves. */
+function appServerTools(): Record<string, string[]> {
+  return Object.fromEntries(integrations.filter((integration) => integration.id !== CORE_INTEGRATION)
+    .map((integration) => [integration.id, integration.tools.map((tool) => tool.name)]));
 }
 
 /** Remote servers' credentials sealed by the OS keychain; plain only where the platform has no keychain. */
@@ -110,7 +124,8 @@ export async function initIntegrations(deps: { sendCommand: (command: Integratio
   pluginsInstance = new PluginService({
     registry: new PluginRegistry(path.join(userData, "plugins", "installed.json")),
     host,
-    builtinMarketplaces: () => [builtinMarketplace()],
+    builtinMarketplaces: () => [bundledMarketplace(), builtinMarketplace()],
+    bundled: { marketplace: bundledMarketplace(), appServers: appServerTools() },
     changed: (snapshot) => {
       refreshSkills(userData);
       deps.pluginsChanged?.(snapshot);
@@ -164,15 +179,14 @@ function materialiseSkills(userData: string): SkillsRoot {
   }
 }
 
-/** The app's skills, then each enabled plugin's. */
+/** Each enabled plugin's skills, the bundled ones (elastic's own) included. */
 function skillSources(): Array<{ owner: string; dir: string; names: string[] }> {
-  const builtin = path.join(resourcesDir(), "skills");
-  const sources = [{ owner: APP_NAME, dir: builtin, names: composedSkills(builtin).map((skill) => skill.name) }];
+  const sources: Array<{ owner: string; dir: string; names: string[] }> = [];
   for (const plugin of pluginsInstance?.plugins() ?? []) {
     if (!plugin.enabled || plugin.error || plugin.skills.length === 0) continue;
     try {
       const read = readPlugin(plugin.root);
-      if (read.skillsDir) sources.push({ owner: `the ${plugin.displayName} plugin`, dir: read.skillsDir, names: read.skills });
+      if (read.skillsDir) sources.push({ owner: plugin.bundled ? APP_NAME : `the ${plugin.displayName} plugin`, dir: read.skillsDir, names: read.skills });
     } catch { /* listed with its error; it has no skills to give */ }
   }
   return sources;
@@ -231,16 +245,20 @@ function sessionRoot(session: BridgeSession): { directory: string; root: string 
 }
 
 /**
- * The MCP servers every session gets: the app's own (`app-<integration>`),
- * then a proxy for each enabled plugin server, named by the server (or
- * `<plugin>-<server>` when two plugins use one name).
+ * The MCP servers every session gets: the app's workspace server, the app's
+ * own servers the enabled bundled plugins carry (`app-<integration>`, each
+ * under its own per-session token), then a proxy for each enabled plugin
+ * server, named by the server (or `<plugin>-<server>` when two plugins use one
+ * name). A bundled plugin turned off takes its server, and so its token, out
+ * of later sessions.
  */
 export function mcpServersFor(session: Pick<Session, "id" | "projectId" | "cwd">): McpServer[] {
   if (!bridgeInstance?.address()) {
     return [];
   }
   const bridgeSession = { sessionId: session.id, projectId: session.projectId, cwd: session.cwd };
-  const servers = integrationServers(bridgeInstance, bridgeSession);
+  const servers = [bridgeInstance.serverFor(bridgeSession, CORE_INTEGRATION)];
+  for (const app of pluginsInstance?.appServers() ?? []) servers.push(bridgeInstance.serverFor(bridgeSession, app.integration, app.name));
   const hosted = pluginsInstance?.hostedServers() ?? [];
   const taken = new Set(servers.map((server) => server.name));
   const counts = new Map<string, number>();

@@ -14,10 +14,14 @@ mapping. An external runtime can declare `runtime` and private `hostTools`
 for authenticated bootstrap; its upstream package owns the agent tool catalog.
 The browser uses this path for Playwright MCP, with no duplicate Zod catalog.
 Registry validation rejects duplicate IDs and method names. The same
-modules drive MCP tool registration and `scripts/build-skills.mjs`; changing
-one domain does not require maintaining a second tool/skill catalog.
+modules drive MCP tool registration; a domain's skill lives in its bundled
+plugin (`resources/bundled/plugins/elastic-<domain>`).
 
-Each session receives separate `app-<domain>` stdio MCP server entries.
+Every domain but `workspace` reaches a session through its bundled plugin
+(`resources/bundled/plugins/elastic-<domain>`, see [plugins](plugins.md#bundled-plugins)):
+the plugin's `.mcp.json` names the domain as a `builtin` server, and a plugin
+turned off takes its server and skill out of later sessions. Each session
+receives separate `app-<domain>` stdio MCP server entries.
 They use the same packaged server executable with a different integration ID
 and a distinct per-session, per-integration bearer token. The loopback bridge
 validates the token, method ownership and input schema before dispatch. A PDF

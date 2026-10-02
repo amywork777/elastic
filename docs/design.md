@@ -193,12 +193,11 @@ npm test             # vitest: tests/unit/{main,shared} in node, tests/unit/rend
                      # tests/browser in Playwright's Chromium (`npx playwright install chromium`; CI installs only the
                      # headless shell, `--only-shell`, which is all they launch)
 npm run lint         # eslint flat config
-npm run build        # scripts/build.mjs: compose the skills, electron-vite build -> out/, bundle the MCP server
+npm run build        # scripts/build.mjs: electron-vite build -> out/, bundle the MCP server
 npm run e2e          # playwright _electron against out/ — run `npm run build` first
 ```
 
-`npm run build` is three steps in one script (`scripts/build.mjs`): the
-app's skills are composed into `resources/skills/` (`build:skills`),
+`npm run build` is two steps in one script (`scripts/build.mjs`):
 electron-vite builds main, preload and renderer into `out/`, and the MCP
 server is bundled into `out/app-mcp/` (`build:mcp`). Packaging runs the
 same script. The renderer consumes the compiled shared-package exports and
@@ -441,12 +440,11 @@ can be pressed again.
 
 ### What is bundled
 
-`resources/skills/` (the composed skills, a build output gitignored under a
-committed `.gitkeep`) and `resources/plugins/` (the example plugins and their
-marketplace) ship beside the app as `extraResources`, with
-`src/main/browser/vendor/LICENSE`, which lands as
-`notices/browser-use-browser-harness-js-LICENSE`. `npm run build` fills the
-skills. The MCP server ships inside `out/app-mcp/`, unpacked from the asar so an
+`resources/bundled/` (the bundled plugins: elastic's own browser, documents,
+PDF and terminals tools and their skills) and `resources/plugins/` (the
+example plugins and their marketplace) ship beside the app as
+`extraResources`, with `src/main/browser/vendor/LICENSE`, which lands as
+`notices/browser-use-browser-harness-js-LICENSE`. The MCP server ships inside `out/app-mcp/`, unpacked from the asar so an
 agent can run it by path. See `resources/README.md` for what lives in
 `resources/`.
 
@@ -1415,10 +1413,11 @@ into an agent's own configuration: no plugin, marketplace or copy into
 `~/.claude/skills`, and no mandatory umbrella skill. Plugins ([plugins](plugins.md))
 are how a session gets anything beyond these domains.
 
-**Skills.** `scripts/build-skills.mjs` composes the registry's app skills
-(`skills/<name>`) into `resources/skills/`. Browser, PDF, documents and
-terminals supply their own instructions; upstream skills retain licenses and
-provenance.
+**Skills.** Every skill arrives through a plugin. Browser, PDF, documents and
+terminals are bundled plugins (`resources/bundled/plugins/elastic-<domain>`),
+each carrying its own skill; upstream skills retain licenses and provenance.
+A bundled plugin turned off takes its skill and its app server out of later
+sessions.
 
 At launch `src/main/integrations/skills.ts` materializes real copies into both
 native loader layouts:
@@ -1645,14 +1644,13 @@ tests/e2e/                playwright, against the built app
 tests/fake-agent/         a scripted ACP agent on stdio (SDK agent side), also replays fixtures
 tests/fixtures/acp/       recorded adapter transcripts (jsonl), written by the harness
 scripts/acp-harness.mjs   run a real ACP session from the terminal; --record writes a fixture
-scripts/build.mjs         npm run build: build-skills.mjs + electron-vite + build-mcp.mjs
+scripts/build.mjs         npm run build: electron-vite + build-mcp.mjs
 scripts/make-brand.mjs    npm run brand: renders resources/brand
 scripts/make-icons.mjs    npm run icons: the sidebar mark onto its tile -> build/icon.png
 resources/brand/          the committed brand images and their typeface
 resources/app-mcp/        the MCP server's source (bundled into out/app-mcp by the build)
 resources/plugins/        the example plugins and their marketplace
-skills/                   focused domain instructions and licensed upstream skills,
-                          selected by the integration registry for resources/skills
+resources/bundled/        the bundled plugins: elastic's own tools and skills per domain
 ```
 
 ## ACP

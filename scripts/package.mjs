@@ -5,7 +5,7 @@
  *
  * Three things this does that a bare `electron-builder` invocation would not:
  *
- * 1. Builds first (`scripts/build.mjs`: the composed skills, `electron-vite
+ * 1. Builds first (`scripts/build.mjs`: `electron-vite
  *    build`, the bundled MCP server), because electron-builder ships `out/`
  *    and has no opinion about how it got there.
  * 2. Stamps the repository's VERSION as `extraMetadata.version`. package.json
@@ -40,7 +40,7 @@ const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
  * never depends on electron-builder's tolerance of a source directory that is
  * not there.
  */
-const EXTRA_RESOURCE_DIRS = ["resources/skills", "resources/plugins"];
+const EXTRA_RESOURCE_DIRS = ["resources/bundled", "resources/plugins"];
 
 /**
  * The extraResources electron-builder copies straight from the checkout. A
@@ -48,7 +48,7 @@ const EXTRA_RESOURCE_DIRS = ["resources/skills", "resources/plugins"];
  * these as its 130-byte pointer; `lfsPointers` finds one before
  * electron-builder copies it.
  */
-export const CHECKED_OUT_RESOURCES = ["src/main/browser/vendor/LICENSE", "resources/skills", "resources/plugins"];
+export const CHECKED_OUT_RESOURCES = ["src/main/browser/vendor/LICENSE", "resources/bundled", "resources/plugins"];
 const LFS_POINTER = "version https://git-lfs";
 
 /** The files under `entries` (relative to `root`) that are Git LFS pointers rather than content. */
@@ -228,10 +228,9 @@ function main(argv) {
     }
   };
 
-  // The same build `npm run build` does: the composed skills, electron-vite,
+  // The same build `npm run build` does: electron-vite,
   // the bundled MCP server (scripts/build.mjs).
   run(process.execPath, [path.join(appRoot, "scripts", "build.mjs")]);
-  // After the build, which recomposes resources/skills.
   const pointers = lfsPointers(appRoot);
   if (pointers.length > 0) {
     console.error(

@@ -53,7 +53,7 @@ test("the examples marketplace is on the Plugins page, and Tables installs from 
   }
   await shoot("plugins-browse.png");
   await browse.getByRole("button", { name: "Install csv-table" }).click();
-  await expect(browse.getByText("Installed", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(browse.getByRole("button", { name: "Install csv-table" })).toHaveCount(0, { timeout: 30_000 });
   // Its page: drawn from the manifest, with the views its server lists.
   await page.getByRole("complementary", { name: "Plugins sidebar" }).getByRole("button", { name: "Tables" }).click();
   await expect(browse.getByRole("heading", { name: "Tables", level: 1 })).toBeVisible();

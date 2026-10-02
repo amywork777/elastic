@@ -2,8 +2,8 @@
  * The skills root every session is given (plan §8, as revised).
  *
  * The app installs nothing into an agent's global configuration. It ships the
- * skills (`resources/skills/`, composed by `scripts/build-skills.mjs`),
- * materialises them once per app version under
+ * skills of the enabled plugins (the bundled ones under `resources/bundled/`
+ * among them), composes them, materialises them once per app version under
  * `<userData>/skills/<appVersion>/`, and hands that one directory to every
  * `session/new` and `session/load` as an additional directory. Two ways an
  * agent finds them there, so the same root works for both:
@@ -247,7 +247,7 @@ function removeTree(dir: string): void {
  * read-only (see `lockFiles`).
  */
 export function materialiseSkillsRoot(options: {
-  /** `resources/skills` — one directory per skill. */
+  /** The composed skills, one directory per skill (`composeSkillSources`). */
   source: string;
   /** `<userData>/skills` — one directory per app version. */
   base: string;

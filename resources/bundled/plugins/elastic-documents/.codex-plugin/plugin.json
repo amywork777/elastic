@@ -1,0 +1,16 @@
+{
+  "name": "elastic-documents",
+  "description": "Agents read and edit the text files open in elastic, unsaved changes included.",
+  "author": {
+    "name": "elastic"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Documents",
+    "shortDescription": "Agents read and edit the text files open in elastic, unsaved changes included.",
+    "developerName": "elastic",
+    "category": "Productivity"
+  }
+}

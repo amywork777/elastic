@@ -1,0 +1,16 @@
+{
+  "name": "elastic-pdf",
+  "description": "Agents read pages, follow the page you are on and capture pages of the PDFs open in elastic.",
+  "author": {
+    "name": "elastic"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "PDF",
+    "shortDescription": "Agents read pages, follow the page you are on and capture pages of the PDFs open in elastic.",
+    "developerName": "elastic",
+    "category": "Productivity"
+  }
+}

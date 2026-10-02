@@ -19,10 +19,6 @@ export default tseslint.config(
       // The workspace packages carry their own typecheck and tests (packages/*/package.json).
       "packages/**",
       "tests/e2e/__screenshots__/**",
-      // Build outputs: the composed skills and the bundled CAD runtime, which
-      // carries JavaScript of its own inside site-packages.
-      "resources/skills/**",
-      "resources/runtime/**",
       // Vendored, not authored: shadcn/ui and AI Elements are copied in from
       // their registries and re-copied when they are updated. Linting them
       // would mean either reformatting every update or living with noise.

@@ -216,7 +216,7 @@ function DetailPage({ plugin }: { plugin: PluginRecord }) {
   const info: Array<[string, string | null]> = [
     ["Developer", plugin.developer],
     ["Version", plugin.version],
-    ["Source", plugin.source.kind === "marketplace" ? `${plugin.source.name} from a marketplace` : "Local folder"],
+    ["Source", plugin.bundled ? "Ships with elastic" : plugin.source.kind === "marketplace" ? `${plugin.source.name} from a marketplace` : "Local folder"],
     ["Folder", plugin.root],
   ];
   return (
@@ -243,12 +243,14 @@ function DetailPage({ plugin }: { plugin: PluginRecord }) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(plugin.root)}><Link2 className="size-4" /> Copy folder path</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void act(() => window.workbench.plugins.refresh())}><RefreshCw className="size-4" /> Reload from disk</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onSelect={() => void act(async () => {
-                await window.workbench.plugins.uninstall({ id: plugin.id });
-                toast.success(`${plugin.displayName} uninstalled`);
-                show("browse");
-              })}><Trash2 className="size-4" /> Uninstall</DropdownMenuItem>
+              {plugin.bundled ? null : <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive" onSelect={() => void act(async () => {
+                  await window.workbench.plugins.uninstall({ id: plugin.id });
+                  toast.success(`${plugin.displayName} uninstalled`);
+                  show("browse");
+                })}><Trash2 className="size-4" /> Uninstall</DropdownMenuItem>
+              </>}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

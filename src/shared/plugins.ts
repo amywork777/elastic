@@ -48,7 +48,13 @@ export const PluginServerConfigSchema = z.object({
   enabled: z.boolean().optional(),
   startup_timeout_sec: z.number().positive().optional(),
   tool_timeout_sec: z.number().positive().optional(),
-}).passthrough().refine((server) => Boolean(server.command || server.url), "a server needs a command or a url");
+  /**
+   * elastic's own tools for a domain (`browser`, `documents`, `pdf`, `terminals`): the server
+   * the app serves itself, scoped to each session, instead of a process the plugin starts.
+   * Only the plugins that ship with the app may name one (`resources/bundled`).
+   */
+  builtin: z.string().regex(/^[a-z][a-z-]*$/).optional(),
+}).passthrough().refine((server) => Boolean(server.command || server.url || server.builtin), "a server needs a command or a url");
 export type PluginServerConfig = z.infer<typeof PluginServerConfigSchema>;
 
 export const PluginMcpConfigSchema = z.object({ mcpServers: z.record(z.string(), PluginServerConfigSchema) });
@@ -109,7 +115,8 @@ export type PluginTool = z.infer<typeof PluginToolSchema>;
 
 export const PluginServerStateSchema = z.object({
   name: z.string(),
-  transport: z.enum(["stdio", "http"]),
+  /** `app`: one of elastic's own servers, served by the app (`builtin`). */
+  transport: z.enum(["stdio", "http", "app"]),
   /** idle: not started yet; ready: listed its tools; signin: a remote server that needs the person to sign in; failed: see `error`. */
   status: z.enum(["idle", "starting", "ready", "signin", "failed"]),
   /** A remote server with saved credentials (Sign out is offered). */
@@ -148,6 +155,8 @@ export const PluginRecordSchema = z.object({
   skills: z.array(z.string()),
   tools: z.array(PluginToolSchema),
   defaultPrompts: z.array(z.string()).default([]),
+  /** Ships with the app (`resources/bundled`): it can be turned off, not uninstalled. */
+  bundled: z.boolean().default(false),
 });
 export type PluginRecord = z.infer<typeof PluginRecordSchema>;
 

@@ -17,15 +17,15 @@ files:
   - package.json
   - "!**/*.map"
 
-# What ships beside the app rather than inside the asar: the composed skills
-# (scripts/build-skills.mjs), handed to every session as a directory. The
-# directory is committed empty (.gitkeep) so a checkout that never ran a build
-# still has a source for it.
+# What ships beside the app rather than inside the asar.
 extraResources:
   - from: src/main/browser/vendor/LICENSE
     to: notices/browser-use-browser-harness-js-LICENSE
-  - from: resources/skills
-    to: skills
+  # The bundled plugins: elastic's own tools and skills (browser, documents,
+  # PDF, terminals), installed on start (src/main/integrations/index.ts,
+  # bundledMarketplace).
+  - from: resources/bundled
+    to: bundled
   # The example plugins' marketplace, listed on the Plugins page
   # (src/main/integrations/index.ts, builtinMarketplace).
   - from: resources/plugins

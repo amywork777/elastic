@@ -15,7 +15,8 @@ vi.mock("electron", () => ({ protocol: { registerSchemesAsPrivileged: vi.fn(), h
 import { appPolicy, frameNavigationAllowed, releaseApp, stageApp } from "../../../src/main/plugins/app-protocol";
 import { expandPluginRoot, insidePlugin, readMarketplace, readPlugin } from "../../../src/main/plugins/manifest";
 import { PluginRegistry } from "../../../src/main/plugins/registry";
-import { appOnly } from "../../../src/main/plugins/service";
+import type { PluginHost } from "../../../src/main/plugins/host";
+import { appOnly, PluginService } from "../../../src/main/plugins/service";
 import { fileExtensionsOf, readToolUi } from "../../../src/shared/plugins";
 
 let dir: string;
@@ -182,5 +183,52 @@ describe("mcp-app:// documents", () => {
     expect(frameNavigationAllowed(own, "javascript:alert(1)")).toBe(false);
     // Frames that are not apps (the browser's own pages live in views, not frames) are not this rule's.
     expect(frameNavigationAllowed("about:blank", "https://example.com/")).toBe(true);
+  });
+});
+
+describe("bundled plugins", () => {
+  /** A host that runs nothing: the service's bookkeeping is what is under test. */
+  const host = () => ({ setServers: vi.fn(), closePlugin: vi.fn(async () => {}), listTools: vi.fn(async () => []), signedIn: () => false }) as unknown as PluginHost;
+  function bundle(root: string) {
+    write(`${root}/marketplace.json`, { name: "elastic-bundled", plugins: [{ name: "elastic-pdf", source: { source: "local", path: "./plugins/elastic-pdf" } }] });
+    write(`${root}/plugins/elastic-pdf/.codex-plugin/plugin.json`, { name: "elastic-pdf", interface: { displayName: "PDF" } });
+    write(`${root}/plugins/elastic-pdf/.mcp.json`, { mcpServers: { "app-pdf": { builtin: "pdf" } } });
+    write(`${root}/plugins/elastic-pdf/skills/pdf/SKILL.md`, "---\nname: pdf\n---\n");
+    return path.join(dir, root, "marketplace.json");
+  }
+  const appServers = { pdf: ["read_pdf", "capture_pdf"] };
+
+  it("installs every bundled plugin on start, gives sessions their app servers, and keeps them from uninstalling", async () => {
+    const registry = new PluginRegistry(path.join(dir, "installed.json"));
+    const service = new PluginService({ registry, host: host(), bundled: { marketplace: bundle("app-a"), appServers } });
+    const pdf = service.plugin("elastic-pdf")!;
+    expect(pdf).toMatchObject({ bundled: true, enabled: true, skills: ["pdf"] });
+    expect(pdf.servers).toEqual([expect.objectContaining({ name: "app-pdf", transport: "app", status: "ready", toolNames: ["read_pdf", "capture_pdf"] })]);
+    expect(service.appServers()).toEqual([{ pluginId: "elastic-pdf", name: "app-pdf", integration: "pdf" }]);
+    // Never started as a process.
+    expect(service.hostedServers()).toEqual([]);
+    await expect(service.uninstall("elastic-pdf")).rejects.toThrow(/turn it off instead/);
+    await service.setEnabled("elastic-pdf", false);
+    expect(service.appServers()).toEqual([]);
+  });
+
+  it("repoints at the app's copy when the app moves, and keeps a plugin the person turned off off", async () => {
+    const registry = new PluginRegistry(path.join(dir, "installed.json"));
+    const first = new PluginService({ registry, host: host(), bundled: { marketplace: bundle("app-a"), appServers } });
+    await first.setEnabled("elastic-pdf", false);
+    const moved = new PluginService({ registry, host: host(), bundled: { marketplace: bundle("app-b"), appServers } });
+    expect(moved.plugin("elastic-pdf")).toMatchObject({ enabled: false, root: path.join(dir, "app-b", "plugins", "elastic-pdf") });
+  });
+
+  it("refuses the app's own tools to a plugin that does not ship with it", async () => {
+    const registry = new PluginRegistry(path.join(dir, "installed.json"));
+    const service = new PluginService({ registry, host: host(), bundled: { marketplace: bundle("app-a"), appServers } });
+    write("impostor/.codex-plugin/plugin.json", { name: "impostor" });
+    write("impostor/.mcp.json", { mcpServers: { terminal: { builtin: "pdf" } } });
+    const impostor = await service.installFolder(path.join(dir, "impostor"));
+    expect(impostor.bundled).toBe(false);
+    expect(impostor.servers[0]).toMatchObject({ status: "failed", error: "only the plugins that ship with elastic can use its own tools" });
+    expect(service.appServers().map((server) => server.pluginId)).toEqual(["elastic-pdf"]);
+    expect(service.hostedServers()).toEqual([]);
   });
 });

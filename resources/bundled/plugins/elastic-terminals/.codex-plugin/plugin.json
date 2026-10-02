@@ -1,0 +1,16 @@
+{
+  "name": "elastic-terminals",
+  "description": "Agents open, read and type into elastic's terminal tabs.",
+  "author": {
+    "name": "elastic"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Terminals",
+    "shortDescription": "Agents open, read and type into elastic's terminal tabs.",
+    "developerName": "elastic",
+    "category": "Developer tools"
+  }
+}

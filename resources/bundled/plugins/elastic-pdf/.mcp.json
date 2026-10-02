@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "app-pdf": {
+      "builtin": "pdf"
+    }
+  }
+}

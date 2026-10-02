@@ -1,0 +1,44 @@
+{
+  "name": "elastic-bundled",
+  "interface": {
+    "displayName": "Built in"
+  },
+  "plugins": [
+    {
+      "name": "elastic-browser",
+      "description": "Agents read, drive and capture the pages open in elastic's browser tabs, through Playwright.",
+      "category": "Developer tools",
+      "source": {
+        "source": "local",
+        "path": "./plugins/elastic-browser"
+      }
+    },
+    {
+      "name": "elastic-documents",
+      "description": "Agents read and edit the text files open in elastic, unsaved changes included.",
+      "category": "Productivity",
+      "source": {
+        "source": "local",
+        "path": "./plugins/elastic-documents"
+      }
+    },
+    {
+      "name": "elastic-pdf",
+      "description": "Agents read pages, follow the page you are on and capture pages of the PDFs open in elastic.",
+      "category": "Productivity",
+      "source": {
+        "source": "local",
+        "path": "./plugins/elastic-pdf"
+      }
+    },
+    {
+      "name": "elastic-terminals",
+      "description": "Agents open, read and type into elastic's terminal tabs.",
+      "category": "Developer tools",
+      "source": {
+        "source": "local",
+        "path": "./plugins/elastic-terminals"
+      }
+    }
+  ]
+}

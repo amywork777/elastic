@@ -137,15 +137,15 @@ describe("package.mjs", () => {
         };
         write("resources/plugins/marketplace.json", "{}\n");
         write("resources/plugins/plugins/tables/assets/logo.png", "PNG");
-        write("resources/skills/pdf/SKILL.md", "---\nname: pdf\n---\n");
+        write("resources/bundled/plugins/elastic-pdf/skills/pdf/SKILL.md", "---\nname: pdf\n---\n");
         expect(lfsPointers(root)).toEqual([]);
 
         write("resources/plugins/plugins/tables/assets/logo.png", POINTER);
-        write("resources/skills/pdf/assets/demo.gif", POINTER);
+        write("resources/bundled/plugins/elastic-pdf/skills/pdf/assets/demo.gif", POINTER);
         // Outside what ships: not this check's business.
         write("tmp/pointer.bin", POINTER);
         expect(lfsPointers(root)).toEqual([
-          path.join("resources", "skills", "pdf", "assets", "demo.gif"),
+          path.join("resources", "bundled", "plugins", "elastic-pdf", "skills", "pdf", "assets", "demo.gif"),
           path.join("resources", "plugins", "plugins", "tables", "assets", "logo.png"),
         ]);
       } finally {
