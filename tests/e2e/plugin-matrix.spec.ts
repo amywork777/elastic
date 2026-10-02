@@ -62,7 +62,8 @@ test.afterAll(async () => {
   for (const dir of [userData, project]) if (dir) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-async function shoot(name: string) {
+async function capture(name: string) {
+  // Into docs/research, not the run's output: README's screenshot list is for the suite's own shots.
   await page.screenshot({ path: path.join(shots, name), animations: "disabled" });
 }
 
@@ -111,13 +112,13 @@ test("CAD (text-to-cad + PR #509): tab surfaces, the rail page, a thread tab and
   expect(cad.servers[0]!.status).toBe("ready");
   expect(cad.tools.map((tool) => tool.id)).toEqual(expect.arrayContaining(["cad/cad_home", "cad/cad_tab", "cad/cad_file"]));
   await openPlugin("text-to-cad");
-  await shoot("cad-plugin-page.png");
+  await capture("cad-plugin-page.png");
 
   await page.getByRole("navigation", { name: "Rail" }).getByRole("button", { name: "CAD" }).click();
   const surface = page.getByTestId("plugin-app");
   await expect(surface).toBeVisible();
   await page.waitForTimeout(8_000);
-  await shoot("cad-rail-page.png");
+  await capture("cad-rail-page.png");
 
   await page.getByRole("navigation", { name: "Rail" }).getByRole("button", { name: "Sessions" }).click();
   await selectFixtureSession(app, page, project);
@@ -129,7 +130,7 @@ test("CAD (text-to-cad + PR #509): tab surfaces, the rail page, a thread tab and
   await explorer.getByRole("button", { name: "Yes, open file" }).click();
   await expect(page.locator('[data-plugin-frame^="text-to-cad/"] iframe').first()).toBeVisible({ timeout: 60_000 });
   await page.waitForTimeout(20_000);
-  await shoot("cad-step-file.png");
+  await capture("cad-step-file.png");
   const cadFrame = page.locator('[data-plugin-frame^="text-to-cad/"] iframe').first().contentFrame();
   await cadFrame.getByText("Details").click({ timeout: 2_000 }).catch(() => {});
   const frameText = await cadFrame.locator("body").innerText().catch(() => "");
@@ -143,7 +144,7 @@ test("linear: a remote server that needs OAuth shows Sign in, and the sign-in re
   expect(record.servers[0]!.status).toBe("signin");
   await openPlugin(record.id);
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
-  await shoot("linear-sign-in.png");
+  await capture("linear-sign-in.png");
   await signInReachesLogin("linear", "linear");
 });
 
@@ -155,7 +156,7 @@ test("figma: shows Sign in, and says its server only lets approved apps register
   await openPlugin(record.id);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText(/only lets approved apps sign in/)).toBeVisible({ timeout: 60_000 });
-  await shoot("figma-sign-in.png");
+  await capture("figma-sign-in.png");
 });
 
 for (const folder of ["playwright", "shell", "codex-browser", "codex-chrome", "codex-latex", "codex-visualize", "codex-code-review"]) {
@@ -204,12 +205,12 @@ test("one real Claude turn calls a plugin tool through the agent proxy", async (
   const calls = text.split(prompt.replace(/"/g, "\\\"")).join("");
   console.info(`[matrix] agent turn: ${JSON.stringify(answer)} toolCall=${/show_table/.test(calls)} said2=${/\b2\b/.test(calls)} state=${calls.slice(0, 1500)}`);
   await page.getByRole("navigation", { name: "Rail" }).getByRole("button", { name: "Sessions" }).click();
-  await shoot("agent-turn.png");
+  await capture("agent-turn.png");
   expect(calls).toContain("show_table");
   fs.rmSync(turnProject, { recursive: true, force: true });
 });
 
 test("the Plugins page with everything installed", async () => {
   await page.getByRole("navigation", { name: "Rail" }).getByRole("button", { name: "Plugins" }).click();
-  await shoot("plugins-installed.png");
+  await capture("plugins-installed.png");
 });

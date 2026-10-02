@@ -77,6 +77,8 @@ describe("the contract", () => {
       "plugins.installFromMarketplace",
       "plugins.uninstall",
       "plugins.setEnabled",
+      "plugins.signIn",
+      "plugins.signOut",
       "plugins.addMarketplace",
       "plugins.removeMarketplace",
       "plugins.setFileHandler",
