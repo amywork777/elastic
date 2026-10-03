@@ -280,3 +280,11 @@ describe("the remembered model, effort and mode", () => {
     expect(preferredMode(null, plain, "b")).toBe("b");
   });
 });
+
+describe("model names", () => {
+  it("puts back the GPT prefix codex-acp strips from its model names", () => {
+    const [option] = configOptions([{ id: "model", name: "Model", type: "select", currentValue: "gpt-6-astra", category: "model",
+      options: [{ value: "gpt-6-astra", name: "6 Astra" }, { value: "gpt-5.6-sol", name: "5.6 Sol" }, { value: "o4", name: "o4" }, { value: "gpt-x", name: "GPT-X" }] }]);
+    expect(option!.type === "select" && option!.options.map((o) => o.name)).toEqual(["GPT-6 Astra", "GPT-5.6 Sol", "o4", "GPT-X"]);
+  });
+});

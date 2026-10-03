@@ -1197,6 +1197,16 @@ export function sessionModes(raw: unknown): SessionMode[] {
   return out;
 }
 
+/**
+ * An option's name as the person reads it. codex-acp (1.13.1, `formatModelDisplayName`)
+ * strips "gpt-" from its model names, leaving "6 Astra"; a value that starts with
+ * `gpt-` keeps the family in its name.
+ */
+function optionName(value: string, name: string | null): string {
+  const named = name ?? value;
+  return /^gpt-/i.test(value) && !/gpt/i.test(named) ? `GPT-${named}` : named;
+}
+
 /** Normalise the wire form of config options; grouped selects are flattened. */
 export function configOptions(raw: unknown): ConfigOption[] {
   if (!Array.isArray(raw)) {
@@ -1236,7 +1246,7 @@ export function configOptions(raw: unknown): ConfigOption[] {
           if (inner && value !== null) {
             options.push({
               value,
-              name: asString(inner.name) ?? value,
+              name: optionName(value, asString(inner.name)),
               description: asString(inner.description),
               group,
               kind: metaKind(inner),
@@ -1248,7 +1258,7 @@ export function configOptions(raw: unknown): ConfigOption[] {
         if (value !== null) {
           options.push({
             value,
-            name: asString(option.name) ?? value,
+            name: optionName(value, asString(option.name)),
             description: asString(option.description),
             group: null,
             kind: metaKind(option),
