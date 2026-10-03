@@ -353,7 +353,7 @@ function SkillsSection({ agent }: { agent: AgentStatus }) {
         <InlineCode
           text={
             count > 0
-              ? `Every session in elastic is handed the skills of the plugins that are on, elastic's own included, as an extra directory,
+              ? `Every session in elastic is handed the app's skills (its own and those you turned on) as an extra directory,
              ${
                native
                  ? `which ${agent.name} loads by itself.`
