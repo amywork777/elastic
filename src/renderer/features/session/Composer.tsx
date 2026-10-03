@@ -1,6 +1,6 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Paperclip, X } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { cn } from "cn";
 import { toast } from "sonner";
 
@@ -21,11 +21,6 @@ import {
 } from "@renderer/components/ai-elements/prompt-input";
 import {
   Queue,
-  QueueItem,
-  QueueItemAction,
-  QueueItemActions,
-  QueueItemContent,
-  QueueItemIndicator,
   QueueList,
   QueueSection,
   QueueSectionContent,
@@ -33,6 +28,7 @@ import {
   QueueSectionTrigger,
 } from "@renderer/components/ai-elements/queue";
 import type { FileUIPart } from "@renderer/components/ai-elements/types";
+import { QueuedPromptRow } from "@renderer/features/session/composer/QueuedPromptRow";
 import { NEW_SESSION_KEY, appContextPromptBlocks, appContextSummary, useComposer, useQueue } from "@renderer/state/composer";
 import { useActiveProject } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
@@ -293,28 +289,21 @@ export function Composer({
             </div>
             <QueueSectionContent>
               <QueueList className="mt-1">
-                {queue.map((item) => (
-                  <QueueItem className="py-0.5 text-[12px]" key={item.id}>
-                    <div className="flex items-center gap-2">
-                      <QueueItemIndicator />
-                      <QueueItemContent>{item.text || "(attachments)"}</QueueItemContent>
-                      <QueueItemActions>
-                        <QueueItemAction
-                          aria-label={`Remove from queue: ${(item.text || "attachments").slice(0, 40)}`}
-                          onClick={() => {
-                            const removed = dequeue(sessionId, item.id);
-                            if (removed?.draft) {
-                              useComposer.getState().restoreDraft(draftKey, removed.draft);
-                            } else if (removed) {
-                              setText((current) => (current ? current : removed.text));
-                            }
-                          }}
-                        >
-                          <X className="size-3" />
-                        </QueueItemAction>
-                      </QueueItemActions>
-                    </div>
-                  </QueueItem>
+                {queue.map((item, index) => (
+                  <QueuedPromptRow
+                    index={index}
+                    item={item}
+                    key={item.id}
+                    onRemove={() => {
+                      const removed = dequeue(sessionId, item.id);
+                      if (removed?.draft) {
+                        useComposer.getState().restoreDraft(draftKey, removed.draft);
+                      } else if (removed) {
+                        setText((current) => (current ? current : removed.text));
+                      }
+                    }}
+                    sessionId={sessionId}
+                  />
                 ))}
               </QueueList>
             </QueueSectionContent>

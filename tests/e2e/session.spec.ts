@@ -460,6 +460,26 @@ test("a queued prompt goes out when the turn ends", async () => {
   await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 20_000 });
 });
 
+test("a queued prompt can be edited in place and goes out as edited", async () => {
+  const composer = page.getByPlaceholder("Do anything", { exact: true });
+  await composer.fill("slow");
+  await composer.press("Enter");
+  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
+  await page.getByPlaceholder("Send another message — it goes next").fill("thought and then nope");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("1 queued prompt")).toBeVisible();
+  await page.getByRole("button", { name: "thought and then nope", exact: true }).click();
+  const box = page.getByRole("textbox", { name: "Edit queued prompt" });
+  await box.fill("thought and then ok");
+  // Held while open: the turn ending does not send the old text.
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 20_000 });
+  await expect(page.getByText("1 queued prompt")).toBeVisible();
+  await box.press("Enter");
+  await expect(page.getByText("1 queued prompt")).toBeHidden();
+  await expect(page.locator("[data-turn][data-role=user]").last()).toContainText("thought and then ok");
+});
+
 test("a crashed agent is an inline error with retry, and reconnecting resumes the history", async () => {
   const composer = page.getByPlaceholder("Do anything", { exact: true });
   await composer.fill("crash");

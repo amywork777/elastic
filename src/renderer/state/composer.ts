@@ -183,6 +183,22 @@ type ComposerState = {
   enqueue: (sessionId: string, text: string, content: PromptBlock[], draft?: TakenDraft) => void;
   dequeue: (sessionId: string, id: string) => QueuedPrompt | null;
   clearQueue: (sessionId: string) => void;
+  /**
+   * The queued prompt open for editing, per session. The queue does not send it while it is
+   * open (`drain` waits), so it never goes out with the text the person is replacing; the ones
+   * behind it wait too, keeping the order.
+   */
+  editingQueued: Record<string, string>;
+  beginEditQueued: (sessionId: string, id: string) => void;
+  /** Close the edit (saved or not) and let the queue go on. */
+  endEditQueued: (sessionId: string) => void;
+  /**
+   * Replace a queued prompt's typed text in place, keeping its position, its images, files and
+   * plugin context, and its chips' labels. A blank text is not an edit.
+   */
+  updateQueued: (sessionId: string, id: string, text: string) => void;
+  /** Move a queued prompt to `index` (clamped), the others keeping their order. */
+  moveQueued: (sessionId: string, id: string, index: number) => void;
   /** Send the next queued prompt if the session is idle and nothing is in flight. */
   drain: (sessionId: string, options?: { evenIfNotIdle?: boolean }) => Promise<void>;
   /** Lift a failure's pause by hand (the queue's Resume) and send what is next. */
@@ -376,13 +392,51 @@ export const useComposer = create<ComposerState>((set, get) => ({
         queues: { ...state.queues, [sessionId]: rest },
         // Nothing left to hold back: an emptied queue is not paused.
         ...(rest.length === 0 ? { paused: withoutKey(state.paused, sessionId) } : {}),
+        ...(state.editingQueued[sessionId] === id ? { editingQueued: withoutKey(state.editingQueued, sessionId) } : {}),
       }));
     }
     return item;
   },
 
   clearQueue: (sessionId) =>
-    set((state) => ({ queues: { ...state.queues, [sessionId]: [] }, paused: withoutKey(state.paused, sessionId) })),
+    set((state) => ({ queues: { ...state.queues, [sessionId]: [] }, paused: withoutKey(state.paused, sessionId), editingQueued: withoutKey(state.editingQueued, sessionId) })),
+
+  editingQueued: {},
+  beginEditQueued: (sessionId, id) => set((state) => ({ editingQueued: { ...state.editingQueued, [sessionId]: id } })),
+  endEditQueued: (sessionId) => {
+    if (!(sessionId in get().editingQueued)) return;
+    set((state) => ({ editingQueued: withoutKey(state.editingQueued, sessionId) }));
+    void get().drain(sessionId);
+  },
+  updateQueued: (sessionId, id, text) => {
+    const next = text.trim();
+    if (!next) return;
+    set((state) => {
+      const queue = state.queues[sessionId] ?? [];
+      return {
+        queues: {
+          ...state.queues,
+          [sessionId]: queue.map((item) => {
+            if (item.id !== id) return item;
+            // The typed text is the leading text block (the composer puts it first); the rest —
+            // images, attached files, plugin context — stays as it was.
+            const leading = item.content[0]?.type === "text" && item.text && item.content[0].text === item.text;
+            const rest = leading ? item.content.slice(1) : item.content;
+            const draft = item.draft ? { ...item.draft, text: next, annotations: [] } : undefined;
+            return { ...item, text: next, content: [{ type: "text" as const, text: next }, ...rest], ...(draft ? { draft } : {}) };
+          }),
+        },
+      };
+    });
+  },
+  moveQueued: (sessionId, id, index) => set((state) => {
+    const queue = [...(state.queues[sessionId] ?? [])];
+    const from = queue.findIndex((item) => item.id === id);
+    if (from < 0) return state;
+    const [item] = queue.splice(from, 1);
+    queue.splice(Math.max(0, Math.min(index, queue.length)), 0, item!);
+    return { queues: { ...state.queues, [sessionId]: queue } };
+  }),
 
   resume: async (sessionId) => {
     set((state) => ({ paused: withoutKey(state.paused, sessionId) }));
@@ -399,7 +453,8 @@ export const useComposer = create<ComposerState>((set, get) => ({
   drain: async (sessionId, options) => {
     const next = get().queues[sessionId]?.[0];
     const status = useAcp.getState().sessions[sessionId]?.status;
-    if (!next || (status !== "idle" && !options?.evenIfNotIdle) || sessionId in get().sending || sessionId in get().paused) {
+    if (!next || (status !== "idle" && !options?.evenIfNotIdle) || sessionId in get().sending || sessionId in get().paused
+      || get().editingQueued[sessionId] === next.id) {
       return;
     }
     get().dequeue(sessionId, next.id);
@@ -491,6 +546,7 @@ export const useComposer = create<ComposerState>((set, get) => ({
 
   forget: (sessionId) => set((state) => ({
     queues: withoutKey(state.queues, sessionId),
+    editingQueued: withoutKey(state.editingQueued, sessionId),
     drafts: withoutKey(state.drafts, sessionId),
     referenceLabels: withoutKey(state.referenceLabels, sessionId),
     annotations: withoutKey(state.annotations, sessionId),
