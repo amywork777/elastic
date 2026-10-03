@@ -73,8 +73,8 @@ What happened overnight on `amywork777/elastic`, and what is left for you.
 **Docs**
 - `README.md` was rewritten. The long design notes moved to `docs/design.md`
   and are cleaned of CAD.
-- `docs/research/codex-plugins.md` covers how Codex plugins are built.
-- `docs/research/codex-ux/` is the UX study with its 72 screenshots, copied
+- the Codex plugin research (now in the private elastic-research repo) covers how Codex plugins are built.
+- the Codex UX study (now in the private elastic-research repo) is the UX study with its 72 screenshots, copied
   in. The originals in `~/code/elastic-codex-ux*` are untouched.
 
 ## Decisions you may want to revisit
@@ -99,7 +99,7 @@ What happened overnight on `amywork777/elastic`, and what is left for you.
   (`_TAB_HOSTS`). elastic's client name is `elastic`. For the CAD plugin to
   open its tabs here, cadgen needs to accept that name, or detect a tab host
   from the `io.modelcontextprotocol/ui` capability instead
-  (`docs/research/codex-plugins.md`).
+  (the Codex plugin research (now in the private elastic-research repo)).
 - Then text-to-cad's Codex plugin should install in elastic as it is: Plugins
   › Add › Install a plugin folder, or add its marketplace.
 

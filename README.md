@@ -74,8 +74,8 @@ any pull request in a tab with its checks, diff, comment threads and review
 buttons, through your own GitHub CLI sign-in (`gh auth login`).
 
 - How to write one, and how the pieces fit: [docs/plugins.md](docs/plugins.md)
-- What Codex does, which this copies: [docs/research/codex-plugins.md](docs/research/codex-plugins.md)
-  and the UX study with screenshots, [docs/research/codex-ux/README.md](docs/research/codex-ux/README.md)
+- What Codex does, which this copies: a study of the Codex app's plugin format and UX, kept in a
+  separate private research repository
 
 ## More
 

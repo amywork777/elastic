@@ -16,7 +16,7 @@
  *
  * A UI tool that names none is a `thread` tool.
  *
- * See docs/plugins.md for the authoring guide and docs/research/codex-plugins.md
+ * See docs/plugins.md for the authoring guide and the Codex research (private research repo)
  * for where each shape comes from.
  */
 import { z } from "zod";

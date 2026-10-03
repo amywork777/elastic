@@ -4,7 +4,7 @@ Everything elastic does beyond the chat is a plugin: a folder with a manifest,
 MCP servers that give agents tools, skills that tell agents how to use them,
 and optional views (MCP Apps) that show up as tabs, rail pages, or the way a
 file type opens. The format is Codex's, so a Codex or Claude Code plugin
-installs unchanged. Where each shape comes from: [research/codex-plugins.md](research/codex-plugins.md).
+installs unchanged. Each shape follows the Codex and Claude Code plugin formats.
 
 The example plugins in `resources/plugins/` are the reference:
 
