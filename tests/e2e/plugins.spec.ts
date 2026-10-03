@@ -48,6 +48,9 @@ test("one list on the Plugins page: the bundled plugins installed, the examples 
   const browse = page.getByTestId("plugins-page");
   await expect(browse.getByRole("heading", { name: "Plugins", level: 1 })).toBeVisible();
   const catalog = browse.getByTestId("plugin-catalog");
+  // The examples are for plugin authors: out of the list until asked for.
+  await expect(browse.getByRole("button", { name: "Install csv-table" })).toHaveCount(0);
+  await browse.getByTestId("plugin-sources").getByRole("switch", { name: "Show examples" }).click();
   for (const name of ["csv-table", "filesystem", "memory", "mcp-app-demo"]) {
     await expect(browse.getByRole("button", { name: `Install ${name}` })).toBeVisible();
   }
@@ -56,7 +59,7 @@ test("one list on the Plugins page: the bundled plugins installed, the examples 
     await expect(catalog.locator(`[data-catalog-entry="${name}"]`).getByText("Installed")).toBeVisible();
   }
   await expect(catalog.locator('[data-catalog-entry="csv-table"]').getByText("Works")).toBeVisible();
-  await expect(browse.getByTestId("plugin-sources").getByText("Built in")).toBeVisible();
+  await expect(browse.getByTestId("plugin-sources").getByRole("button", { name: "Add a catalog" })).toBeVisible();
   await shoot("plugins-browse.png");
   await browse.getByRole("button", { name: "Install csv-table" }).click();
   await expect(browse.getByRole("button", { name: "Install csv-table" })).toHaveCount(0, { timeout: 30_000 });

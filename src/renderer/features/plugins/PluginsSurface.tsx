@@ -1,4 +1,4 @@
-import { ArrowRight, Blocks, ChevronLeft, Download, FileType, FolderPlus, GitBranch, Link2, MoreHorizontal, Plus, RefreshCw, Search, Store, Trash2 } from "lucide-react";
+import { ArrowRight, BadgeCheck, Blocks, ChevronLeft, Download, FileType, FolderPlus, GitBranch, Link2, MoreHorizontal, Plus, RefreshCw, Search, Store, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -22,11 +22,57 @@ import { newSessionKey, useComposer } from "@renderer/state/composer";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import { useUi, type Surface } from "@renderer/state/ui";
-import type { CatalogEntry, CatalogSource, Compatibility, Marketplace, PluginRecord } from "@shared/plugins";
+import type { CatalogEntry, CatalogNeed, CatalogSource, Compatibility, Marketplace, MarketplacePreview, PluginRecord } from "@shared/plugins";
 
 const message = (error: unknown) => (error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': (IpcError: )?/, "") : String(error));
 
 type View = Extract<Surface, { kind: "plugins" }>["view"];
+
+/**
+ * A prompt to try goes into the box of whatever the sessions surface shows: the open session,
+ * or a new one in the selected project. With neither, it is copied and the person is told.
+ */
+function tryPrompt(prompt: string): void {
+  const session = useSessions.getState().activeId;
+  const project = useProjects.getState().activeId;
+  const key = session ?? (project ? newSessionKey(project) : null);
+  if (key) {
+    useComposer.getState().setDraft(key, prompt);
+    useComposer.getState().requestFocus(key);
+  } else {
+    void navigator.clipboard.writeText(prompt).catch(() => {});
+    toast("Copied the prompt. Open a folder to start a session with it.");
+  }
+  useUi.getState().setSurface({ kind: "home" });
+}
+
+/** What Try now puts in the box: the plugin's own first prompt, or a start the person finishes. */
+const firstPrompt = (prompts: readonly string[], displayName: string) => prompts[0] ?? `Use ${displayName} to `;
+
+/** The examples that ship for plugin authors stay out of the list unless asked for; a per-viewer choice. */
+const EXAMPLES_KEY = "elastic.plugins.showExamples";
+function useShowExamples(): [boolean, (show: boolean) => void] {
+  const [show, setShow] = useState(() => {
+    try { return window.localStorage.getItem(EXAMPLES_KEY) === "1"; } catch { return false; }
+  });
+  return [show, (next) => {
+    setShow(next);
+    try { window.localStorage.setItem(EXAMPLES_KEY, next ? "1" : "0"); } catch { /* kept for this window only */ }
+  }];
+}
+
+const NEED_LABEL: Record<CatalogNeed, string> = { "sign-in": "Sign-in", "api-key": "API key", download: "Downloads on first run" };
+
+/** "by Linear · Claude official", with a check when an official catalog lists it, and what it needs. */
+function TrustLine({ entry }: { entry: CatalogEntry }) {
+  const parts = [entry.publisher ? `by ${entry.publisher}` : null, entry.sources[0]?.marketplaceName ?? null, ...entry.needs.map((need) => NEED_LABEL[need])].filter(Boolean);
+  return (
+    <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs" data-trust-line>
+      {entry.verified ? <BadgeCheck aria-label="Listed by an official catalog" className="size-3.5 shrink-0" role="img" /> : null}
+      <span className="truncate">{parts.join(" · ")}</span>
+    </div>
+  );
+}
 
 function usePluginsView(): [View, (view: View) => void] {
   const surface = useUi((state) => state.surface);
@@ -34,10 +80,9 @@ function usePluginsView(): [View, (view: View) => void] {
   return [surface.kind === "plugins" ? surface.view : "browse", (view) => setSurface({ kind: "plugins", view })];
 }
 
-/** Add ▾: a marketplace from GitHub (or any git URL), a marketplace folder, or a plugin folder. */
-function AddMenu() {
+/** Add ▾: a catalog from GitHub (or any git URL), a marketplace folder, or a plugin folder. */
+function AddMenu({ onAddCatalog }: { onAddCatalog: () => void }) {
   const [, show] = usePluginsView();
-  const [githubOpen, setGithubOpen] = useState(false);
   const installFolder = async () => {
     try {
       const plugin = await window.workbench.plugins.installFolder({});
@@ -51,48 +96,79 @@ function AddMenu() {
     } catch (error) { toast.error(message(error)); }
   };
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button className="h-7 gap-1 text-xs" size="sm" variant="secondary"><Plus className="size-3.5" /> Add</Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setGithubOpen(true)}><GitBranch className="size-4" /> Add a marketplace from GitHub…</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void addMarketplace()}><Store className="size-4" /> Add a marketplace folder…</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void installFolder()}><FolderPlus className="size-4" /> Install a plugin folder…</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <AddFromGithub onOpenChange={setGithubOpen} open={githubOpen} />
-    </>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button className="h-7 gap-1 text-xs" size="sm" variant="secondary"><Plus className="size-3.5" /> Add</Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={onAddCatalog}><GitBranch className="size-4" /> Add a catalog from GitHub…</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void addMarketplace()}><Store className="size-4" /> Add a catalog folder…</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void installFolder()}><FolderPlus className="size-4" /> Install a plugin folder…</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-/** The repository box: `owner/repo` or a git URL, fetched in the background with the person's own git. */
+/** How many of a previewed catalog's plugins are named before "and N more". */
+const PREVIEW_NAMES = 8;
+
+/**
+ * The repository box: `owner/repo` or a git URL. Look fetches it into a throwaway folder with the
+ * person's own git and shows what it would add; Add catalog then adds it. A catalog that is not
+ * one of the official ones says so before it is added, because its plugins run code on this Mac.
+ */
 function AddFromGithub({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [value, setValue] = useState("");
-  const [busy, setBusy] = useState(false);
-  const submit = async () => {
+  const [busy, setBusy] = useState<"look" | "add" | null>(null);
+  const [preview, setPreview] = useState<MarketplacePreview | null>(null);
+  const reset = (next: boolean) => {
+    if (!next) { setValue(""); setPreview(null); }
+    onOpenChange(next);
+  };
+  const look = async () => {
     if (!value.trim()) return;
-    setBusy(true);
+    setBusy("look");
+    try { setPreview(await window.workbench.plugins.previewMarketplace({ source: value.trim() })); } catch (error) { toast.error(message(error)); } finally { setBusy(null); }
+  };
+  const add = async () => {
+    setBusy("add");
     try {
       const market = await window.workbench.plugins.addMarketplace({ source: value.trim() });
-      if (market) toast.success(`Fetching ${market.displayName}. Its plugins appear in the list when it arrives.`);
-      setValue("");
-      onOpenChange(false);
-    } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
+      if (market) toast.success(`Adding ${market.displayName}. Its plugins appear in the list in a moment.`);
+      reset(false);
+    } catch (error) { toast.error(message(error)); } finally { setBusy(null); }
   };
+  const shown = preview?.plugins.slice(0, PREVIEW_NAMES) ?? [];
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog onOpenChange={reset} open={open}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add a marketplace from GitHub</DialogTitle>
-          <DialogDescription>A repository with a Codex or Claude Code marketplace. elastic fetches it with your git, so private repositories work when your git can reach them.</DialogDescription>
+          <DialogTitle>Add a catalog</DialogTitle>
+          <DialogDescription>A GitHub repository with a Codex or Claude Code marketplace. elastic fetches it with your git, so private repositories work when your git can reach them.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-          <Input aria-label="Repository" autoFocus className="h-8 text-sm" onChange={(event) => setValue(event.target.value)} placeholder="owner/repo or https://…" value={value} />
+        <form onSubmit={(event) => { event.preventDefault(); void look(); }}>
+          <Input aria-label="Repository" autoFocus className="h-8 text-sm" onChange={(event) => { setValue(event.target.value); setPreview(null); }} placeholder="owner/repo or https://…" value={value} />
         </form>
+        {preview ? (
+          <div className="space-y-2 rounded-lg border p-3 text-sm" data-testid="catalog-preview">
+            <div className="flex items-center gap-1.5 font-medium">
+              {preview.official ? <BadgeCheck aria-label="Official catalog" className="size-4" role="img" /> : null}
+              {preview.displayName}
+              <span className="font-normal text-muted-foreground text-xs">{preview.plugins.length} plugin{preview.plugins.length === 1 ? "" : "s"}</span>
+            </div>
+            <ul className="space-y-0.5 text-muted-foreground text-xs">
+              {shown.map((plugin) => <li className="truncate" key={plugin.name}><span className="text-foreground">{plugin.name}</span>{plugin.description ? ` · ${plugin.description}` : ""}</li>)}
+              {preview.plugins.length > shown.length ? <li>and {preview.plugins.length - shown.length} more</li> : null}
+            </ul>
+            {preview.added ? <p className="text-muted-foreground text-xs">This catalog is already in your list.</p>
+              : preview.official ? null
+                : <p className="text-muted-foreground text-xs" role="note">Not an official catalog. Its plugins run code on your Mac with your permissions, so add it only if you trust who publishes it.</p>}
+          </div>
+        ) : null}
         <DialogFooter>
-          <Button disabled={busy || !value.trim()} onClick={() => void submit()} size="sm">{busy ? <><Spinner className="size-3.5" /> Adding</> : "Add"}</Button>
+          {preview && !preview.added
+            ? <Button disabled={busy !== null} onClick={() => void add()} size="sm">{busy === "add" ? <><Spinner className="size-3.5" /> Adding</> : "Add catalog"}</Button>
+            : <Button disabled={busy !== null || !value.trim() || Boolean(preview)} onClick={() => void look()} size="sm">{busy === "look" ? <><Spinner className="size-3.5" /> Looking</> : "Look"}</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -180,7 +256,12 @@ function InstallButton({ entry, source }: { entry: CatalogEntry; source?: Catalo
     setBusy(true);
     try {
       const plugin = await window.workbench.plugins.installFromMarketplace({ marketplace: from.marketplace, name: from.name });
-      toast.success(`${plugin.displayName} plugin installed`, { action: { label: "Open", onClick: () => show({ plugin: plugin.id }) } });
+      const prompt = firstPrompt(plugin.defaultPrompts.length > 0 ? plugin.defaultPrompts : entry.prompts, plugin.displayName);
+      toast.success(`${plugin.displayName} installed`, {
+        description: "New chats get its tools and skills.",
+        action: { label: "Try now", onClick: () => tryPrompt(prompt) },
+        cancel: { label: "Details", onClick: () => show({ plugin: plugin.id }) },
+      });
     } catch (error) {
       toast.error(message(error));
     } finally { setBusy(false); }
@@ -241,6 +322,7 @@ function CatalogRow({ entry }: { entry: CatalogEntry }) {
           <CompatLabel compat={entry.compat} />
         </div>
         <div className="truncate text-muted-foreground text-xs">{entry.description || record?.description || "No description"}</div>
+        <TrustLine entry={entry} />
       </button>
       {record?.updateAvailable ? <UpdateButton plugin={record} /> : <InstallButton entry={entry} />}
     </div>
@@ -269,8 +351,12 @@ function CatalogSection({ section, expanded, onExpand }: { section: Section; exp
 
 /** Browse: one store over every marketplace, the same plugin once, in Codex's sections. */
 function BrowsePage() {
-  const catalog = usePlugins((state) => state.catalog);
+  const everything = usePlugins((state) => state.catalog);
   const marketplaces = usePlugins((state) => state.marketplaces);
+  const [showExamples, setShowExamples] = useShowExamples();
+  const [addingCatalog, setAddingCatalog] = useState(false);
+  const catalog = useMemo(() => (showExamples ? everything : everything.filter((entry) => !entry.example)), [everything, showExamples]);
+  const working = useMemo(() => catalog.filter((entry) => entry.compat.level === "works" || entry.compat.level === "signin").length, [catalog]);
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
@@ -297,11 +383,12 @@ function BrowsePage() {
             <Input aria-label="Search plugins" className="h-8 rounded-full text-sm" style={{ paddingLeft: "2rem" }} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${catalog.length} plugins`} value={query} />
           </div>
           <Button aria-label="Refresh" className="size-8" disabled={refreshing} onClick={() => void refresh()} size="icon" variant="ghost"><RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} /></Button>
-          <AddMenu />
+          <AddMenu onAddCatalog={() => setAddingCatalog(true)} />
         </>}
-        description="Connect plugins so any agent, Claude or Codex, can work across your tools. Plugins made for Codex and Claude Code work here."
+        description={`Plugins for Codex and Claude Code work here.${working > 0 ? ` ${working} work in elastic today.` : ""}`}
         title="Plugins"
       />
+      <AddFromGithub onOpenChange={setAddingCatalog} open={addingCatalog} />
       <p aria-live="polite" className="mb-2 h-4 px-2 text-muted-foreground text-xs" role="status">
         {fetching.length > 0 ? <><Spinner className="mr-1 inline size-3" /> Fetching {fetching.map((market) => market.displayName).join(", ")}…</> : null}
       </p>
@@ -319,7 +406,7 @@ function BrowsePage() {
           ))}
         </div>
       ) : null}
-      <SourcesSection marketplaces={marketplaces} />
+      <SourcesSection marketplaces={marketplaces} onAddCatalog={() => setAddingCatalog(true)} onShowExamples={setShowExamples} showExamples={showExamples} />
     </div>
   );
 }
@@ -337,14 +424,31 @@ function UpdateButton({ plugin }: { plugin: PluginRecord }) {
   );
 }
 
-/** Where the list comes from: each marketplace, how fresh it is, and Remove for the ones a person can drop. */
-function SourcesSection({ marketplaces }: { marketplaces: Marketplace[] }) {
-  if (marketplaces.length === 0) return null;
+/**
+ * Where the list comes from, folded to one line ("Catalogs (3) · Add a catalog"); opened, each
+ * catalog with how fresh it is and Remove for the ones a person can drop, and Show examples.
+ */
+function SourcesSection({ marketplaces, onAddCatalog, showExamples, onShowExamples }: {
+  marketplaces: Marketplace[]; onAddCatalog: () => void; showExamples: boolean; onShowExamples: (show: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // elastic's own plugins are not a catalog a person chose; the examples have their own switch.
+  const catalogs = marketplaces.filter((market) => market.kind === "git" || market.kind === "local");
+  const link = "rounded-sm outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50";
   return (
     <section className="mt-10 px-2" data-testid="plugin-sources">
-      <h2 className="mb-2 font-medium text-sm">Sources</h2>
-      <div className="divide-y divide-border rounded-lg border">
-        {marketplaces.map((market) => (
+      <div className="flex items-center gap-2 text-muted-foreground text-xs">
+        <button aria-expanded={open} className={link} onClick={() => setOpen(!open)} type="button">Catalogs ({catalogs.length})</button>
+        <span aria-hidden>·</span>
+        <button className={link} onClick={onAddCatalog} type="button">Add a catalog</button>
+        <label className="ml-auto flex items-center gap-2">
+          <Switch aria-label="Show examples" checked={showExamples} onCheckedChange={onShowExamples} />
+          Show examples
+        </label>
+      </div>
+      {open && catalogs.length > 0 ? (
+      <div className="mt-2 divide-y divide-border rounded-lg border">
+        {catalogs.map((market) => (
           <div className="flex items-center gap-3 px-3 py-2" key={market.file}>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm">{market.displayName}</div>
@@ -363,6 +467,7 @@ function SourcesSection({ marketplaces }: { marketplaces: Marketplace[] }) {
           </div>
         ))}
       </div>
+      ) : null}
     </section>
   );
 }
@@ -381,21 +486,46 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
         <div className="min-w-0 flex-1">
           <h1 className="font-semibold text-xl">{entry.displayName}</h1>
           <p className="mt-1 text-muted-foreground text-sm">{entry.description || "No description"}</p>
+          <div className="mt-1.5"><TrustLine entry={entry} /></div>
         </div>
         <InstallButton entry={entry} />
       </div>
+      {entry.prompts.length > 0 ? (
+        <div className="mb-8 space-y-1.5 rounded-xl bg-muted/60 p-4" data-testid="entry-prompts">
+          <div className="mb-1 text-muted-foreground text-xs">Try after installing</div>
+          {entry.prompts.map((prompt) => (
+            <div className="flex items-center gap-2 rounded-md bg-background/70 px-3 py-2 text-sm" key={prompt}>
+              <PluginLogo className="size-4" plugin={{ id: entry.name, logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
+              <span className="flex-1 truncate">{prompt}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <Section title="In elastic">
         <div className="flex items-start gap-3 rounded-lg border px-3 py-2.5">
           <CompatLabel compat={entry.compat} />
           <p className="min-w-0 flex-1 text-muted-foreground text-xs">{entry.compat.detail}</p>
         </div>
       </Section>
+      {entry.adds.servers.length > 0 || entry.adds.skills.length > 0 ? (
+        <Section title="What it adds">
+          {entry.adds.servers.map((server) => <Row key={`server:${server}`} primary={server} secondary="MCP server: tools any agent in a new chat can use" />)}
+          {entry.adds.skills.map((skill) => <Row key={`skill:${skill}`} primary={skill} secondary="Skill: instructions new chats get" />)}
+        </Section>
+      ) : null}
       <Section title="Information">
         <dl className="divide-y divide-border rounded-lg border text-sm">
-          {([["Version", entry.version], ["Category", entry.category], ["Website", entry.homepage], ["Source", first ? sourceText(first) : null]] as Array<[string, string | null]>).map(([label, value]) => (
+          {([
+            ["Publisher", entry.publisher],
+            ["Needs", entry.needs.length > 0 ? entry.needs.map((need) => NEED_LABEL[need]).join(", ") : entry.compat.level === "unknown" ? null : "Nothing else"],
+            ["Version", entry.version],
+            ["Category", entry.category],
+            ["Website", entry.homepage],
+            ["Source", first ? sourceText(first) : null],
+          ] as Array<[string, string | null]>).filter(([, value]) => value !== null).map(([label, value]) => (
             <div className="flex gap-4 px-3 py-2" key={label}>
               <dt className="w-28 shrink-0 text-muted-foreground">{label}</dt>
-              <dd className="min-w-0 break-all">{value ?? "Unavailable"}</dd>
+              <dd className="min-w-0 break-all">{value}</dd>
             </div>
           ))}
         </dl>
@@ -416,21 +546,6 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
 function DetailPage({ plugin }: { plugin: PluginRecord }) {
   const [, show] = usePluginsView();
   const setSurface = useUi((state) => state.setSurface);
-  // A prompt chip goes into the box of whatever the sessions surface shows: the
-  // open session, or a new one in the selected project.
-  const tryPrompt = (prompt: string) => {
-    const session = useSessions.getState().activeId;
-    const project = useProjects.getState().activeId;
-    const key = session ?? (project ? newSessionKey(project) : null);
-    if (key) {
-      useComposer.getState().setDraft(key, prompt);
-      useComposer.getState().requestFocus(key);
-    } else {
-      void navigator.clipboard.writeText(prompt);
-      toast("Copied the prompt. Open a folder to start a session with it.");
-    }
-    setSurface({ kind: "home" });
-  };
   const [busy, setBusy] = useState(false);
   const act = async (work: () => Promise<unknown>) => {
     setBusy(true);
@@ -508,7 +623,14 @@ function DetailPage({ plugin }: { plugin: PluginRecord }) {
       </Section>
 
       <Section title={`Skills ${plugin.skills.length}`}>
-        {plugin.skills.length === 0 ? <Empty>No skills.</Empty> : plugin.skills.map((skill) => <Row key={skill} primary={skill} secondary="Every new session gets it while the plugin is on." />)}
+        {plugin.skills.length === 0 ? <Empty>No skills.</Empty> : plugin.skills.map((skill) => {
+          const on = !plugin.disabledSkills.includes(skill);
+          return (
+            <Row key={skill} primary={skill} secondary={on ? "New chats get it while the plugin is on." : "Off: new chats don't get it."}
+              action={<Switch aria-label={`${on ? "Turn off" : "Turn on"} ${skill}`} checked={on} disabled={busy || !plugin.enabled}
+                onCheckedChange={(enabled) => void act(() => window.workbench.plugins.setSkillEnabled({ id: plugin.id, skill, enabled }))} />} />
+          );
+        })}
       </Section>
 
       <Section title={`MCP servers ${plugin.servers.length}`}>

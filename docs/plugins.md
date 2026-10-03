@@ -136,14 +136,16 @@ the view's renderer as typed.
 
 A plugin's skills (`skills/<name>/SKILL.md`) are added to the skills root every
 new session gets while the plugin is on. A name another skill already has is
-skipped, and the log says so.
+skipped, and the log says so. Each skill has its own switch on the plugin's
+page: one turned off (`disabledSkills` in `installed.json`) is left out of the
+root while the plugin and its other skills stay on.
 
 ## Bundled plugins
 
 elastic's own tools are plugins too, the way Codex ships its browser and code
 review: `resources/bundled/` is a marketplace of five plugins (Browser,
 Documents, PDF, Terminals and Code Review, ids `elastic-<domain>`), installed on
-start and listed on the Plugins page under Built in. The first four carry a
+start and listed on the Plugins page as Installed. The first four carry a
 skill and name an app server in their `.mcp.json`:
 
 ```json
@@ -188,13 +190,18 @@ needs no Node on the machine (`src/main/plugins/manifest.ts`).
 
 A marketplace is Codex's `.agents/plugins/marketplace.json`, Claude Code's
 `.claude-plugin/marketplace.json`, or a bare `marketplace.json`. It can be a
-folder, or a git repository elastic fetches: Plugins › Add › Add a marketplace
+folder, or a git repository elastic fetches: Plugins › Add › Add a catalog
 from GitHub takes `owner/repo` or any git URL (`#ref` for a branch or tag).
+Look shows what it would add first (fetched into a throwaway folder and
+dropped), and a catalog that is not one of the official ones says that its
+plugins run code on the Mac before it is added.
 A first run adds three: Claude Code's official marketplace
-(`anthropics/claude-plugins-official`), Codex's (`openai/plugins`, "Codex
-official") and text-to-cad's (`earthtojake/text-to-cad`), beside the bundled
-plugins and the examples (`resources/plugins/marketplace.json`). Remove any of
-them under Sources; a removed default stays removed. Codex's
+(`anthropics/claude-plugins-official`, shown as "Claude official"), Codex's
+(`openai/plugins`, "Codex official") and text-to-cad's
+(`earthtojake/text-to-cad`), beside the bundled plugins and the examples
+(`resources/plugins/marketplace.json`). The examples are for plugin authors and
+stay out of the list until Show examples is on. Remove a catalog under
+Catalogs, at the foot of the page; a removed default stays removed. Codex's
 `openai-primary-runtime` lives only inside Codex's own runtime and is not
 offered.
 
@@ -223,10 +230,19 @@ Update installs again and drops the old copy.
 The Plugins page is one list (`src/main/plugins/catalog.ts`): every
 marketplace's entries, and the same plugin offered by two marketplaces once,
 matched by repository folder and then by name. Its card installs from the
-first source: a folder with a Codex manifest (MCP App views are declared
+source that works best here (Works, then May need sign-in, then Partly), and
+among equals a folder with a Codex manifest (MCP App views are declared
 there), then any folder, then a remote repository; the others are listed on
-its page under Also offered by. Each card says whether it works here, read
-from its folder without installing it:
+its page under Also offered by. What the card shows is gathered from every
+source, so Claude's working Linear still shows the logo, site and prompts that
+Codex's listing carries. A card also says who publishes it, whether an official
+catalog lists it (the check mark), what it needs (a sign-in, an API key, a
+download on first run) and, on its page, the servers and skills it adds. A card
+with no logo gets the product site's favicon or the repository owner's GitHub
+avatar, fetched once by main and kept in `<userData>/plugins/logos.json`
+(`src/main/plugins/logos.ts`). A catalog's own test fixtures (Claude's
+`fakechat`) are left out (`HIDDEN` in `catalog.ts`). Each card says whether it
+works here, read from its folder without installing it:
 
 | Label | Means |
 | --- | --- |
