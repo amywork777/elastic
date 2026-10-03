@@ -1,5 +1,5 @@
 import { useShallow } from "zustand/react/shallow";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight, Plus, Folder } from "lucide-react";
 import { cn } from "cn";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
@@ -70,7 +70,7 @@ export function SessionSection({ section }: { section: SidebarSection }) {
 
   const header = (
     <div
-      className="flex h-7 items-center gap-0.5 rounded-md pr-0.5 pl-2"
+      className="flex h-8 items-center gap-0.5 rounded-md pr-0.5 pl-2"
       data-sidebar-section-header
     >
       {/* Named for the section, always: the state is aria-expanded's to say, not the name's. */}
@@ -85,8 +85,10 @@ export function SessionSection({ section }: { section: SidebarSection }) {
             holds a hint back from an expanded control, and an open section's
             header is one. `Pinned` and the flat list have no folder to show. */}
         <TooltipHint content={project?.path}>
-          <span className="truncate text-[11px] font-medium text-muted-foreground">
-            {section.name}
+          {/* Codex's grammar: a project reads as a folder row, a group without one as a quiet label. */}
+          <span className={cn("flex min-w-0 items-center gap-2 truncate", project ? "text-[13px] text-foreground/85" : "text-[11px] font-medium text-muted-foreground")}>
+            {project ? <Folder aria-hidden className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} /> : null}
+            <span className="truncate">{section.name}</span>
           </span>
         </TooltipHint>
         {collapsible ? (

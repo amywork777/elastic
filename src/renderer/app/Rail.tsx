@@ -1,4 +1,4 @@
-import { Blocks, MessagesSquare } from "lucide-react";
+import { Blocks, House } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@renderer/lib/utils";
@@ -14,9 +14,11 @@ function RailButton({ label, active, onClick, children }: { label: string; activ
         aria-current={active ? "page" : undefined}
         aria-label={label}
         className={cn(
-          "app-no-drag flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors",
+          "app-no-drag relative flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors",
+          // The one place the brand pink marks state: which app the window is showing.
+          "before:-left-2 before:absolute before:top-2 before:bottom-2 before:w-[3px] before:rounded-full before:bg-[var(--brand)] before:opacity-0 before:transition-opacity",
           "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          active && "bg-sidebar-accent text-sidebar-accent-foreground",
+          active && "bg-sidebar-accent text-sidebar-accent-foreground before:opacity-100",
         )}
         onClick={onClick}
         type="button"
@@ -47,10 +49,10 @@ export function Rail() {
       {/* The traffic lights' strip on macOS, as the sidebar's. */}
       <div className="app-drag h-[var(--titlebar-height)] w-full shrink-0" />
       <RailButton active={is("home")} label="Sessions" onClick={() => setSurface({ kind: "home" })}>
-        <MessagesSquare className="size-[18px]" />
+        <House className="size-[18px]" strokeWidth={1.75} />
       </RailButton>
       <RailButton active={is("plugins")} label="Plugins" onClick={() => setSurface({ kind: "plugins", view: lastPluginsView })}>
-        <Blocks className="size-[18px]" />
+        <Blocks className="size-[18px]" strokeWidth={1.75} />
       </RailButton>
       {apps.length > 0 ? <div className="my-1 h-px w-6 bg-sidebar-border" /> : null}
       {apps.map(({ plugin, tool }) => (
