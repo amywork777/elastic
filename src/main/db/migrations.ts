@@ -329,6 +329,17 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE sessions ADD COLUMN worktree_owned INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 13,
+    name: "session-provider-and-links",
+    // Settings › Models & keys: the provider a session runs on (JSON
+    // `{ id, model }`, null for the agent's own login), and the chats a
+    // "Continue with …" links it to (JSON `{ from?, to? }`).
+    up: `
+      ALTER TABLE sessions ADD COLUMN provider TEXT;
+      ALTER TABLE sessions ADD COLUMN links TEXT;
+    `,
+  },
 ];
 
 /**

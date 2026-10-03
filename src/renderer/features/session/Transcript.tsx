@@ -3,6 +3,7 @@ import { ArrowDown, ChevronRight, Paperclip } from "lucide-react";
 import { memo, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
 
+import { isHandoff } from "@renderer/lib/handoff";
 import { cn } from "@renderer/lib/utils";
 import { Conversation, ConversationContent } from "@renderer/components/ai-elements/conversation";
 import type { Part, SessionState, Turn } from "@shared/acp/types";
@@ -323,6 +324,32 @@ function WorkFold({ turn, fold, children }: { turn: Turn; fold: boolean; childre
 }
 
 /** A compact bubble on the right, with the prompt's images and attachments under it. */
+/**
+ * The first prompt of a chat started by "Continue with …" (`lib/handoff.ts`): the
+ * person did not type it, so it is a folded row that opens on the summary the
+ * new agent was given.
+ */
+function HandoffTurn({ text, turnId }: { text: string; turnId: string }) {
+  const [open, setOpen] = useState(false);
+  const body = text.split("\n").slice(1).join("\n").trim();
+  return (
+    <div className="flex w-full flex-col gap-1.5" data-turn={turnId} data-role="user" data-handoff>
+      <button
+        aria-expanded={open}
+        className="flex items-center gap-1 self-start rounded-sm text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        onClick={() => setOpen((value) => !value)}
+        type="button"
+      >
+        <ChevronRight className={cn("size-3.5 transition-transform", open && "rotate-90")} />
+        Picked up from the earlier chat
+      </button>
+      {open ? (
+        <div className="rounded-xl border px-3.5 py-2 text-[13px] leading-6 break-words whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">{body}</div>
+      ) : null}
+    </div>
+  );
+}
+
 function UserTurn({ turn }: { turn: Turn }) {
   const text = turn.parts
     .filter((part): part is Extract<Turn["parts"][number], { type: "text" }> => part.type === "text")
@@ -333,6 +360,9 @@ function UserTurn({ turn }: { turn: Turn }) {
     (part): part is Extract<Turn["parts"][number], { type: "resource_link" | "resource" }> =>
       part.type === "resource_link" || part.type === "resource",
   );
+  if (isHandoff(text)) {
+    return <HandoffTurn text={text} turnId={turn.id} />;
+  }
   return (
     <div className="flex w-full flex-col items-end gap-1.5" data-turn={turn.id} data-role="user">
       {/* The bubble carries no `select-text` of its own: the whole transcript

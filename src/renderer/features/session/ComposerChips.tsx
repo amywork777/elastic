@@ -1,11 +1,12 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
-import { useId, useMemo, useState } from "react";
+import { createContext, useContext, useId, useMemo, useState } from "react";
 import {
   Check,
   Folder,
   Gauge,
   GitBranch,
   GitFork,
+  Plus,
   ShieldCheck,
   Sparkles,
   Zap,
@@ -21,6 +22,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@renderer/components/ui/dropdown-menu";
 import { useOpenFolderOrToast } from "@renderer/hooks/use-open-folder";
@@ -53,6 +57,9 @@ import type { GitMode, Project } from "@shared/types";
  * session's own. What a session cannot change — its project — is the
  * sidebar's.
  */
+/** Closes the chip's menu, for a row inside it that is not a menu item (the typed model id). */
+const CloseMenu = createContext<() => void>(() => {});
+
 export function Chip({
   icon,
   label,
@@ -168,7 +175,7 @@ export function Chip({
         side="top"
         {...openOnChecked}
       >
-        {menu}
+        <CloseMenu.Provider value={() => setOpen(false)}>{menu}</CloseMenu.Provider>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -376,8 +383,33 @@ export type ModelProvider = {
   model: SelectOption;
 };
 
+/**
+ * One provider from Settings › Models & keys, as the model menu offers it: its
+ * group ("OpenRouter (via Claude Code)"), the agent it runs through, and the
+ * models to list (its default, the recently used, what its last Test found).
+ */
+export type ProviderModelGroup = {
+  providerId: string;
+  label: string;
+  /** "Ollama · qwen3": the chip's label is the model, then this. */
+  providerLabel: string;
+  agentId: string;
+  icon?: string | null;
+  models: string[];
+  /** False when the agent it runs through is not installed (OpenCode, say): the group offers an install. */
+  installed: boolean;
+  /** The agent's name, for "Install OpenCode". */
+  agentName: string;
+};
+
+/** The provider and model a chat runs on, when it is not the agent's own login. */
+export type ProviderPick = { providerId: string; model: string | null };
+
 /** The `fast` switch, whichever way the agent sends it (`shared/acp/options`). */
 export type FastSwitch = { id: string; name: string; on: boolean; value: string | boolean };
+
+/** An agent's group shows this many models; the rest are under "More models". */
+const MODELS_SHOWN = 6;
 
 /**
  * The model, with the mark of whoever runs it: `◇ GPT-6 Astra`. The icon is
@@ -392,6 +424,10 @@ export type FastSwitch = { id: string; name: string; on: boolean; value: string 
  * not installed, or whose probe has not answered, contributes no group: a
  * model that cannot be run is not offered.
  *
+ * Settings › Models & keys adds a group per provider (`providerGroups`), each
+ * with its models and a "Use a model id…" row, and "Add a model…" closes the
+ * menu on that page. A long list gets a search box.
+ *
  * The agent's `fast` switch, when it has one, is the last row of this menu
  * rather than a chip: it is a property of the model, not a second decision.
  */
@@ -402,6 +438,11 @@ export function ModelChip({
   fast,
   onFastChange,
   disabledReason,
+  providerGroups = [],
+  picked = null,
+  onPickProvider,
+  onInstallAgent,
+  onAddModel,
 }: {
   providers: ModelProvider[];
   /** Whose model is showing. */
@@ -410,51 +451,154 @@ export function ModelChip({
   fast?: FastSwitch | null;
   onFastChange?: (configId: string, value: string | boolean) => void;
   disabledReason?: string;
+  providerGroups?: ProviderModelGroup[];
+  /** The provider the chat runs on, when it is one. */
+  picked?: ProviderPick | null;
+  onPickProvider?: (providerId: string, model: string | null) => void;
+  onInstallAgent?: (agentId: string) => void;
+  onAddModel?: () => void;
 }) {
+  const [query, setQuery] = useState("");
+  const [typing, setTyping] = useState<string | null>(null);
+  const pickedGroup = picked ? (providerGroups.find((group) => group.providerId === picked.providerId) ?? null) : null;
   const current = providers.find((provider) => provider.agentId === agentId) ?? providers[0] ?? null;
-  if (!current) {
+  if (!current && !pickedGroup) {
     return null;
   }
-  const many = providers.length > 1;
+  const many = providers.length + providerGroups.length > 1;
+  const needle = query.trim().toLowerCase();
+  const matches = (text: string) => needle === "" || text.toLowerCase().includes(needle);
+  const total = providers.reduce((sum, provider) => sum + provider.model.options.length, 0) + providerGroups.reduce((sum, group) => sum + group.models.length, 0);
+  const label = pickedGroup ? (picked?.model ? `${picked.model} · ${pickedGroup.providerLabel}` : pickedGroup.providerLabel) : currentName(current!.model);
+  const radioValue = pickedGroup ? providerValue(pickedGroup.providerId, picked?.model ?? "") : current ? modelValue(current.agentId, current.model.currentValue) : "";
   return (
     <Chip
       disabledReason={disabledReason}
-      icon={<ProviderGlyph icon={current.icon} />}
-      label={currentName(current.model)}
+      icon={<ProviderGlyph icon={pickedGroup ? pickedGroup.icon : current?.icon} />}
+      label={label}
       hintSide="left"
-      maxWidth={190}
+      maxWidth={220}
       menu={
         <>
+          {total > 10 ? (
+            <div className="p-1">
+              <input
+                aria-label="Search models"
+                className="h-7 w-full rounded-md border bg-transparent px-2 text-[13px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                onChange={(event) => setQuery(event.target.value)}
+                // The menu's own typeahead would take these keys.
+                onKeyDown={(event) => event.stopPropagation()}
+                placeholder="Search models"
+                value={query}
+              />
+            </div>
+          ) : null}
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
-              const [provider, model] = splitModelValue(value);
-              if (provider && model) {
-                onChange(provider, model);
+              const provider = splitProviderValue(value);
+              if (provider) {
+                onPickProvider?.(provider[0], provider[1] || null);
+                return;
+              }
+              const [agent, model] = splitModelValue(value);
+              if (agent && model) {
+                onChange(agent, model);
               }
             }}
-            value={modelValue(current.agentId, current.model.currentValue)}
+            value={radioValue}
           >
-            {providers.map((provider, index) => (
-              <div key={provider.agentId}>
-                {index > 0 ? <DropdownMenuSeparator /> : null}
-                <DropdownMenuLabel className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase">
-                  {many ? (
-                    <>
-                      <ProviderGlyph icon={provider.icon} size="size-3" />
-                      {provider.agentName}
-                    </>
+            {providers.map((provider, index) => {
+              const options = provider.model.options.filter((option) => matches(`${option.name} ${provider.agentName}`));
+              if (options.length === 0) return null;
+              // A search shows every match; otherwise the newest few, and the rest one level down.
+              const shown = needle ? options : options.filter((option, at) => at < MODELS_SHOWN || option.value === provider.model.currentValue);
+              const more = needle ? [] : options.filter((option) => !shown.includes(option));
+              return (
+                <div key={provider.agentId}>
+                  {index > 0 ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuLabel className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase">
+                    {many ? (
+                      <>
+                        <ProviderGlyph icon={provider.icon} size="size-3" />
+                        {provider.agentName}
+                      </>
+                    ) : (
+                      provider.model.name
+                    )}
+                  </DropdownMenuLabel>
+                  <OptionItems option={{ ...provider.model, options: shown }} valueFor={(value) => modelValue(provider.agentId, value)} />
+                  {more.length > 0 ? (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className="text-muted-foreground">More models ({more.length})</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuRadioGroup
+                          onValueChange={(value) => {
+                            const [agent, model] = splitModelValue(value);
+                            if (agent && model) onChange(agent, model);
+                          }}
+                          value={radioValue}
+                        >
+                          <OptionItems option={{ ...provider.model, options: more }} valueFor={(value) => modelValue(provider.agentId, value)} />
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  ) : null}
+                </div>
+              );
+            })}
+            {providerGroups.map((group) => {
+              const models = group.models.filter((model) => matches(`${model} ${group.label}`));
+              if (needle && models.length === 0 && !matches(group.label)) return null;
+              return (
+                <div key={group.providerId}>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase">
+                    <ProviderGlyph icon={group.icon} size="size-3" />
+                    {group.label}
+                  </DropdownMenuLabel>
+                  {!group.installed ? (
+                    <DropdownMenuItem onSelect={() => onInstallAgent?.(group.agentId)}>
+                      <span className="truncate">Install {group.agentName}</span>
+                    </DropdownMenuItem>
                   ) : (
-                    provider.model.name
+                    <>
+                      {models.length === 0 ? (
+                        <DropdownMenuRadioItem value={providerValue(group.providerId, "")}>
+                          <span className="truncate">Its default model</span>
+                        </DropdownMenuRadioItem>
+                      ) : (
+                        models.map((model) => (
+                          <DropdownMenuRadioItem key={model} value={providerValue(group.providerId, model)}>
+                            <span className="truncate">{model}</span>
+                          </DropdownMenuRadioItem>
+                        ))
+                      )}
+                      {typing === group.providerId ? (
+                        <TypedModel
+                          label={`Model id for ${group.providerLabel}`}
+                          onDone={(model) => {
+                            setTyping(null);
+                            onPickProvider?.(group.providerId, model);
+                          }}
+                        />
+                      ) : (
+                        <DropdownMenuItem
+                          className="text-muted-foreground"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            setTyping(group.providerId);
+                          }}
+                        >
+                          <span className="truncate">Use a model id…</span>
+                        </DropdownMenuItem>
+                      )}
+                    </>
                   )}
-                </DropdownMenuLabel>
-                <OptionItems
-                  option={provider.model}
-                  valueFor={(value) => modelValue(provider.agentId, value)}
-                />
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </DropdownMenuRadioGroup>
-          {fast && onFastChange ? (
+          {fast && onFastChange && !pickedGroup ? (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -470,15 +614,59 @@ export function ModelChip({
               </DropdownMenuItem>
             </>
           ) : null}
+          {onAddModel ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={onAddModel}>
+                <span className="flex size-4 items-center justify-center">
+                  <Plus className="size-3.5" />
+                </span>
+                <span className="truncate">Add a model…</span>
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </>
       }
       testId="model"
-      title={current.model.description ?? current.model.name}
+      title={pickedGroup ? pickedGroup.label : (current!.model.description ?? current!.model.name)}
     />
   );
 }
 
+/** "Use a model id…": a box inside the menu; Enter picks the model and closes the menu. */
+function TypedModel({ label, onDone }: { label: string; onDone: (model: string) => void }) {
+  const close = useContext(CloseMenu);
+  const [typed, setTyped] = useState("");
+  return (
+    <form
+      className="p-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const model = typed.trim();
+        if (!model) return;
+        onDone(model);
+        close();
+      }}
+    >
+      <input
+        aria-label={label}
+        autoFocus
+        className="h-7 w-full rounded-md border bg-transparent px-2 text-[13px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        onChange={(event) => setTyped(event.target.value)}
+        // The menu's typeahead would take every key but Escape, which closes it.
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") event.stopPropagation();
+        }}
+        placeholder="Model id, then Enter"
+        spellCheck={false}
+        value={typed}
+      />
+    </form>
+  );
+}
+
 const MODEL_SEPARATOR = "\u0000";
+const PROVIDER_PREFIX = "@provider";
 
 /** Provider and model in one radio value, so one group can span every provider. */
 function modelValue(agentId: string, value: string): string {
@@ -488,6 +676,16 @@ function modelValue(agentId: string, value: string): string {
 function splitModelValue(value: string): [string | null, string | null] {
   const at = value.indexOf(MODEL_SEPARATOR);
   return at < 0 ? [null, null] : [value.slice(0, at), value.slice(at + 1)];
+}
+
+/** A Models & keys provider and one of its models, as a radio value. */
+function providerValue(providerId: string, model: string): string {
+  return `${PROVIDER_PREFIX}${MODEL_SEPARATOR}${providerId}${MODEL_SEPARATOR}${model}`;
+}
+
+function splitProviderValue(value: string): [string, string] | null {
+  const parts = value.split(MODEL_SEPARATOR);
+  return parts.length === 3 && parts[0] === PROVIDER_PREFIX ? [parts[1]!, parts[2]!] : null;
 }
 
 /**

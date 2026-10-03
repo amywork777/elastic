@@ -40,6 +40,7 @@ import type {
 import type { IpcEventChannel, IpcEventPayload } from "../../shared/ipc";
 import { DELETED_WHILE_STARTING } from "../../shared/ipc/errors";
 import type { Launch } from "../../shared/agents";
+import type { ProviderSet } from "../../shared/providers";
 import type { GitMode, Session, SessionStatus } from "../../shared/types";
 import { startTimer } from "../timer";
 import { PROBE_WAIT_MS, type AgentDetector } from "../agents/detect";
@@ -125,6 +126,15 @@ export type SessionManagerDeps = {
     /** The mode a session was switched into, as the next session's default. */
     rememberMode(agentId: string, modeId: string): void;
   };
+  /**
+   * Settings › Models & keys: how a session that runs on a provider reaches its
+   * model (`src/shared/providers.ts`): extra environment for its adapter, and a
+   * `providers/set` to send after `initialize`. Null for the agent's own login.
+   * Injected, so this file knows nothing about where keys are stored.
+   */
+  providerRoute?: (provider: { id: string; model: string | null }) => { agentId: string; env: Record<string, string>; setProvider: ProviderSet | null } | null;
+  /** A provider's model was used: it heads the picker's "recently used". */
+  rememberProviderModel?: (providerId: string, model: string) => void;
   clientVersion?: string;
   newId: () => string;
   /**
@@ -431,10 +441,19 @@ export class SessionManager {
     /** The first prompt, when the caller has one: the worktree's slug. */
     name?: string | undefined;
     branch?: string;
+    /** A provider from Settings › Models & keys, and its model. */
+    provider?: { id: string; model: string | null } | null;
+    /** The chat this one continues ("Continue with …"). */
+    from?: string;
   }): Promise<Session> {
     this.boot();
     if (!agentProvider(input.agentId)) {
       throw new Error(`unknown agent: ${input.agentId}`);
+    }
+    if (input.provider) {
+      const route = this.deps.providerRoute?.(input.provider) ?? null;
+      if (!route) throw new Error("That provider is not set up any more. Add it again in Settings › Models & keys.");
+      if (route.agentId !== input.agentId) throw new Error(`That provider runs through ${route.agentId}, not ${input.agentId}.`);
     }
 
     const workspace = await this.workspaceFor(input);
@@ -481,9 +500,18 @@ export class SessionManager {
       // rather than nothing at all.
       sessionHead: null,
       turnHead: null,
+      ...(input.provider ? { provider: input.provider } : {}),
+      ...(input.from ? { links: { from: input.from } } : {}),
     };
+    if (input.provider?.model) this.deps.rememberProviderModel?.(input.provider.id, input.provider.model);
     try {
       this.deps.repo.upsert(session);
+      // "Continue with …": the chat this one continues points here too. Only a
+      // chat of the same project: a link is a sidebar row, never a way across.
+      const from = input.from ? this.deps.repo.get(input.from) : null;
+      if (from && from.projectId === session.projectId) {
+        this.deps.repo.upsert({ ...from, links: { ...from.links, to: id } });
+      }
     } finally {
       this.deps.workspaceSettled?.(workspace);
     }
@@ -666,7 +694,12 @@ export class SessionManager {
    */
   private async applyPreferences(session: Session, connection: SessionConnection): Promise<void> {
     const defaults = this.deps.agentOptions?.defaults(session.agentId) ?? { model: null, mode: null };
-    await this.applyConfigOption(connection, modelOption(connection.state.configOptions), defaults.model);
+    // On a provider the model is the provider's (its route set it at spawn); the
+    // agent's own remembered model would point it back at a model the provider
+    // does not serve.
+    if (!session.provider) {
+      await this.applyConfigOption(connection, modelOption(connection.state.configOptions), defaults.model);
+    }
     const model = modelOption(connection.state.configOptions)?.currentValue ?? null;
     const effort = this.deps.agentOptions?.effortFor(session.agentId, model) ?? null;
     await this.applyConfigOption(connection, effortOption(connection.state.configOptions), effort);
@@ -1648,6 +1681,28 @@ export class SessionManager {
     // Read before the pool is asked: a warm adapter is only this session's if
     // it was spawned with the options a fresh spawn would get now.
     const adapterOptions = await this.adapterOptions(session.agentId, session.cwd);
+    // A session on a provider (Settings › Models & keys) spawns its own adapter:
+    // its environment carries the provider's model, and `providers/set` is
+    // process-wide, so no warm adapter is its and none is left holding its route.
+    const route = session.provider ? (this.deps.providerRoute?.(session.provider) ?? null) : null;
+    if (session.provider && !route) {
+      throw new Error("This chat's provider is not set up any more. Add it again in Settings › Models & keys.");
+    }
+    if (route) {
+      if (!this.deps.repo.get(session.id)) {
+        throw new Error("this session was deleted");
+      }
+      stop();
+      const connection = new SessionConnection({
+        ...adapterOptions,
+        env: { ...adapterOptions.env, ...route.env },
+        ...sessionOptions,
+        setProvider: route.setProvider,
+      });
+      owner.connection = connection;
+      this.live.set(session.id, connection);
+      return connection;
+    }
     // Deleted while the options were read: an adapter made live now would
     // belong to a row that is gone, and nothing would ever retire it.
     if (!this.deps.repo.get(session.id)) {

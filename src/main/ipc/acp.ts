@@ -16,6 +16,8 @@ import { spawnPtyTerminal } from "../acp/pty-backend";
 import { AgentOptionStore } from "../acp/agent-options";
 import { SessionManager } from "../acp/sessions";
 import { sessionRuntimePath } from "../runtime-path";
+import { providerStore } from "../providers";
+import { routeFor } from "../../shared/providers";
 import { forgetSession, mcpServersFor, sessionPreamble, skillsRoot } from "../integrations";
 import {
   agentOptions as agentOptionsRepo,
@@ -94,6 +96,13 @@ export const sessionManager: SessionManager = new SessionManager({
       agentOptions.rememberChoice(agentId, configId, value, options),
     rememberMode: (agentId, modeId) => agentOptions.rememberMode(agentId, modeId),
   },
+  // Settings › Models & keys: the key stays in main, read here at spawn.
+  providerRoute: (choice) => {
+    const store = providerStore();
+    const provider = store.get(choice.id);
+    return provider ? routeFor(provider, store.key(provider.id), choice.model) : null;
+  },
+  rememberProviderModel: (id, model) => providerStore().remember(id, model),
   clientVersion: app.isPackaged ? app.getVersion() : __APP_VERSION__,
   newId: () => randomUUID(),
   // The transcript on this machine, so a row clicked paints before its agent

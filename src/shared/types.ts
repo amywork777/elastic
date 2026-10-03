@@ -114,6 +114,13 @@ export const SessionSchema = z.object({
   /** Hidden from the sidebar; the row and the agent's transcript both stay. */
   archived: z.boolean().default(false),
   /**
+   * The provider from Settings › Models & keys this session runs on, and its
+   * model (`src/shared/providers.ts`). Null: the agent's own login.
+   */
+  provider: z.object({ id: z.string().min(1).max(64), model: z.string().max(200).nullable() }).nullable().optional(),
+  /** "Continue with …": the chat this one continued, and the chat it continued in. */
+  links: z.object({ from: z.string().optional(), to: z.string().optional() }).optional(),
+  /**
    * Lifted out of its project into the sidebar's `Pinned` section.
    *
    * A flag on the session rather than a list in the settings: pinning is a

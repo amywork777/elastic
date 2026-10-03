@@ -58,6 +58,7 @@ import {
   type SessionState,
 } from "../../shared/acp/types";
 import type { Launch } from "../../shared/agents";
+import type { ProviderSet } from "../../shared/providers";
 import { agentProvider } from "../agents/registry";
 import { AcpClient } from "./client";
 import { TerminalManager, type SpawnTerminal, type TerminalOutputListener } from "./terminals";
@@ -115,6 +116,13 @@ export type SessionConnectionOptions = {
   record?: (frame: RecordedFrame) => void;
   /** For the tests: whose rules the launch is resolved by (`spawnPlan`). */
   platform?: NodeJS.Platform;
+  /**
+   * Settings › Models & keys: the provider this session's adapter routes its
+   * model calls to, sent as ACP's unstable `providers/set` right after
+   * `initialize` (claude-agent-acp 0.84.0, codex-acp 1.13.1). Null or absent:
+   * the agent's own login.
+   */
+  setProvider?: ProviderSet | null;
 };
 
 export type ProcessExit = { code: number | null; signal: NodeJS.Signals | null };
@@ -426,6 +434,16 @@ export class SessionConnection {
         await Promise.race([this.exited, new Promise((resolve) => setTimeout(resolve, 1_000))]);
       }
       throw this.describe(error, "initialize");
+    }
+    if (this.options.setProvider) {
+      if (!response.agentCapabilities || !("providers" in response.agentCapabilities)) {
+        throw new Error(`${this.options.agentId} cannot use a provider from Models & keys (it does not offer providers/set).`);
+      }
+      try {
+        await this.agent.unstable_setProvider(this.options.setProvider);
+      } catch (error) {
+        throw this.describe(error, "providers/set");
+      }
     }
     this.initializeResponse = response;
     return response;

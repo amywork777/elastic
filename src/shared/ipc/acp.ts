@@ -8,6 +8,8 @@
  */
 import { z } from "zod";
 
+import { SessionProviderSchema } from "../providers";
+
 import {
   PendingPermissionSchema,
   PromptBlockSchema,
@@ -44,6 +46,10 @@ export const acpContract = {
         name: z.string().optional(),
         /** An existing worktree of this project, or the project itself. */
         cwd: z.string().min(1).optional(),
+        /** A provider from Settings › Models & keys, and its model (`src/shared/providers.ts`). */
+        provider: SessionProviderSchema.nullable().optional(),
+        /** The chat this one continues ("Continue with …"). */
+        from: z.string().min(1).optional(),
       }),
       SessionSchema,
     ),

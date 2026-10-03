@@ -2220,3 +2220,55 @@ async function until<T>(probe: () => T | undefined, timeoutMs = 5_000): Promise<
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
+
+describe("a session on a provider (Settings › Models & keys)", () => {
+  it("spawns its own adapter with the route's environment and sends providers/set before session/new", async () => {
+    const recordFile = path.join(await tempDir("elastic-route-"), "record.jsonl");
+    const launch = { command: process.execPath, args: [FAKE_AGENT], env: { FAKE_AGENT_RECORD: recordFile } };
+    (claude as { launch: AgentProvider["launch"] }).launch = launch;
+    const routes: { id: string; model: string | null }[] = [];
+    const remembered: string[] = [];
+    const { repo, manager, cwd } = await setup({
+      providerRoute: (choice) => {
+        routes.push(choice);
+        return choice.id === "openrouter"
+          ? { agentId: "claude-code", env: { ANTHROPIC_MODEL: choice.model ?? "" }, setProvider: { providerId: "main", apiType: "anthropic", baseUrl: "https://openrouter.ai/api", headers: { Authorization: "Bearer sk-or-test" } } }
+          : null;
+      },
+      rememberProviderModel: (_id, model) => remembered.push(model),
+    });
+    const session = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none", provider: { id: "openrouter", model: "openai/gpt-x" } });
+    expect(repo.get(session.id)?.provider).toEqual({ id: "openrouter", model: "openai/gpt-x" });
+    expect(remembered).toEqual(["openai/gpt-x"]);
+    const lines = (await readFile(recordFile, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+    const kinds = lines.map((line) => line.kind);
+    expect(kinds.indexOf("providers/set")).toBeGreaterThanOrEqual(0);
+    expect(kinds.indexOf("providers/set")).toBeLessThan(kinds.indexOf("session/new"));
+    const set = lines.find((line) => line.kind === "providers/set").params;
+    expect(set).toMatchObject({ providerId: "main", apiType: "anthropic", baseUrl: "https://openrouter.ai/api", headers: ["Authorization"], authorized: true });
+    expect(JSON.stringify(lines)).not.toContain("sk-or-test");
+    expect(lines.find((line) => line.kind === "session/new").params.route.ANTHROPIC_MODEL).toBe("openai/gpt-x");
+  });
+
+  it("refuses a provider that is gone or that runs through another agent, and writes no row", async () => {
+    const { repo, manager, cwd } = await setup({
+      providerRoute: (choice) => (choice.id === "openai" ? { agentId: "codex", env: {}, setProvider: null } : null),
+    });
+    await expect(manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none", provider: { id: "gone", model: null } })).rejects.toThrow(/not set up any more/);
+    await expect(manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none", provider: { id: "openai", model: null } })).rejects.toThrow(/runs through codex/);
+    expect(repo.list()).toEqual([]);
+  });
+});
+
+describe("Continue with …", () => {
+  it("links the new chat and the one it continues, both ways, within a project", async () => {
+    const { repo, manager, cwd } = await setup();
+    const first = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });
+    const second = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none", from: first.id });
+    expect(repo.get(second.id)?.links).toEqual({ from: first.id });
+    expect(repo.get(first.id)?.links).toEqual({ to: second.id });
+    const elsewhere = await manager.create({ projectId: "p2", agentId: "claude-code", cwd, gitMode: "none", from: first.id });
+    expect(repo.get(first.id)?.links).toEqual({ to: second.id });
+    expect(repo.get(elsewhere.id)?.links).toEqual({ from: first.id });
+  });
+});

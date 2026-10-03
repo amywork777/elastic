@@ -397,6 +397,8 @@ new AgentSideConnection((conn) => ({
       agentInfo: { name: "fake-agent", version: "0.0.0" },
       agentCapabilities: {
         loadSession: true,
+        // As claude-agent-acp and codex-acp do: the slot Models & keys sets.
+        providers: {},
         promptCapabilities: process.env.FAKE_AGENT_PROMPT_CAPABILITIES
           ? JSON.parse(process.env.FAKE_AGENT_PROMPT_CAPABILITIES)
           : { image: true, embeddedContext: true },
@@ -409,8 +411,24 @@ new AgentSideConnection((conn) => ({
     return {};
   },
 
+  // Models & keys: recorded so a test can see what elastic routed, never the key itself.
+  async unstable_setProvider(params) {
+    const auth = params?.headers?.Authorization ?? params?.headers?.authorization ?? null;
+    record("providers/set", { ...params, headers: Object.keys(params?.headers ?? {}), authorized: Boolean(auth) });
+    return {};
+  },
+
   async newSession(params) {
-    record("session/new", { ...params, PATH: process.env.PATH ?? null });
+    record("session/new", {
+      ...params,
+      PATH: process.env.PATH ?? null,
+      // What a provider's route put in this adapter's environment (keys only as present or not).
+      route: {
+        ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? null,
+        CODEX_CONFIG: process.env.CODEX_CONFIG ?? null,
+        ANTHROPIC_API_KEY: Boolean(process.env.ANTHROPIC_API_KEY),
+      },
+    });
     if (newDelayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, newDelayMs));
     }

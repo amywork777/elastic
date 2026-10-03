@@ -17,6 +17,7 @@ import {
 import { useAgents, useAgentsProbing, useInstalledAgents } from "@renderer/state/agents";
 import { newSessionKey, useComposer, type TakenDraft } from "@renderer/state/composer";
 import { useProjects } from "@renderer/state/projects";
+import { useProviderGroups } from "@renderer/state/providers";
 import { useSessions } from "@renderer/state/sessions";
 import { useSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";
@@ -27,7 +28,7 @@ import type { GitMode, Project } from "@shared/types";
 import { AgentSetupCard, useOfferedAgents } from "./agent-setup";
 import { AuthPrompt } from "./AuthPrompt";
 import { Composer } from "./Composer";
-import { EffortChip, GitModeChip, ModeChip, ModelChip, ProjectChip } from "./ComposerChips";
+import { EffortChip, GitModeChip, ModeChip, ModelChip, ProjectChip, type ProviderPick } from "./ComposerChips";
 import { errorMessage, isAuthError } from "./view";
 
 /**
@@ -84,6 +85,9 @@ export function NewSession({ project }: { project: Project }) {
   const setAgentEffort = useAgentOptions((state) => state.setEffort);
 
   const [agentId, setAgentId] = useState<string | null>(null);
+  // A provider from Settings › Models & keys picked in the model chip: the
+  // session runs on it, through the agent it routes to.
+  const [providerPick, setProviderPick] = useState<ProviderPick | null>(null);
   const [gitMode, setGitMode] = useState<GitMode | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{ message: string; auth: boolean } | null>(null);
@@ -152,14 +156,18 @@ export function NewSession({ project }: { project: Project }) {
   // levels of whichever one is picked. `providers` decides which agent the
   // session runs: an agent with no models in the menu is one nobody can pick.
   const providers = useProviderModels(installed);
+  const providerGroups = useProviderGroups(agents);
+  const pickedGroup = providerPick ? (providerGroups.find((group) => group.providerId === providerPick.providerId) ?? null) : null;
   const pickedProvider =
-    providers.find((provider) => provider.agentId === resolvedAgentId) ?? providers[0] ?? null;
+    providers.find((provider) => provider.agentId === (pickedGroup?.agentId ?? resolvedAgentId)) ?? (pickedGroup ? null : (providers[0] ?? null));
   // The model the chip is showing — this provider's remembered one, else the
   // model it reported as current. The effort is remembered against that
   // model, and its levels are that model's, so switching the model chip
   // swaps the effort chip's list and its value in one step.
   const pickedModel = pickedProvider?.model.currentValue ?? null;
-  const effort = useProviderEffort(pickedProvider?.agentId ?? null, pickedModel);
+  // A provider's model has no effort levels this app knows of: the chip is the agent's, for its own models.
+  const providerEffort = useProviderEffort(pickedProvider?.agentId ?? null, pickedModel);
+  const effort = pickedGroup ? null : providerEffort;
   // The mode the session will be created in: this agent's stored default,
   // else its own auto-approval preset — which is what main applies right
   // after `session/new` (`applyPreferences`), so the chip is a statement
@@ -169,7 +177,7 @@ export function NewSession({ project }: { project: Project }) {
   // Who will actually run this: the model chip's provider, because that is
   // the choice the person made. Everything that names the agent — the
   // placeholder, the sign-in prompt when creation fails — names this one.
-  const startingAgentId = pickedProvider?.agentId ?? resolvedAgentId;
+  const startingAgentId = pickedGroup?.agentId ?? pickedProvider?.agentId ?? resolvedAgentId;
   const agent = agents.find((candidate) => candidate.id === startingAgentId) ?? null;
 
   // Picking a model under another provider swaps provider: its remembered
@@ -177,9 +185,26 @@ export function NewSession({ project }: { project: Project }) {
   // chips are showing. Nothing here touches the efforts — the level chosen
   // under the model being left is still that model's.
   const chooseModel = (pickedAgentId: string, value: string) => {
+    setProviderPick(null);
     setAgentId(pickedAgentId);
     setFailure(null);
     void setAgentDefaults(pickedAgentId, { model: value });
+  };
+
+  const chooseProviderModel = (providerId: string, model: string | null) => {
+    const group = providerGroups.find((candidate) => candidate.providerId === providerId);
+    if (!group) return;
+    setProviderPick({ providerId, model });
+    setAgentId(group.agentId);
+    setFailure(null);
+  };
+
+  const installAgent = (installId: string) => {
+    const name = agents.find((candidate) => candidate.id === installId)?.name ?? installId;
+    void useAgents.getState().install(installId).then(
+      () => toast.info(`Installing ${name}. Its models are ready when it finishes.`),
+      (error: unknown) => toast.error(`Could not install ${name}: ${errorMessage(error)}`),
+    );
   };
 
   const chooseEffort = (_configId: string, value: string) => {
@@ -233,6 +258,7 @@ export function NewSession({ project }: { project: Project }) {
         agentId: startingAgentId,
         ...(draftRoot ? { cwd: draftRoot } : {}),
         gitMode: resolvedGitMode,
+        ...(pickedGroup && providerPick ? { provider: { id: providerPick.providerId, model: providerPick.model } } : {}),
       });
     } catch (error) {
       const message = errorMessage(error);
@@ -396,8 +422,18 @@ export function NewSession({ project }: { project: Project }) {
   ) : null;
   const trailing = (
     <>
-      {providers.length > 0 ? (
-        <ModelChip agentId={pickedProvider?.agentId ?? null} disabledReason={unavailable} onChange={chooseModel} providers={providers} />
+      {providers.length > 0 || providerGroups.length > 0 ? (
+        <ModelChip
+          agentId={pickedProvider?.agentId ?? null}
+          disabledReason={unavailable}
+          onAddModel={() => openSettings("models")}
+          onChange={chooseModel}
+          onInstallAgent={installAgent}
+          onPickProvider={chooseProviderModel}
+          picked={pickedGroup ? providerPick : null}
+          providerGroups={providerGroups}
+          providers={providers}
+        />
       ) : loadingChips ? (
         <ModelsLoading />
       ) : null}

@@ -10,6 +10,7 @@ import type { Surface } from "@shared/types";
 export const SETTINGS_SECTIONS = [
   "general",
   "agents",
+  "models",
   "appearance",
   "git",
   "shortcuts",
@@ -22,6 +23,7 @@ export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
   general: "General",
   agents: "Agents",
+  models: "Models & keys",
   appearance: "Appearance",
   git: "Git and worktrees",
   shortcuts: "Keyboard shortcuts",

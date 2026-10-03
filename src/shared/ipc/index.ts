@@ -50,6 +50,7 @@ import { integrationsIpc, integrationsEvents } from "./integrations";
 import { explorerEvents, explorerIpc } from "./explorer";
 import { gitIpc } from "./git";
 import { clipboardContract } from "./clipboard";
+import { providersContract } from "./providers";
 import { browserIpc } from "./browser";
 
 export * from "./define";
@@ -197,6 +198,7 @@ export const ipcContract = defineIpc({
   },
 
   ...clipboardContract,
+  ...providersContract,
   ...browserIpc,
 
   // The branches a phase owns are declared in their own file and spread in

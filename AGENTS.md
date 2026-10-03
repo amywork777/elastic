@@ -24,6 +24,7 @@ area is not an oversight — it is the seam.
 | P2 | `src/renderer/features/session` — the transcript, activity rows, composer chips, permissions, plan card — and its path links and reference grammar, `src/renderer/state/path-links.ts`, `src/shared/file-refs.ts`; plus what the model and effort chips are drawn from before a session exists: `src/shared/acp/options.ts`, `src/{shared,main}/ipc/agent-options.ts`, `src/main/acp/agent-options.ts`, `src/renderer/state/agent-options.ts` |
 | P3 (done) | `src/main/explorer`, `src/{shared,main}/ipc/explorer.ts`, `src/shared/terminal-replies.ts`, `src/renderer/features/explorer` (but `host/` and `BrowserTab.tsx`) — file tab, tree, Monaco, review, browser, terminal — `src/renderer/state/live-documents.ts`, `scripts/{monaco-workers,pdf-assets}.mjs` |
 | P5 (done) | `src/main/integrations`, `src/{shared,main}/ipc/{integrations,skills}.ts`, `resources/app-mcp`, `scripts/{build,build-mcp}.mjs`, `src/renderer/state/integration-commands.ts`, the `reveal` field of the explorer store and tree |
+| Models & keys | `src/main/providers`, `src/shared/providers.ts`, `src/{shared,main}/ipc/providers.ts`, `src/renderer/features/settings/pages/ModelsPage.tsx`, `docs/models.md` |
 | Plugins | `src/main/plugins`, `src/renderer/plugins`, `src/renderer/features/plugins`, `src/shared/plugins.ts`, `src/{shared,main}/ipc/plugins.ts`, `resources/{plugins,bundled}`, `docs/plugins.md` |
 | P6 | `src/renderer/features/settings` — the pages' contents — and the choosers its path rows use, `src/{shared,main}/ipc/dialogs.ts`, `src/main/ipc/settings-fallbacks.ts` |
 | P7 (done) | `src/main/projects` (`git.ts`, `workspace.ts`, `index.ts`), `src/{shared,main}/ipc/git.ts`, `src/renderer/lib/git-mode.ts`, the review tab's scopes and commit strip, Git and worktrees' per-project cards, `tests/e2e/git.spec.ts` |
@@ -76,7 +77,7 @@ the rule is about.
   types and pure, dependency-free modules** (zod aside) — never anything that
   touches Node, Electron or the file system. The modules it takes values from
   today: `types.ts` (the schemas, `PANE_LIMITS`), `acp/options.ts`,
-  `acp/reduce.ts`, `file-refs.ts`, `diff-counts.ts`, `image-cap.ts`, `terminal-replies.ts`, `titlebar.ts`, `brand.ts`, `plugins.ts`, `color-themes.ts` and
+  `acp/reduce.ts`, `file-refs.ts`, `diff-counts.ts`, `image-cap.ts`, `terminal-replies.ts`, `titlebar.ts`, `brand.ts`, `plugins.ts`, `color-themes.ts`, `providers.ts` and
   `ipc/errors.ts`. A shared module that grows a Node import stops
   qualifying. Its one way off the page is `window.workbench`, built from the
   contract in `src/shared/ipc/index.ts`.

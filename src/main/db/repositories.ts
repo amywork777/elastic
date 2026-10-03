@@ -122,14 +122,22 @@ type SessionRow = {
   worktree_owned: number;
   session_head: string | null;
   turn_head: string | null;
+  provider: string | null;
+  links: string | null;
 };
+
+/** A JSON column that parses or is left out (its schema default then applies). */
+function json(text: string | null): unknown {
+  if (!text) return undefined;
+  try { return JSON.parse(text); } catch { return undefined; }
+}
 
 // `turn_started_at` (migration 5) stays in the table, unread and unwritten: the
 // review's scopes are revisions, and nothing ever showed the time.
 const SESSION_COLUMNS =
   "id, project_id, agent_id, cwd, git_mode, branch, title, created_at, updated_at, status, " +
   "acp_session_id, changed_files, insertions, deletions, archived, pinned, " +
-  "worktree_path, worktree_owned, session_head, turn_head, title_source";
+  "worktree_path, worktree_owned, session_head, turn_head, title_source, provider, links";
 
 const toSession = (row: SessionRow): Session =>
   SessionSchema.parse({
@@ -154,7 +162,15 @@ const toSession = (row: SessionRow): Session =>
     pinned: row.pinned === 1,
     sessionHead: row.session_head,
     turnHead: row.turn_head,
+    ...withValid("provider", json(row.provider)),
+    ...withValid("links", json(row.links)),
   });
+
+/** One field only if it parses, so a bad stored value takes its default rather than the row. */
+function withValid(field: "provider" | "links", value: unknown): Record<string, unknown> {
+  if (value === undefined) return {};
+  return SessionSchema.shape[field].safeParse(value).success ? { [field]: value } : {};
+}
 
 export const sessions = {
   /** Newest first — the order the sidebar lists them in. */
@@ -185,7 +201,7 @@ export const sessions = {
         `INSERT INTO sessions (${SESSION_COLUMNS})
          VALUES (@id, @projectId, @agentId, @cwd, @gitMode, @branch, @title, @createdAt, @updatedAt, @status,
                  @acpSessionId, @changedFiles, @insertions, @deletions, @archived, @pinned,
-                 @worktreePath, @worktreeOwned, @sessionHead, @turnHead, @titleSource)
+                 @worktreePath, @worktreeOwned, @sessionHead, @turnHead, @titleSource, @provider, @links)
          ON CONFLICT(id) DO UPDATE SET
            agent_id = excluded.agent_id,
            cwd = excluded.cwd,
@@ -204,7 +220,9 @@ export const sessions = {
            worktree_path = excluded.worktree_path,
            worktree_owned = excluded.worktree_owned,
            session_head = excluded.session_head,
-           turn_head = excluded.turn_head`,
+           turn_head = excluded.turn_head,
+           provider = excluded.provider,
+           links = excluded.links`,
       )
       .run({
         ...parsed,
@@ -213,6 +231,8 @@ export const sessions = {
         pinned: parsed.pinned ? 1 : 0,
         worktreePath: parsed.worktreePath ?? null,
         worktreeOwned: parsed.worktreeOwned ? 1 : 0,
+        provider: parsed.provider ? JSON.stringify(parsed.provider) : null,
+        links: parsed.links && Object.keys(parsed.links).length > 0 ? JSON.stringify(parsed.links) : null,
       });
     return parsed;
   },

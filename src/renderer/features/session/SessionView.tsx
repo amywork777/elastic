@@ -5,10 +5,13 @@ import { toast } from "sonner";
 
 import { Button } from "@renderer/components/ui/button";
 import { useAcp } from "@renderer/state/acp";
-import { useAgents } from "@renderer/state/agents";
+import { useProviderModels } from "@renderer/state/agent-options";
+import { useAgents, useInstalledAgents } from "@renderer/state/agents";
 import { useComposer } from "@renderer/state/composer";
 import type { TakenDraft } from "@renderer/state/composer";
+import { useProviderGroups } from "@renderer/state/providers";
 import { useSettings } from "@renderer/state/settings";
+import { useUi } from "@renderer/state/ui";
 import { effortOption, fastOption, modeChoice, modelOption } from "@shared/acp/options";
 import { errorMessage } from "@shared/ipc/errors";
 import type { PromptBlock, SessionState } from "@shared/acp/types";
@@ -20,6 +23,7 @@ import { AuthPrompt } from "./AuthPrompt";
 import { Composer } from "./Composer";
 import { EffortChip, ModeChip, ModelChip } from "./ComposerChips";
 import { ContextMeter } from "./ContextMeter";
+import { ContinueBar, LinkedChats, continueWith, type ContinueTarget } from "./ContinueWith";
 import { TranscriptScopeContext, type TranscriptScope } from "./links/PathLink";
 import { PlanCard } from "./PlanCard";
 import { SessionHeader } from "./SessionHeader";
@@ -60,6 +64,15 @@ export function SessionView({ session }: { session: Session }) {
   const sending = useComposer((store) => session.id in store.sending);
   const agents = useAgents((store) => store.agents);
   const agent = agents.find((candidate) => candidate.id === session.agentId) ?? null;
+  // The model chip offers every installed agent's models and every provider from
+  // Models & keys: one of this agent's own switches in place, anything else is
+  // "Continue with …" (`./ContinueWith`).
+  const installed = useInstalledAgents();
+  const allModels = useProviderModels(installed);
+  const otherModels = useMemo(() => allModels.filter((candidate) => candidate.agentId !== session.agentId), [allModels, session.agentId]);
+  const providerGroups = useProviderGroups(agents);
+  const openSettings = useUi((store) => store.openSettings);
+  const [continueTarget, setContinueTarget] = useState<ContinueTarget | null>(null);
   // The CLI is gone: Reconnect would fail the same way forever, so the
   // failure offers the install instead (with Try again for after it).
   const notInstalled = isNotInstalledError;
@@ -165,8 +178,32 @@ export function SessionView({ session }: { session: Session }) {
               agentId={session.agentId}
               disabledReason={unavailable}
               fast={fast}
-              onChange={(_agentId, value) => setOption(model.id, value)}
+              onAddModel={() => openSettings("models")}
+              onChange={(pickedAgentId, value) => {
+                if (pickedAgentId === session.agentId && !session.provider) {
+                  setOption(model.id, value);
+                  return;
+                }
+                const source = pickedAgentId === session.agentId ? { agentName: agent?.name ?? session.agentId, model } : otherModels.find((candidate) => candidate.agentId === pickedAgentId);
+                const agentName = source?.agentName ?? pickedAgentId;
+                const name = source?.model.options.find((option) => option.value === value)?.name ?? value;
+                setContinueTarget({ agentId: pickedAgentId, agentName, label: `${agentName} · ${name}`, model: value, provider: null });
+              }}
               onFastChange={setOption}
+              onPickProvider={(providerId, picked) => {
+                if (session.provider?.id === providerId && session.provider.model === picked) return;
+                const group = providerGroups.find((candidate) => candidate.providerId === providerId);
+                if (!group) return;
+                setContinueTarget({
+                  agentId: group.agentId,
+                  agentName: group.agentName,
+                  label: picked ? `${picked} · ${group.providerLabel}` : group.providerLabel,
+                  model: null,
+                  provider: { id: providerId, model: picked },
+                });
+              }}
+              picked={session.provider ? { providerId: session.provider.id, model: session.provider.model } : null}
+              providerGroups={providerGroups}
               providers={[
                 {
                   agentId: session.agentId,
@@ -174,6 +211,7 @@ export function SessionView({ session }: { session: Session }) {
                   icon: agent?.icon ?? null,
                   model,
                 },
+                ...otherModels,
               ]}
             />
           ) : null}
@@ -190,7 +228,7 @@ export function SessionView({ session }: { session: Session }) {
         </>
       ),
     };
-  }, [state, chipSource, reconnecting, connecting, session.id, session.agentId, agent?.icon, agent?.name, setMode, setConfigOption]);
+  }, [state, chipSource, reconnecting, connecting, session.id, session.agentId, session.provider, agent?.icon, agent?.name, setMode, setConfigOption, otherModels, providerGroups, openSettings]);
 
   const plan = state ? planClock(state) : null;
   // A failed prompt is already in the transcript with its Retry; the banner
@@ -238,6 +276,7 @@ export function SessionView({ session }: { session: Session }) {
   return (
     <div className="flex h-full min-h-0 flex-col" data-session-view={session.id} data-session-status={state?.status ?? (loading ? "loading" : "detached")}>
       <SessionHeader session={session} title={session.title} />
+      <LinkedChats session={session} />
 
       {state ? (
         <TranscriptScopeContext.Provider value={scope}>
@@ -323,6 +362,20 @@ export function SessionView({ session }: { session: Session }) {
               entries={state.plan}
               running={plan?.running ?? false}
               startedAt={plan?.startedAt ?? null}
+            />
+          ) : null}
+          {continueTarget ? (
+            <ContinueBar
+              onCancel={() => setContinueTarget(null)}
+              onConfirm={async () => {
+                try {
+                  await continueWith(session, state, { title: session.title, agentName: agent?.name ?? session.agentId }, continueTarget);
+                  setContinueTarget(null);
+                } catch (error) {
+                  toast.error(`Could not continue with ${continueTarget.agentName}: ${errorMessage(error)}`);
+                }
+              }}
+              target={continueTarget}
             />
           ) : null}
           <Composer

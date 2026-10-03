@@ -61,6 +61,10 @@ type AcpState = {
     cwd?: string;
     gitMode: "none" | "checkout" | "worktree";
     branch?: string;
+    /** A provider from Settings › Models & keys, and its model. */
+    provider?: { id: string; model: string | null } | null;
+    /** The chat this one continues ("Continue with …"). */
+    from?: string;
   }) => Promise<string>;
   load: (sessionId: string) => Promise<void>;
   /**

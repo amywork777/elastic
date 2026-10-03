@@ -31,6 +31,7 @@ const VALUE_ALLOWLIST = new Set([
   "brand",
   "plugins",
   "color-themes",
+  "providers",
 ]);
 
 /** `.ts`/`.tsx` sources, declaration files excluded. */
