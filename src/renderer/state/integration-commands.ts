@@ -2,7 +2,7 @@
 import { selectRenderer } from "@workbench/ui/file-viewer";
 import { createDesktopRenderers } from "@renderer/features/explorer/renderers";
 import type { IntegrationCommand } from "@shared/ipc/integrations";
-import type { ExplorerTab } from "@shared/types";
+import { toolTabArguments, type ExplorerTab } from "@shared/types";
 import { readSessionStrip, tabTitle, openSessionTab, closeSessionTab, selectSessionTab, revealSessionPath } from "./explorer";
 import { useProjects } from "./projects";
 import { useSessions } from "./sessions";
@@ -97,10 +97,13 @@ export async function performIntegrationCommand(command: IntegrationCommand, sig
       const pluginId = String(params.pluginId ?? ""), toolId = String(params.toolId ?? "");
       const tool = pluginTool(pluginId, toolId);
       if (!tool) throw new Error(`no enabled plugin contributes the tool "${pluginId}/${toolId}"`);
-      const tab = await openSessionTab(command.sessionId, command.projectId, scope.root, "tool", { root: scope.root, pluginId, toolId, title: tool.title }, signal);
-      if (!tab) throw new Error("the explorer could not open the tool");
-      // An agent's call to the tool, relayed by main: the tab shows that call.
+      // An agent's call to the tool, relayed by main: the tab shows that call, and keeps its
+      // arguments so a relaunch can show it again.
       const call = params.call as { arguments?: Record<string, unknown>; result?: unknown } | undefined;
+      const kept = toolTabArguments(call?.arguments);
+      const tab = await openSessionTab(command.sessionId, command.projectId, scope.root, "tool",
+        { root: scope.root, pluginId, toolId, title: tool.title, ...(kept ? { arguments: kept } : {}) }, signal);
+      if (!tab) throw new Error("the explorer could not open the tool");
       if (call) useToolCalls.getState().show(tab.id, { arguments: call.arguments ?? {}, result: call.result });
       return { tabId: tab.id, title: tabTitle(tab), root: scope.root };
     }

@@ -369,7 +369,30 @@ export const ToolTabSchema = z.object({
   pluginId: z.string().min(1),
   toolId: z.string().min(1),
   title: z.string().default("Tool"),
+  /**
+   * The arguments of the call the tab last showed (an agent's `cad_open` of a
+   * file), so a relaunch can show it again (`ToolTab`). Not the result: that
+   * is the tool's to produce again. Over `TOOL_TAB_ARGUMENTS_MAX` of JSON, or
+   * not an object, it is left out rather than refusing the tab.
+   */
+  arguments: z.record(z.string(), z.unknown())
+    .refine((value) => fitsToolTab(value), "too large to keep")
+    .optional()
+    .catch(undefined),
 });
+
+/** The most JSON a tool tab keeps of its last call's arguments. */
+export const TOOL_TAB_ARGUMENTS_MAX = 16 * 1024;
+
+function fitsToolTab(value: unknown): boolean {
+  try { return JSON.stringify(value).length <= TOOL_TAB_ARGUMENTS_MAX; } catch { return false; }
+}
+
+/** A call's arguments as a tool tab keeps them: the object, or nothing when it is too large to keep. */
+export function toolTabArguments(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return fitsToolTab(value) ? value as Record<string, unknown> : undefined;
+}
 
 export const PersistedExplorerTabSchema = z.discriminatedUnion("kind", [
   FileTabSchema,
@@ -390,6 +413,21 @@ export type TerminalTab = z.infer<typeof TerminalTabSchema>;
 /* -------------------------------------------------------------------------- */
 /* Settings                                                                    */
 /* -------------------------------------------------------------------------- */
+
+/** What the shell shows, picked on the rail: the sessions (home), the plugins pages, or one plugin's app. */
+export const SurfaceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("home") }),
+  z.object({
+    kind: z.literal("plugins"),
+    view: z.union([
+      z.enum(["browse", "file-types"]),
+      z.object({ plugin: z.string().min(1) }),
+      z.object({ entry: z.string().min(1) }),
+    ]),
+  }),
+  z.object({ kind: z.literal("app"), pluginId: z.string().min(1), toolId: z.string().min(1) }),
+]);
+export type Surface = z.infer<typeof SurfaceSchema>;
 
 export const ThemePreferenceSchema = z.enum(["system", "light", "dark"]);
 export type ThemePreference = z.infer<typeof ThemePreferenceSchema>;
@@ -640,6 +678,12 @@ export const SettingsSchema = z.object({
   /* Onboarding */
   /** The first-run welcome was finished or skipped; it does not open again. */
   onboardingCompleted: z.boolean().default(false),
+
+  /* Where the person was, so a relaunch opens there (as Codex does) */
+  /** The session last open. One archived or gone by the next launch is not reopened. */
+  lastSessionId: z.string().min(1).nullable().default(null),
+  /** The rail's page last shown. A plugin page whose plugin or tool is gone falls back to home. */
+  lastSurface: SurfaceSchema.nullable().default(null),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

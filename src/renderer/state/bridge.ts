@@ -24,6 +24,7 @@ import { useSettings } from "./settings";
 import { useUi } from "./ui";
 import { useUpdates } from "./updates";
 import { explorerRootFor } from "./workspace-root";
+import { restoreWhereYouWere, trackWhereYouWere } from "./where-you-were";
 export { explorerRootFor } from "./workspace-root";
 
 export type UiCommand = IpcEventPayload<"ui.command">["command"];
@@ -225,6 +226,8 @@ function toggleLayout(key: "sidebarCollapsed") {
 }
 
 /** First read of everything the shell needs. */
+let stopTracking: (() => void) | null = null;
+
 export async function hydrate(): Promise<void> {
   // Not in the wait below: a cold `agents.list` waits for main's first probe
   // (a second or so of login shell), and restoring the explorer needs none of
@@ -238,6 +241,9 @@ export async function hydrate(): Promise<void> {
     useOnboarding.getState().load(),
     usePlugins.getState().load(),
   ]);
+  // Open where the person was (the session and the rail's page), then keep that current.
+  restoreWhereYouWere();
+  stopTracking ??= trackWhereYouWere();
   const state = useSessions.getState();
   const session = state.sessions.find(session => session.id === state.activeId && !session.archived);
   await useExplorer.getState().bindSession(session?.id ?? null, session?.projectId ?? null,

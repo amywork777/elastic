@@ -146,7 +146,7 @@ type TabInit = {
   review: Partial<Pick<ReviewTab, "scope">>;
   browser: Partial<Pick<BrowserTab, "url" | "root">>;
   terminal: Partial<Pick<TerminalTab, "cwd" | "readOnly" | "ptyId" | "agent">>;
-  tool: Pick<ToolTab, "pluginId" | "toolId"> & Partial<Pick<ToolTab, "root" | "title">>;
+  tool: Pick<ToolTab, "pluginId" | "toolId"> & Partial<Pick<ToolTab, "root" | "title" | "arguments">>;
 };
 
 type ExplorerState = {

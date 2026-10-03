@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import type { Surface } from "@shared/types";
+
 /**
  * The Settings pages, in the order the plan lists them (§10) — minus CAD
  * Runtime: the runtime ships inside the app, and what is left to say about
@@ -38,11 +40,7 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
  * What the shell shows, picked on the rail (Codex's model): the sessions
  * (home), the plugins pages, or one plugin's global app.
  */
-export type Surface =
-  | { kind: "home" }
-  /** `entry`: a catalog card that is not installed, by its key. */
-  | { kind: "plugins"; view: "browse" | "file-types" | { plugin: string } | { entry: string } }
-  | { kind: "app"; pluginId: string; toolId: string };
+export type { Surface } from "@shared/types";
 
 type UiState = {
   route: "app" | "settings";

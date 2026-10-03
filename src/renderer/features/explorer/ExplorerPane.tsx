@@ -177,7 +177,7 @@ function TabBody({ tab, project }: {
           props={{ project, scope: tab.scope, sessionId: tab.sessionId, tabId: tab.id }} />
       );
     case "tool":
-      return <ToolTab sessionId={tab.sessionId} project={project} root={tab.root} tabId={tab.id} pluginId={tab.pluginId} toolId={tab.toolId} title={tab.title} />;
+      return <ToolTab sessionId={tab.sessionId} project={project} root={tab.root} tabId={tab.id} pluginId={tab.pluginId} toolId={tab.toolId} title={tab.title} lastArguments={tab.arguments} />;
     case "browser":
       return <BrowserTab sessionId={tab.sessionId} projectId={project.id} root={tab.root} tabId={tab.id} url={tab.url} />;
     case "terminal":

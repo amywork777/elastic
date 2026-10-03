@@ -113,8 +113,19 @@ export const PluginToolSchema = z.object({
   visibility: z.array(z.enum(["model", "app"])).default(["model", "app"]),
   /** The tool's icon (an `icons[].src`), usually a data URL. */
   icon: z.string().nullable().default(null),
+  /** MCP's `annotations.readOnlyHint`: calling it changes nothing, so a relaunch may call it again. */
+  readOnly: z.boolean().default(false),
 });
 export type PluginTool = z.infer<typeof PluginToolSchema>;
+
+/**
+ * Whether a tab may call the tool again on its own (a relaunch showing its last view): a tool
+ * that says it only reads, or one only the app calls (`visibility: ["app"]`), which exists to
+ * draw the view.
+ */
+export function safeToRepeat(tool: Pick<PluginTool, "readOnly" | "visibility">): boolean {
+  return tool.readOnly || (tool.visibility.length === 1 && tool.visibility[0] === "app");
+}
 
 export const PluginServerStateSchema = z.object({
   name: z.string(),
@@ -269,7 +280,7 @@ export function fileExtensionsOf(tool: PluginTool): string[] {
  * `ui/resourceUri`, and `openai/outputTemplate`), `ui.visibility`, and the
  * entrypoints from `openai/ui` or `ui`.
  */
-export function readToolUi(server: string, tool: { name: string; title?: string; description?: string; annotations?: { title?: string }; icons?: Array<{ src?: string }>; _meta?: Record<string, unknown> }): PluginTool | null {
+export function readToolUi(server: string, tool: { name: string; title?: string; description?: string; annotations?: { title?: string; readOnlyHint?: boolean }; icons?: Array<{ src?: string }>; _meta?: Record<string, unknown> }): PluginTool | null {
   const meta = (tool._meta ?? {}) as Record<string, unknown>;
   const ui = (typeof meta.ui === "object" && meta.ui ? meta.ui : {}) as Record<string, unknown>;
   const openaiUi = (typeof meta["openai/ui"] === "object" && meta["openai/ui"] ? meta["openai/ui"] : {}) as Record<string, unknown>;
@@ -294,5 +305,6 @@ export function readToolUi(server: string, tool: { name: string; title?: string;
     entrypoints: entrypoints.length > 0 ? entrypoints : [{ type: "thread" }],
     visibility: visibility.length > 0 ? visibility : ["model", "app"],
     icon: tool.icons?.find((icon) => typeof icon.src === "string")?.src ?? null,
+    readOnly: tool.annotations?.readOnlyHint === true,
   };
 }
