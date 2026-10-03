@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import { McpAppFrame } from "@renderer/plugins/McpAppFrame";
+import { PluginStarting } from "@renderer/plugins/PluginStarting";
 import { useToolCalls } from "@renderer/plugins/calls";
 import { usePlugins } from "@renderer/plugins/store";
 import { safeToRepeat } from "@shared/plugins";
@@ -38,10 +39,10 @@ export function ToolTab({ sessionId, project, root, tabId, pluginId, toolId, tit
   }, [pending, tool, repeat, lastArguments, pluginId, sessionId, project.id, root]);
 
   if (!tool) {
-    const why = !ready || listing ? `Starting ${plugin?.displayName ?? pluginId}…`
-      : !plugin ? `${title} came from the plugin "${pluginId}", which is not installed any more.`
-        : !plugin.enabled ? `${plugin.displayName} is turned off. Turn it on in Plugins to use ${title}.`
-          : `${plugin.displayName} no longer offers ${title}.`;
+    if (!ready || listing) return <PluginStarting name={plugin?.displayName ?? pluginId} />;
+    const why = !plugin ? `${title} came from the plugin "${pluginId}", which is not installed any more.`
+      : !plugin.enabled ? `${plugin.displayName} is turned off. Turn it on in Plugins to use ${title}.`
+        : `${plugin.displayName} no longer offers ${title}.`;
     return <div className="flex h-full items-center justify-center p-6 text-center text-muted-foreground text-xs">{why}</div>;
   }
   const skipped = !pending && lastArguments && !repeat;

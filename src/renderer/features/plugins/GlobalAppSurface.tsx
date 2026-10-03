@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import { McpAppFrame } from "@renderer/plugins/McpAppFrame";
+import { PluginStarting } from "@renderer/plugins/PluginStarting";
 import { usePlugins } from "@renderer/plugins/store";
 import { useProjects } from "@renderer/state/projects";
 
@@ -28,9 +29,11 @@ export function GlobalAppSurface({ pluginId, toolId }: { pluginId: string; toolI
         {tool && plugin ? (
           <McpAppFrame call={call} key={`${pluginId}/${toolId}/${projectId}`} placement="page" pluginId={pluginId} pluginName={plugin.displayName}
             resourceUri={tool.resourceUri} scope={{ sessionId: null, projectId }} server={tool.server} tool={tool.tool} />
+        ) : plugin?.enabled ? (
+          <PluginStarting name={plugin.displayName} />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-            {plugin ? (plugin.enabled ? "Starting…" : `${plugin.displayName} is turned off.`) : "This plugin is not installed any more."}
+            {plugin ? `${plugin.displayName} is turned off.` : "This plugin is not installed any more."}
           </div>
         )}
       </div>
