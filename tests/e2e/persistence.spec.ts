@@ -126,8 +126,10 @@ test("the first launch: a project, two sessions, the chips a person picked, a ti
     expect(sessions).toHaveLength(2);
     expect(sessions.every((session) => session.acpSessionId !== null)).toBe(true);
     launchedIds = sessions.map((session) => session.id).sort();
-    // Light, under an OS in dark: the sharpest version of the restart below.
-    await page.evaluate(() => window.workbench.settings.set({ theme: "light" }));
+    // Light, under an OS in dark: the sharpest version of the restart below. No session to
+    // reopen: this launch is about a cold start drawing its chips from the cache, and reopening
+    // the last session would load it (tests/e2e/restore.spec.ts covers that).
+    await page.evaluate(() => window.workbench.settings.set({ theme: "light", lastSessionId: null }));
   } finally {
     await app.close();
   }
@@ -184,7 +186,8 @@ test("the second launch comes back to all of it, and opening its sessions is che
     await firstRow.click();
     await expect(page.getByText("earlier reply")).toBeVisible({ timeout: 30_000 });
     await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle");
-    expect(lines.find((line) => /\[acp\] load /.test(line))).toContain("warm=yes");
+    // Its own load: the session reopened at launch (the last one open) loaded before any adapter was warm.
+    expect(lines.find((line) => /\[acp\] load /.test(line) && line.includes(first.id.slice(0, 8)))).toContain("warm=yes");
 
     // The agent's title survived, as the agent's; a person's rename then outranks the agent.
     await titledRow.click();
