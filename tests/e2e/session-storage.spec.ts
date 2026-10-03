@@ -109,6 +109,6 @@ test("upgrade preserves sessions, snapshots and owned tabs; restart and deletion
     expect(await page.evaluate(() => window.workbench.sessions.get({ id: "one" }))).toMatchObject({ archived: false, projectId: directory });
   } finally {
     await (app as ElectronApplication | null)?.close();
-    fs.rmSync(scratch, { recursive: true, force: true });
+    fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
 });

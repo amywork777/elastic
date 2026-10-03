@@ -79,6 +79,6 @@ test("long activity stays inside the transcript and full details remain accessib
     await page.screenshot({ path: test.info().outputPath("transcript-dark.png"), animations: "disabled" });
   } finally {
     await app.close();
-    fs.rmSync(base, { recursive: true, force: true });
+    fs.rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
 });
