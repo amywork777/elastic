@@ -34,6 +34,14 @@ turns (`tests/e2e/readme-shots.spec.ts`).
 | **One store** over Claude Code's and Codex's marketplaces and text-to-cad's, the same plugin once. | **Browser**: Claude reads a public GitHub page in elastic's own browser tab, through the bundled Browser plugin. |
 | ![text-to-cad in dark mode](docs/readme/cad-dark.png) | ![A new session](docs/readme/home-dark.png) |
 | **CAD** from text-to-cad, installed from GitHub unchanged, in dark mode. | **A new session**: pick a project, a model (Claude, Codex or any ACP agent), and go. |
+| ![Code Review showing a public text-to-cad pull request: checks, the changed files and the diff, with Comment, Request changes and Approve](docs/readme/code-review.png) | ![Code Review in dark mode](docs/readme/code-review-dark.png) |
+| **Code Review**, a bundled MCP App over your own `gh`: a repository's pull requests, the diff, review comments. | The same pull request in dark mode. |
+
+**Themes.** Light, dark or follow the system, and a colour theme on top:
+Default, Graphite, Paper, Nord, Solarized and High contrast (Settings ›
+Appearance). Plugin views pick the theme up live.
+
+![One session in four colour themes: Graphite dark, Paper light, Nord dark and Solarized light](docs/readme/themes.png)
 
 <!-- TODO(Amy): a Linear or Notion shot needs a signed-in account; sign in from Plugins and re-run the spec with that case added. -->
 

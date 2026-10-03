@@ -119,7 +119,8 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await app?.close();
-  for (const dir of [userData, project]) fs.rmSync(dir, { recursive: true, force: true });
+  // The app's helpers can still be writing into the profile for a moment after it closes.
+  for (const dir of [userData, project]) fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
 });
 
 test("the plugin store, every marketplace in one list", async () => {
@@ -169,8 +170,9 @@ test("Code Review: a public pull request in a session's tab, through the person'
   await expect(frame.getByRole("heading", { name: "earthtojake/text-to-cad" })).toBeVisible({ timeout: 60_000 });
   await theme("light");
   await shootReadme("code-review-list");
-  await frame.getByText(/present tabs to any host that declares/).first().click();
-  await expect(frame.getByRole("heading", { name: /present tabs to any host that declares/ })).toBeVisible({ timeout: 60_000 });
+  // The newest open pull request a person opened (not a dependency bump), whatever it is today.
+  await frame.getByRole("button", { name: /#\d+/ }).filter({ hasNotText: "dependabot" }).first().click();
+  await expect(frame.getByRole("table", { name: /^Diff of / }).first()).toBeVisible({ timeout: 60_000 });
   await shootBoth("code-review");
 });
 
