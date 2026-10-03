@@ -10,6 +10,8 @@ import { useResolvedTheme } from "@renderer/hooks/use-theme";
 import { useSettings } from "@renderer/state/settings";
 import { APP_NAME } from "@shared/brand";
 
+import { createChatContext } from "./chat-context";
+
 /** Which processes the app's requests reach: a session's, or the app's. */
 export type FrameScope = { sessionId: string | null; projectId: string | null; root?: string | null };
 
@@ -160,7 +162,17 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
       serverTools: {},
       serverResources: {},
       logging: {},
+      // The chat beside the view: context for the next message, and a message now (`chat-context.ts`).
+      updateModelContext: { text: {}, image: {} },
+      message: { text: {}, image: {} },
     }, { hostContext: context });
+    const parsedScope = JSON.parse(scopeKey) as FrameScope;
+    const chat = createChatContext({ frameId: url, source: pluginName, sessionId: parsedScope.sessionId });
+    bridge.onupdatemodelcontext = async (params) => await chat.updateModelContext(params);
+    bridge.onmessage = async (params) => await chat.message(params);
+    const stopWatching = chat.watch(() => {
+      void Promise.resolve(bridge.sendHostContextChange({ "openai/modelContext": null })).catch(() => {});
+    });
     bridgeRef.current = bridge;
     const request = (method: "tools/call" | "resources/read" | "resources/list" | "resources/templates/list" | "prompts/list", params: Record<string, unknown>) =>
       window.workbench.plugins.request({ pluginId, server, method, params, scope });
@@ -195,6 +207,7 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
     });
     // Torn down with the frame, so the app can save what it holds.
     return () => {
+      stopWatching();
       if (bridgeRef.current === bridge) bridgeRef.current = null;
       void bridge.teardownResource({}).catch(() => {}).finally(() => void bridge.close().catch(() => {}));
     };

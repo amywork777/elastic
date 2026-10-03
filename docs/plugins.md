@@ -113,6 +113,15 @@ the view can call its own server's tools (`tools/call`) and read its
 resources. `@modelcontextprotocol/ext-apps`'s `App` does this for you;
 `resources/plugins/plugins/csv-table/ui.html` does it by hand in 40 lines.
 
+A view reaches the chat it sits beside (`src/renderer/plugins/chat-context.ts`).
+`ui/update-model-context` queues text and images for the person's next message:
+each update replaces the view's last one, it shows in the box as a chip titled by
+the block's `_meta["openai/title"]`, and it goes out after what they typed. When
+it is sent or the chip is taken out, the view gets a host-context change with
+`"openai/modelContext": null` and starts afresh (text-to-cad's Quick Edit works
+this way). `ui/message` sends the person's message now, queued behind a running
+turn. A view with no session of its own (a rail page) reaches the selected chat.
+
 The host context carries `theme` and `styles.variables` (the MCP Apps
 `--color-background-primary`, `--color-text-primary`, `--font-sans`, ...) from
 the app's own tokens. Use them and the view matches the window.

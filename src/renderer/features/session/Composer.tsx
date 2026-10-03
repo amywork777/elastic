@@ -33,7 +33,7 @@ import {
   QueueSectionTrigger,
 } from "@renderer/components/ai-elements/queue";
 import type { FileUIPart } from "@renderer/components/ai-elements/types";
-import { NEW_SESSION_KEY, useComposer, useQueue } from "@renderer/state/composer";
+import { NEW_SESSION_KEY, appContextPromptBlocks, appContextSummary, useComposer, useQueue } from "@renderer/state/composer";
 import { useActiveProject } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import type { AvailableCommand, PromptBlock } from "@shared/acp/types";
@@ -51,9 +51,11 @@ import { AttachmentImagePreview } from "./composer/AttachmentImagePreview";
 import { ComposerEditor, type ComposerEditorHandle } from "./composer/ComposerEditor";
 import { ReferenceScopeContext } from "./composer/ReferenceScope";
 import { AnnotationsChip, annotationImageParts, withAnnotations } from "./composer/AnnotationsChip";
-import type { DraftAnnotation, TakenDraft } from "@renderer/state/composer";
+import { AppContextChips } from "./composer/AppContextChip";
+import type { AppContext, DraftAnnotation, TakenDraft } from "@renderer/state/composer";
 
 const NO_ANNOTATIONS: DraftAnnotation[] = [];
+const NO_APP_CONTEXTS: AppContext[] = [];
 
 /**
  * The composer (plan §2): "Do anything", the `+` menu, the chips the caller
@@ -202,6 +204,8 @@ export function Composer({
   const annotations = useComposer((state) => state.annotations[draftKey] ?? NO_ANNOTATIONS);
   const removeAnnotations = useComposer((state) => state.removeAnnotations);
   const editAnnotation = useComposer((state) => state.editAnnotation);
+  const appContexts = useComposer((state) => state.appContexts[draftKey] ?? NO_APP_CONTEXTS);
+  const removeAppContext = useComposer((state) => state.removeAppContext);
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
@@ -212,12 +216,17 @@ export function Composer({
       }
       // Annotations added from the viewer go out with the prompt, after what was typed.
       const pending = useComposer.getState().annotations[draftKey] ?? NO_ANNOTATIONS;
+      // What plugin views queued (a Quick Edit) goes out after the typed text and its files.
+      const fromViews = useComposer.getState().appContexts[draftKey] ?? NO_APP_CONTEXTS;
       const trimmed = withAnnotations(message.text.trim(), pending);
-      if (!trimmed && message.files.length === 0) {
+      if (!trimmed && message.files.length === 0 && fromViews.length === 0) {
         return;
       }
       // A note's sketch goes out with it, after the form's own attachments.
-      const content = await toPromptBlocks(trimmed, [...message.files, ...await annotationImageParts(pending)], attachmentFiles);
+      const content = [
+        ...await toPromptBlocks(trimmed, [...message.files, ...await annotationImageParts(pending)], attachmentFiles),
+        ...appContextPromptBlocks(fromViews),
+      ];
       if (content.length === 0) {
         return;
       }
@@ -236,7 +245,7 @@ export function Composer({
       // files in the strip again (`restoreDraft`), from wherever the rejection arrives.
       void (async () => {
         try {
-          await onSubmit(trimmed, content, sent);
+          await onSubmit(trimmed || appContextSummary(fromViews), content, sent);
         } catch {
           useComposer.getState().restoreDraft(draftKey, sent);
         }
@@ -343,9 +352,12 @@ export function Composer({
           onSubmit={handleSubmit}
         >
           <AttachmentStrip
-            annotations={<AnnotationsChip annotations={annotations} onEdit={(id, text) => editAnnotation(draftKey, id, text)}
-              onRemove={() => removeAnnotations(draftKey)} onRemoveOne={(id) => removeAnnotations(draftKey, [id])} scope={referenceScope} />}
-            hasAnnotations={annotations.length > 0}
+            annotations={<>
+              <AnnotationsChip annotations={annotations} onEdit={(id, text) => editAnnotation(draftKey, id, text)}
+                onRemove={() => removeAnnotations(draftKey)} onRemoveOne={(id) => removeAnnotations(draftKey, [id])} scope={referenceScope} />
+              <AppContextChips contexts={appContexts} onRemove={(frameId) => removeAppContext(draftKey, frameId)} />
+            </>}
+            hasAnnotations={annotations.length > 0 || appContexts.length > 0}
           />
           <AttachmentSink admit={admit} draftKey={draftKey} />
           <AttachmentBridge targetRef={attachmentsRef} />

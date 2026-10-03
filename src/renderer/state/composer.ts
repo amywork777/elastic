@@ -94,11 +94,24 @@ export type TakenDraft = {
    * `restoreDraft` attaches them again.
    */
   files?: File[];
+  /** What plugin views queued for this message (`appContexts`). */
+  appContexts?: AppContext[];
 };
 
 /** The draft key for a session, or for the new-session state. */
 export const NEW_SESSION_KEY = "__new__";
 export const newSessionKey = (projectId: string) => `${NEW_SESSION_KEY}:${projectId}`;
+
+/**
+ * What a plugin's view (an MCP App) asked to go with the person's next message
+ * (`ui/update-model-context`): text and images, each with the title the view
+ * gave it (`_meta["openai/title"]`, e.g. "Quick edit · a.step"). One entry per
+ * frame; a frame's update replaces its entry, as the spec says.
+ */
+export type AppContextBlock =
+  | { type: "text"; text: string; title?: string }
+  | { type: "image"; data: string; mimeType: string; title?: string };
+export type AppContext = { frameId: string; source: string; blocks: AppContextBlock[] };
 
 export type DraftContext = { text?: string; references?: FileReference[]; files?: File[]; deduplicateText?: boolean };
 export type DraftPart =
@@ -150,6 +163,12 @@ type ComposerState = {
    * destination's `heldText`, so nothing is delivered back. An empty note is not an edit.
    */
   editAnnotation: (key: string, id: string, text: string) => void;
+  /** What plugin views queued for the next message, per draft key (`AppContext`). */
+  appContexts: Record<string, AppContext[]>;
+  /** Replace a frame's queued context; empty blocks take its entry out. */
+  setAppContext: (key: string, entry: AppContext) => void;
+  /** Take a frame's entry out, or all of a draft's. */
+  removeAppContext: (key: string, frameId?: string) => void;
   /** Files the explorer attached, per draft key, until the composer takes them. */
   pendingFiles: Record<string, File[]>;
   /** A new draft with a CAD reference runs in that model’s workspace. */
@@ -295,6 +314,19 @@ export const useComposer = create<ComposerState>((set, get) => ({
     if (kept) return { annotations: { ...state.annotations, [key]: kept } };
     return { annotations: withoutKey(state.annotations, key) };
   }),
+  appContexts: {},
+  setAppContext: (key, entry) => set((state) => {
+    const others = (state.appContexts[key] ?? []).filter((existing) => existing.frameId !== entry.frameId);
+    const next = entry.blocks.length ? [...others, { ...entry, blocks: [...entry.blocks] }] : others;
+    return { appContexts: next.length ? { ...state.appContexts, [key]: next } : withoutKey(state.appContexts, key) };
+  }),
+  removeAppContext: (key, frameId) => set((state) => {
+    const current = state.appContexts[key];
+    if (!current) return state;
+    const kept = frameId ? current.filter((entry) => entry.frameId !== frameId) : [];
+    if (kept.length === current.length) return state;
+    return { appContexts: kept.length ? { ...state.appContexts, [key]: kept } : withoutKey(state.appContexts, key) };
+  }),
   pendingFiles: {},
   draftRoots: {},
   setDraftRoot: (key, root) => set((state) => {
@@ -393,14 +425,17 @@ export const useComposer = create<ComposerState>((set, get) => ({
     const state = get();
     const labels = state.referenceLabels[key];
     const root = state.draftRoots[key];
+    const appContexts = state.appContexts[key];
     const taken: TakenDraft = {
       text: state.drafts[key] ?? "",
       annotations: state.annotations[key] ?? [],
       ...(labels && Object.keys(labels).length ? { labels: { ...labels } } : {}),
       ...(root ? { root } : {}),
+      ...(appContexts?.length ? { appContexts } : {}),
     };
     get().setDraft(key, "");
     get().removeAnnotations(key);
+    get().removeAppContext(key);
     return taken;
   },
 
@@ -416,6 +451,11 @@ export const useComposer = create<ComposerState>((set, get) => ({
       ...(draft.labels ? { referenceLabels: { ...state.referenceLabels, [key]: { ...draft.labels, ...state.referenceLabels[key] } } } : {}),
       ...(draft.root && !state.draftRoots[key] ? { draftRoots: { ...state.draftRoots, [key]: draft.root } } : {}),
       ...(draft.files?.length ? { pendingFiles: { ...state.pendingFiles, [key]: [...(state.pendingFiles[key] ?? []), ...draft.files] } } : {}),
+      // A frame that queued again since keeps its newer entry.
+      ...(draft.appContexts?.length ? { appContexts: { ...state.appContexts, [key]: [
+        ...draft.appContexts.filter((entry) => !(state.appContexts[key] ?? []).some((newer) => newer.frameId === entry.frameId)),
+        ...(state.appContexts[key] ?? []),
+      ] } } : {}),
     };
   }),
 
@@ -454,6 +494,7 @@ export const useComposer = create<ComposerState>((set, get) => ({
     drafts: withoutKey(state.drafts, sessionId),
     referenceLabels: withoutKey(state.referenceLabels, sessionId),
     annotations: withoutKey(state.annotations, sessionId),
+    appContexts: withoutKey(state.appContexts, sessionId),
     pendingFiles: withoutKey(state.pendingFiles, sessionId),
     draftRoots: withoutKey(state.draftRoots, sessionId),
     sending: withoutKey(state.sending, sessionId),
@@ -558,4 +599,35 @@ function clearSending(sessionId: string, token?: number) {
 
 export function useQueue(sessionId: string | null): QueuedPrompt[] {
   return useComposer(useShallow((state) => (sessionId ? (state.queues[sessionId] ?? []) : [])));
+}
+
+/**
+ * A view's `ui/update-model-context` or `ui/message` content as the blocks the app keeps: text
+ * and images, each with the view's title. Other block kinds (audio, links) are left out.
+ */
+export function appContextBlocks(content: readonly unknown[] | undefined): AppContextBlock[] {
+  const blocks: AppContextBlock[] = [];
+  for (const raw of content ?? []) {
+    if (!raw || typeof raw !== "object") continue;
+    const block = raw as { type?: unknown; text?: unknown; data?: unknown; mimeType?: unknown; _meta?: Record<string, unknown> };
+    const title = typeof block._meta?.["openai/title"] === "string" ? block._meta["openai/title"] : undefined;
+    if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
+      blocks.push({ type: "text", text: block.text, ...(title ? { title } : {}) });
+    } else if (block.type === "image" && typeof block.data === "string" && typeof block.mimeType === "string" && block.mimeType.startsWith("image/")) {
+      blocks.push({ type: "image", data: block.data, mimeType: block.mimeType, ...(title ? { title } : {}) });
+    }
+  }
+  return blocks;
+}
+
+/** What queued views add to a prompt: their text after what was typed, their images as images. */
+export function appContextPromptBlocks(contexts: readonly AppContext[]): PromptBlock[] {
+  return contexts.flatMap((entry) => entry.blocks.map((block): PromptBlock => block.type === "text"
+    ? { type: "text", text: block.text }
+    : { type: "image", data: block.data, mimeType: block.mimeType, uri: null }));
+}
+
+/** A plain-text line for a prompt that is only queued view context (the queue row's words). */
+export function appContextSummary(contexts: readonly AppContext[]): string {
+  return contexts.flatMap((entry) => entry.blocks.flatMap((block) => block.type === "text" ? [block.text] : [])).join("\n\n");
 }
