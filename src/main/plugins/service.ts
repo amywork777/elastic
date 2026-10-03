@@ -158,7 +158,11 @@ export class PluginService {
   /** Every server the host starts: of every enabled, readable plugin, but the app's own. */
   hostedServers(): HostedServer[] {
     return this.loaded.flatMap((plugin) => plugin.enabled && plugin.read
-      ? Object.entries(plugin.read.servers).filter(([, config]) => !config.builtin).map(([name, config]) => ({ pluginId: plugin.id, root: plugin.read!.root, name, config }))
+      ? Object.entries(plugin.read.servers).filter(([, config]) => !config.builtin).map(([name, config]) => ({
+        pluginId: plugin.id, root: plugin.read!.root, name, config,
+        // A Claude Code manifest (or none: a marketplace entry's inline one) starts its servers in the project.
+        workingDir: plugin.read!.manifestFile === "" || plugin.read!.manifestFile.includes(`${path.sep}.claude-plugin${path.sep}`) ? "project" as const : "plugin" as const,
+      }))
       : []);
   }
 

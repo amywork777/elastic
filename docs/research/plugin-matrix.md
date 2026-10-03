@@ -66,6 +66,106 @@ Codex's "worker did not announce itself within 120s" did not reproduce here;
 that message is cadgen's daemon pool (`cadgen/daemon/pool.py:274`), a
 different worker.
 
+## A new user's first run (2026-10-02)
+
+`tests/e2e/new-user.spec.ts` (opt-in, network): a fresh profile, the default
+marketplaces fetched from GitHub, each plugin installed the way Install does.
+Raw results: `new-user.json`; screenshots `new-user-*.png`.
+
+**The store.** Built in (4), Examples (4), Claude Code's official marketplace
+(315, at `d182ca4`), Codex official (`openai/plugins`, 65, at `5fd93af`) and
+text-to-cad (1, at `7b675cc`, 0.7.9): 389 entries, 360 cards, 28 plugins offered
+by two sources shown once (Linear, Notion, Figma, Sentry, Vercel, Supabase,
+GitHub, Slack, Stripe, Canva, …). Labels: Works 45, May need sign-in 3,
+Partly 71, Needs ChatGPT 5, Checked on install 236. The list puts what works
+first; a card has the plugin's own logo when its folder is on disk.
+
+| Plugin | From | Label | Installs | Servers | Exercised |
+| --- | --- | --- | --- | --- | --- |
+| playwright | Claude official | Works | yes | ready, 25 tools | `browser_navigate` example.com: page title "Example Domain" |
+| chrome-devtools-mcp | Claude official | Checked on install | yes, 7 skills | ready, 29 tools | tools listed (a call launches Chrome) |
+| desktop-commander | Claude official | Checked on install | yes, 6 skills | ready, 26 tools | `list_directory` lists `part.step` |
+| context7 | Claude official | May need sign-in | yes | sign-in | the server now answers 401 with OAuth metadata, though its listing says it works anonymously |
+| serena | Claude official | Works | yes | ready, 29 tools | tools listed |
+| frontend-design, playground | Claude official | Works | yes, 1 skill each | none | skills reach sessions |
+| mcp-apps | Claude official | Checked on install | yes, 4 skills | none | skills reach sessions |
+| typescript-lsp | Claude official | Partly | yes | none | a language server (`lspServers`); elastic does not run language servers |
+| notion | Codex official | Partly | yes, 4 skills | sign-in | registration accepted; reaches `app.notion.com` login |
+| sentry | Codex official | May need sign-in | yes, 1 skill | sign-in | reaches `mcp.sentry.dev` login |
+| vercel | Codex official | Partly | yes, 54 skills | sign-in | reaches `vercel.com` login |
+| supabase | Codex official | Partly | yes, 2 skills | sign-in | reaches `supabase.com` login |
+| atlassian | Claude official | Checked on install | yes, 6 skills | sign-in | reaches `id.atlassian.com` |
+| canva | Codex official | Partly | yes, 8 skills | sign-in | registration accepted at `mcp.canva.com/authorize`; canva.com refuses a scripted fetch of the login page (403), a browser is needed |
+| miro | Claude official | Checked on install | yes, 3 skills | sign-in | reaches `mcp.miro.com` login |
+| linear | Codex official | Partly | yes | sign-in | reaches `mcp.linear.app` login |
+| figma | Codex official | Partly | yes, 12 skills | sign-in | refused: `mcp.figma.com` registers only apps Figma approved (403); the app says so |
+| text-to-cad 0.7.9 | its GitHub marketplace | Works | yes, unchanged | ready, 16 tools | rail page, thread tab, `cad_file` for STEP: `part.step` renders (`new-user-cad-rail.png`, `new-user-cad-step.png`) |
+
+Every sign-in that registers clients dynamically (Notion, Sentry, Vercel,
+Supabase, Atlassian, Canva, Miro, Linear, Context7) works up to the provider's
+page; Figma alone refuses. "Partly" on Codex official's Linear, Notion and the
+like is their ChatGPT app (`.app.json`), which elastic cannot run; their MCP
+server and skills work.
+
+Fixed during the pass:
+
+- **text-to-cad from its marketplace showed no rail page or file handler.**
+  cadgen 0.7.9 reads tabs from its own client extension, `dev.texttocad/tabs`
+  (#510), not `openai/ui`; elastic now declares that key.
+- **chrome-devtools-mcp failed to start** ("command not found"): elastic
+  started a Claude Code plugin's server in the plugin's folder, which for this
+  plugin is the chrome-devtools-mcp repository, so `npx chrome-devtools-mcp@1.9.0`
+  ran the unbuilt local package. A Claude Code plugin's servers now start in
+  the project, as Claude Code does; a Codex plugin's in its folder, as Codex does.
+- **desktop-commander timed out** on its first `npx` download: a server a
+  package runner starts gets 180 s to come up (30 s otherwise).
+- The store's first screen led with "Checked on install" entries, had no
+  logos, a description missing where the manifest has one, and a search icon
+  over the placeholder.
+
+What a first-time user still hits, most important first:
+
+1. **236 of 360 cards say "Checked on install".** They live in other
+   repositories, so elastic cannot read them without cloning. Fetching each
+   entry's manifest (one small file per repository) in the background would
+   give them real labels.
+2. **Language servers (`lspServers`) are not run**, so typescript-lsp and the
+   other LSP plugins install with nothing to do.
+3. **Figma needs Figma's approval** (or a client id from Figma).
+4. **Codex's own plugins** that are ChatGPT apps, or `code-review` (a
+   launcher only Codex supplies), do nothing here; the labels say so.
+5. **Claude's marketplace has no display name**, so its source shows as
+   "claude-plugins-official".
+6. **cadgen's recent files are shared machine-wide** (`~/.cache`), so test
+   projects showed up as "File unavailable" in the CAD page's recents.
+
+## Any model, any plugin
+
+Every plugin reaches every agent the same way: `mcpServersFor`
+(`src/main/integrations/index.ts`) hands each session the app's workspace
+server, the bundled plugins' app servers and a stdio proxy per enabled plugin
+server, in `session/new` and `session/load`, whatever the agent. A stdio MCP
+server is the one kind every ACP agent must accept, so nothing is per agent.
+
+Proof, `tests/e2e/agent-plugins.spec.ts` (opt-in), text-to-cad 0.7.8 + PR #509,
+2026-10-02:
+
+| Agent | Calls it made | Result |
+| --- | --- | --- |
+| Claude Code (claude-agent-acp) | `ToolSearch`, `mcp__cad__cad_show` (no open viewer), `mcp__cad__cad_open` | all completed; the CAD tab opened |
+| Codex (codex-acp) | `mcp.cad.cad_show`, `mcp.cad.cad_open` | all completed; the CAD tab opened with `part.step` rendered (`agent-turn-codex.png`) |
+
+The model picker is the agent's own (the chips under the composer list what
+each adapter advertises: Claude's models, Codex's). Beyond Claude and Codex the
+agent registry (`src/main/agents/registry.ts`) already launches 21 more ACP
+agents: Gemini CLI, GitHub Copilot, OpenCode, Amp, Qwen Code, Kiro, Auggie,
+Goose, Mistral Vibe, Cursor, Droid, Hermes, Cline, Kimi, Kilo, Qoder, Grok
+Build, Deep Agents, fast-agent and others, each getting the same plugins. A
+custom command (any ACP agent not in the registry, from Settings) is not
+built: it needs a settings field for a list of user agents, a provider built
+from it (no install or auth probe), and an Add row on the Agents page; the
+per-agent `extraArgs`/`env` override already exists to build on.
+
 ## What "all the apps" takes
 
 - **CAD:** works as a plugin: rail page, tabs, file handler, and the model

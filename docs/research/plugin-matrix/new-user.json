@@ -1,0 +1,401 @@
+{
+  "store": {
+    "marketplaces": [
+      {
+        "name": "Built in",
+        "kind": "bundled",
+        "status": "ready",
+        "error": null,
+        "plugins": 4,
+        "commit": null
+      },
+      {
+        "name": "Examples",
+        "kind": "builtin",
+        "status": "ready",
+        "error": null,
+        "plugins": 4,
+        "commit": null
+      },
+      {
+        "name": "CAD",
+        "kind": "git",
+        "status": "ready",
+        "error": null,
+        "plugins": 1,
+        "commit": "7b675ccb1edec68a2fb228043d8fb9772ff93094"
+      },
+      {
+        "name": "claude-plugins-official",
+        "kind": "git",
+        "status": "ready",
+        "error": null,
+        "plugins": 315,
+        "commit": "d182ca456ca09d31d139f7d3818d1d333b103cce"
+      },
+      {
+        "name": "Codex official",
+        "kind": "git",
+        "status": "ready",
+        "error": null,
+        "plugins": 65,
+        "commit": "5fd93af4cd0c623e020d0cc7e9ce178b4ac1f70f"
+      }
+    ],
+    "entries": 360,
+    "listed": 389,
+    "merged": [
+      "coderabbit (Codex official + claude-plugins-official)",
+      "hyperframes (Codex official + claude-plugins-official)",
+      "twilio-developer-kit (Codex official + claude-plugins-official)",
+      "sentry (Codex official + claude-plugins-official)",
+      "airtable (Codex official + claude-plugins-official)",
+      "canva (Codex official + claude-plugins-official)",
+      "cloudflare (Codex official + claude-plugins-official)",
+      "datadog (Codex official + claude-plugins-official)",
+      "dropbox (Codex official + claude-plugins-official)",
+      "expo (Codex official + claude-plugins-official)",
+      "figma (Codex official + claude-plugins-official)",
+      "github (Codex official + claude-plugins-official)",
+      "linear (Codex official + claude-plugins-official)",
+      "notion (Codex official + claude-plugins-official)",
+      "posthog (Codex official + claude-plugins-official)",
+      "slack (Codex official + claude-plugins-official)",
+      "stripe (Codex official + claude-plugins-official)",
+      "supabase (Codex official + claude-plugins-official)",
+      "superpowers (Codex official + claude-plugins-official)",
+      "vercel (Codex official + claude-plugins-official)",
+      "astronomer-data-agents (claude-plugins-official + claude-plugins-official + claude-plugins-official)",
+      "cds-mcp (claude-plugins-official + claude-plugins-official)",
+      "crowdstrike-falcon-foundry (claude-plugins-official + Codex official)",
+      "crowdstrike-falcon-fusion (claude-plugins-official + Codex official)",
+      "qodo (claude-plugins-official + Codex official)",
+      "rc (claude-plugins-official + claude-plugins-official)",
+      "vanta (claude-plugins-official + claude-plugins-official)",
+      "lovable (Codex official + claude-plugins-official)"
+    ],
+    "labels": {
+      "Works": 45,
+      "May need sign-in": 3,
+      "Partly": 71,
+      "Checked on install": 236,
+      "Needs ChatGPT": 5
+    }
+  },
+  "playwright": {
+    "label": "Works",
+    "detail": "1 MCP server",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 0,
+    "servers": [
+      {
+        "name": "playwright",
+        "transport": "stdio",
+        "status": "ready",
+        "tools": 25,
+        "error": null
+      }
+    ],
+    "call": "{\"content\":[{\"type\":\"text\",\"text\":\"### Ran Playwright code\\n```js\\nawait page.goto('https://example.com');\\n```\\n### Page\\n- Page URL: https://example.com/\\n- Page Title: Example Domain\\n### Snapshot\\n- [Snapshot](.playwright-mcp/page-2026-10-03T00-30-42-454Z.yml)\"}]}"
+  },
+  "chrome-devtools-mcp": {
+    "label": "Checked on install",
+    "detail": "elastic reads this plugin from github.com when you install it",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 7,
+    "servers": [
+      {
+        "name": "chrome-devtools",
+        "transport": "stdio",
+        "status": "ready",
+        "tools": 29,
+        "error": null
+      }
+    ]
+  },
+  "desktop-commander": {
+    "label": "Checked on install",
+    "detail": "elastic reads this plugin from github.com when you install it",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 6,
+    "servers": [
+      {
+        "name": "desktop-commander",
+        "transport": "stdio",
+        "status": "ready",
+        "tools": 26,
+        "error": null
+      }
+    ],
+    "call": "{\"content\":[{\"type\":\"text\",\"text\":\"[FILE] part.step\"}]}"
+  },
+  "context7": {
+    "label": "May need sign-in",
+    "detail": "a server at mcp.context7.com; you sign in to mcp.context7.com if it asks",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 0,
+    "servers": [
+      {
+        "name": "context7",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ]
+  },
+  "serena": {
+    "label": "Works",
+    "detail": "1 MCP server",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 0,
+    "servers": [
+      {
+        "name": "serena",
+        "transport": "stdio",
+        "status": "ready",
+        "tools": 29,
+        "error": null
+      }
+    ]
+  },
+  "frontend-design": {
+    "label": "Works",
+    "detail": "1 skill",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 1,
+    "servers": []
+  },
+  "playground": {
+    "label": "Works",
+    "detail": "1 skill",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 1,
+    "servers": []
+  },
+  "mcp-apps": {
+    "label": "Checked on install",
+    "detail": "elastic reads this plugin from github.com when you install it",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 4,
+    "servers": []
+  },
+  "typescript-lsp": {
+    "label": "Partly",
+    "detail": "elastic does not run its a language server",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 0,
+    "servers": []
+  },
+  "notion": {
+    "label": "Partly",
+    "source": "Codex official",
+    "installed": true,
+    "skills": 4,
+    "servers": [
+      {
+        "name": "notion",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": true,
+      "page": "200 app.notion.com",
+      "authorize": "mcp.notion.com/authorize"
+    }
+  },
+  "sentry": {
+    "label": "May need sign-in",
+    "source": "Codex official",
+    "installed": true,
+    "skills": 1,
+    "servers": [
+      {
+        "name": "sentry",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": true,
+      "page": "200 mcp.sentry.dev",
+      "authorize": "mcp.sentry.dev/oauth/authorize"
+    }
+  },
+  "vercel": {
+    "label": "Partly",
+    "source": "Codex official",
+    "installed": true,
+    "skills": 54,
+    "servers": [
+      {
+        "name": "vercel",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": true,
+      "page": "200 vercel.com",
+      "authorize": "vercel.com/oauth/authorize"
+    }
+  },
+  "supabase": {
+    "label": "Partly",
+    "source": "Codex official",
+    "installed": true,
+    "skills": 2,
+    "servers": [
+      {
+        "name": "supabase",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": true,
+      "page": "200 supabase.com",
+      "authorize": "api.supabase.com/v1/oauth/authorize"
+    }
+  },
+  "atlassian": {
+    "label": "Checked on install",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 6,
+    "servers": [
+      {
+        "name": "atlassian",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": true,
+      "page": "202 id.atlassian.com",
+      "authorize": "auth.atlassian.com/authorize"
+    }
+  },
+  "canva": {
+    "label": "Partly",
+    "source": "Codex official",
+    "installed": true,
+    "skills": 8,
+    "servers": [
+      {
+        "name": "canva",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": true,
+      "page": "403 www.canva.com",
+      "authorize": "mcp.canva.com/authorize"
+    }
+  },
+  "miro": {
+    "label": "Checked on install",
+    "source": "claude-plugins-official",
+    "installed": true,
+    "skills": 3,
+    "servers": [
+      {
+        "name": "miro",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": true,
+      "page": "200 mcp.miro.com",
+      "authorize": "mcp.miro.com/authorize"
+    }
+  },
+  "linear": {
+    "label": "Partly",
+    "source": "Codex official",
+    "installed": true,
+    "skills": 0,
+    "servers": [
+      {
+        "name": "linear",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": true,
+      "page": "200 mcp.linear.app",
+      "authorize": "mcp.linear.app/authorize"
+    }
+  },
+  "figma": {
+    "label": "Partly",
+    "source": "Codex official",
+    "installed": true,
+    "skills": 12,
+    "servers": [
+      {
+        "name": "figma",
+        "transport": "http",
+        "status": "signin",
+        "tools": 0,
+        "error": null
+      }
+    ],
+    "signIn": {
+      "reachesLogin": false,
+      "said": "(no browser) error: Error invoking remote method 'elastic:plugins.signIn': IpcError: mcp.figma.com only lets approved apps sign in (its client registration answered 403). The server's owner has to allow this app."
+    }
+  },
+  "text-to-cad": {
+    "label": "Works",
+    "sources": [
+      "CAD"
+    ],
+    "installed": true,
+    "version": "0.7.9",
+    "servers": [
+      {
+        "name": "cad",
+        "status": "ready",
+        "tools": 16,
+        "error": null
+      }
+    ],
+    "views": [
+      "cad_home:global",
+      "cad_tab:thread",
+      "cad_file:file",
+      "cad_open:thread"
+    ],
+    "stepView": "part.step Top Front Right X Y Z Allow Analytics text-to-cad is free and open source. Anonymous user and error counts help us fix bugs and improve the project. We never collect your files, models or prompts. Read our Privacy Policy. No thanks Allow"
+  }
+}

@@ -102,15 +102,15 @@ function readSkills(root: string, manifest: PluginManifest): { dir: string | nul
 const LOGO_TYPES: Record<string, string> = { ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" };
 const MAX_LOGO_BYTES = 256 * 1024;
 
-/** The manifest's logo as a data URL, or null when there is none it can show. */
-function readLogo(root: string, manifest: PluginManifest): string | null {
+/** The manifest's logo as a data URL, or null when there is none it can show (or it is over `max` bytes). */
+export function readLogo(root: string, manifest: Pick<PluginManifest, "interface">, max = MAX_LOGO_BYTES): string | null {
   const relative = manifest.interface?.logo ?? manifest.interface?.composerIcon;
   if (!relative) return null;
   try {
     const file = insidePlugin(root, relative);
     const type = LOGO_TYPES[path.extname(file).toLowerCase()];
     const stat = fs.statSync(file, { throwIfNoEntry: false });
-    if (!type || !stat?.isFile() || stat.size > MAX_LOGO_BYTES) return null;
+    if (!type || !stat?.isFile() || stat.size > max) return null;
     return `data:${type};base64,${fs.readFileSync(file).toString("base64")}`;
   } catch {
     return null;

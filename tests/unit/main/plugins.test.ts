@@ -234,3 +234,17 @@ describe("bundled plugins", () => {
     expect(service.hostedServers()).toEqual([]);
   });
 });
+
+describe("where a plugin's servers start", () => {
+  const host = () => ({ setServers: vi.fn(), closePlugin: vi.fn(async () => {}), listTools: vi.fn(async () => []), signedIn: () => false }) as unknown as PluginHost;
+  it("in the project for a Claude Code plugin, in its own folder for a Codex one", async () => {
+    write("claude/.claude-plugin/plugin.json", { name: "claude-one" });
+    write("claude/.mcp.json", { mcpServers: { c: { command: "npx", args: ["thing@1"] } } });
+    write("codex/.codex-plugin/plugin.json", { name: "codex-one" });
+    write("codex/.mcp.json", { mcpServers: { x: { command: "./bin/launch" } } });
+    const service = new PluginService({ registry: new PluginRegistry(path.join(dir, "installed.json")), host: host() });
+    await service.installFolder(path.join(dir, "claude"));
+    await service.installFolder(path.join(dir, "codex"));
+    expect(Object.fromEntries(service.hostedServers().map((server) => [server.pluginId, server.workingDir]))).toEqual({ "claude-one": "project", "codex-one": "plugin" });
+  });
+});

@@ -88,14 +88,17 @@ server can tell what it is talking to without knowing the app's name:
 ```js
 extensions: {
   "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
-  "openai/ui": { entrypoints: ["global", "thread", "file"] },
+  "dev.texttocad/tabs": { entrypoints: ["global", "thread", "file"] },
 }
 ```
 
 The first is the MCP Apps standard (views render). The second says this host
-presents Codex's entrypoints, so a server that has tab surfaces (text-to-cad's
-CAD plugin) can offer them to any host that declares it rather than to a list
-of client names (`src/main/plugins/host.ts`).
+presents Codex's entrypoints (rail page, thread tab, file handler), so a server
+that has tab surfaces can offer them to any host that declares it rather than
+to a list of client names (`src/main/plugins/host.ts`). No standard names this
+yet; the key is text-to-cad's (cadgen 0.7.9 and later), which also expects one
+server process per thread and the thread's folder through MCP roots, as
+elastic does.
 
 The view is a sandboxed frame served from its own `mcp-app://<random id>`
 URL, which is its own origin: real, so module and `blob:` workers and storage

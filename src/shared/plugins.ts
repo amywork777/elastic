@@ -28,9 +28,12 @@ export const MCP_UI_EXTENSION = "io.modelcontextprotocol/ui";
 /**
  * The client capability extension that tells a server which of Codex's UI entrypoints this host
  * presents (a rail page, a thread tab, a file handler), so a server can offer tabs to any host that
- * declares them rather than to a list of client names. Named after the tool `_meta` key it answers.
+ * declares them rather than to a list of client names. No standard names one yet: this is
+ * text-to-cad's (`dev.texttocad/tabs`, cadgen 0.7.9; earthtojake/text-to-cad #509, #510), which
+ * also asks what elastic already does: one server process per thread, and the thread's folder
+ * through MCP roots.
  */
-export const UI_ENTRYPOINTS_EXTENSION = "openai/ui";
+export const UI_ENTRYPOINTS_EXTENSION = "dev.texttocad/tabs";
 export const UI_ENTRYPOINTS = ["global", "thread", "file"] as const;
 
 /** One MCP server as a plugin's `.mcp.json` declares it: Codex's keys, and Claude Code's. */
@@ -228,6 +231,8 @@ export const CatalogEntrySchema = z.object({
   category: z.string().nullable(),
   version: z.string().nullable(),
   homepage: z.string().nullable(),
+  /** The plugin's own logo (a small data URL), when its folder is on disk; else null. */
+  logo: z.string().nullable().default(null),
   compat: CompatibilitySchema,
   /** The first is what Install uses; the rest are alternates. */
   sources: z.array(CatalogSourceSchema).min(1),

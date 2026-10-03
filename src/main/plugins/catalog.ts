@@ -20,7 +20,10 @@ import path from "node:path";
 
 import type { CatalogEntry, CatalogSource, Compatibility } from "../../shared/plugins";
 import { keyOf } from "./git";
-import { expandPluginRoot, findManifest, type MarketplaceEntryFile, type MarketplaceFile } from "./manifest";
+import { expandPluginRoot, findManifest, readLogo, type MarketplaceEntryFile, type MarketplaceFile } from "./manifest";
+
+/** A card's logo is pushed with every snapshot: small ones only. */
+const CATALOG_LOGO_BYTES = 24 * 1024;
 
 export type CatalogMarket = MarketplaceFile & {
   kind: CatalogSource["kind"];
@@ -131,13 +134,22 @@ function rank(source: CatalogSource): number {
   return source.kind === "bundled" ? 0 : source.codex ? 1 : source.onDisk ? 2 : 3;
 }
 
-function displayNameOf(entry: MarketplaceEntryFile): string | null {
-  if (!entry.path || !isDir(entry.path)) return null;
+/** What the plugin's own manifest says about it, when its folder is on disk: name, sentence, logo. */
+function presentationOf(entry: MarketplaceEntryFile): { displayName: string | null; description: string | null; logo: string | null } {
+  const none = { displayName: null, description: null, logo: null };
+  if (!entry.path || !isDir(entry.path)) return none;
   const file = findManifest(entry.path);
   const manifest = file ? readJson(file) as Json | null : null;
-  const name = (manifest?.interface as Json | undefined)?.displayName;
-  return typeof name === "string" && name ? name : null;
+  if (!manifest) return none;
+  const face = (manifest.interface && typeof manifest.interface === "object" ? manifest.interface : {}) as Json;
+  const text = (value: unknown) => (typeof value === "string" && value ? value : null);
+  let logo: string | null = null;
+  try { logo = readLogo(entry.path, { interface: face as never }, CATALOG_LOGO_BYTES); } catch { /* none */ }
+  return { displayName: text(face.displayName), description: text(face.shortDescription) ?? text(manifest.description), logo };
 }
+
+/** Works first, then what works with a sign-in or in part, then what cannot be told before installing, then what will not run. */
+const LEVEL_ORDER: Record<Compatibility["level"], number> = { works: 0, signin: 1, partly: 2, unknown: 3, codex: 4, unavailable: 5 };
 
 /** The merged list. `installed` maps `<marketplace file>#<entry name>` and plugin ids to installed plugin ids. */
 export function buildCatalog(markets: CatalogMarket[], installed: { bySource: Map<string, string>; ids: Set<string> }): CatalogEntry[] {
@@ -182,13 +194,15 @@ export function buildCatalog(markets: CatalogMarket[], installed: { bySource: Ma
   return merged.map((group) => {
     const items = [...group.items].sort((a, b) => rank(a.source) - rank(b.source));
     const first = items[0]!;
+    const face = presentationOf(first.entry);
     const installedId = items.map((item) => installed.bySource.get(`${item.source.marketplace}#${item.source.name}`)).find(Boolean)
       ?? (installed.ids.has(first.entry.name) ? first.entry.name : null);
     return {
       key: group.key,
       name: first.entry.name,
-      displayName: displayNameOf(first.entry) ?? first.entry.name,
-      description: items.map((item) => item.entry.description).find(Boolean) ?? "",
+      displayName: face.displayName ?? first.entry.name,
+      description: items.map((item) => item.entry.description).find(Boolean) ?? face.description ?? "",
+      logo: face.logo,
       category: items.map((item) => item.entry.category).find(Boolean) ?? null,
       version: first.entry.version,
       homepage: items.map((item) => item.entry.homepage).find(Boolean) ?? null,
@@ -196,5 +210,5 @@ export function buildCatalog(markets: CatalogMarket[], installed: { bySource: Ma
       sources: items.map((item) => item.source),
       installedId,
     };
-  }).sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }).sort((a, b) => LEVEL_ORDER[a.compat.level] - LEVEL_ORDER[b.compat.level] || a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" }));
 }

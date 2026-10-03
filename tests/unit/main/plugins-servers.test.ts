@@ -89,7 +89,7 @@ describe("the plugin host, against real servers", () => {
     const result = await service.request(null, "caps", "caps", "tools/call", { name: "client_caps", arguments: {} }) as { content: Array<{ text: string }> };
     expect(JSON.parse(result.content[0]!.text).extensions).toEqual({
       "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
-      "openai/ui": { entrypoints: ["global", "thread", "file"] },
+      "dev.texttocad/tabs": { entrypoints: ["global", "thread", "file"] },
     });
   });
 

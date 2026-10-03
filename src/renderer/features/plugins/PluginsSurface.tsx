@@ -225,7 +225,7 @@ function BrowsePage() {
       />
       <div className="relative mb-2">
         <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
-        <Input aria-label="Search plugins" className="h-8 pl-8 text-sm" onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${catalog.length} plugins`} value={query} />
+        <Input aria-label="Search plugins" className="h-8 text-sm" style={{ paddingLeft: "2rem" }} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${catalog.length} plugins`} value={query} />
       </div>
       <p aria-live="polite" className="mb-4 h-4 text-muted-foreground text-xs" role="status">
         {fetching.length > 0 ? <><Spinner className="mr-1 inline size-3" /> Fetching {fetching.map((market) => market.displayName).join(", ")}…</> : null}
@@ -238,7 +238,7 @@ function BrowsePage() {
             const record = entry.installedId ? installed.find((plugin) => plugin.id === entry.installedId) ?? null : null;
             return (
               <div className="flex items-center gap-3 px-3 py-2.5" data-catalog-entry={entry.name} key={entry.key}>
-                <PluginLogo className="size-8" plugin={record ?? { logo: null, brandColor: null, displayName: entry.displayName }} />
+                <PluginLogo className="size-8" plugin={record ?? { logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
                 <button className="min-w-0 flex-1 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={() => show(record ? { plugin: record.id } : { entry: entry.key })} type="button">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium text-sm">{record?.displayName ?? entry.displayName}</span>
@@ -310,7 +310,7 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
         <ChevronLeft className="size-3.5" /> Plugins
       </button>
       <div className="flex items-start gap-4 pb-6">
-        <PluginLogo className="size-14 rounded-xl" plugin={{ logo: null, brandColor: null, displayName: entry.displayName }} />
+        <PluginLogo className="size-14 rounded-xl" plugin={{ logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
         <div className="min-w-0 flex-1">
           <h1 className="font-semibold text-xl">{entry.displayName}</h1>
           <p className="mt-1 text-muted-foreground text-sm">{entry.description || "No description"}</p>

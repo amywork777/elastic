@@ -13,6 +13,7 @@
  * extension with `text/html;profile=mcp-app`) and answers `roots/list` with
  * the session's directory.
  */
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -55,10 +56,26 @@ export type ForwardedMethod = keyof typeof FORWARDED_METHODS;
 
 export const APP_SCOPE = "app";
 const DEFAULT_STARTUP_SECONDS = 30;
+/**
+ * A server a package runner starts (`npx -y pkg@latest`, `uvx tool`) downloads
+ * on its first run, which takes longer than 30 s on a new machine: Desktop
+ * Commander's first `npx` did. Its own `startup_timeout_sec` still wins.
+ */
+const RUNNER_STARTUP_SECONDS = 180;
+const PACKAGE_RUNNERS = /(^|[\\/])(npx|uvx|bunx|pnpx|pipx|uv|pnpm|bun|yarn)(\.cmd|\.exe)?$/;
 const DEFAULT_TOOL_SECONDS = 120;
 const STDERR_LINES = 20;
 
-export type HostedServer = { pluginId: string; root: string; name: string; config: PluginServerConfig };
+/**
+ * `workingDir`: where a server starts when its config names no `cwd`. Codex
+ * starts a plugin's servers in the plugin's folder (its launchers are
+ * relative: `./bin/…`); Claude Code starts them in the project and plugins
+ * reach their own files through `${CLAUDE_PLUGIN_ROOT}`. A Claude Code plugin
+ * started in its own folder breaks when that folder is a package: `npx
+ * chrome-devtools-mcp@1.9.0` inside the chrome-devtools-mcp repository runs the
+ * unbuilt local package instead of the release.
+ */
+export type HostedServer = { pluginId: string; root: string; name: string; config: PluginServerConfig; workingDir?: "plugin" | "project" };
 
 type Connection = { client: Client; closed: boolean; stderr: string[]; roots: string[] };
 
@@ -117,7 +134,8 @@ export class PluginHost {
       roots: connection.roots.map((root) => ({ uri: pathToFileURL(root).href, name: path.basename(root) })),
     }));
     client.onclose = () => { connection.closed = true; };
-    const timeout = (config.startup_timeout_sec ?? DEFAULT_STARTUP_SECONDS) * 1000;
+    const timeout = (config.startup_timeout_sec
+      ?? (config.command && PACKAGE_RUNNERS.test(config.command) ? RUNNER_STARTUP_SECONDS : DEFAULT_STARTUP_SECONDS)) * 1000;
     if (config.url) {
       // Saved credentials go with the request (and refresh); without any, a 401 means "Sign in".
       const authProvider = this.deps.auth?.store.signedIn(config.url)
@@ -138,7 +156,8 @@ export class PluginHost {
       return connection;
     }
     const shell = await this.deps.environment();
-    const cwd = config.cwd ? insidePlugin(server.root, config.cwd) : server.root;
+    const cwd = config.cwd ? insidePlugin(server.root, config.cwd)
+      : server.workingDir === "project" ? roots[0] ?? os.homedir() : server.root;
     const env: Record<string, string> = { ...shell };
     const prefix = this.deps.pathPrefix?.() ?? [];
     if (prefix.length > 0) {
