@@ -43,6 +43,8 @@ const PANEL_WIDTH_KEY = "elastic.explorer.panelWidth";
 const PANE_COLLAPSED_KEY = "elastic.explorer.session.collapsed";
 /** How wide it is when it is open, per session id (see `width`). */
 const PANE_WIDTH_KEY = "elastic.explorer.session.width";
+/** The strip's selected tab, per session id, so a relaunch comes back on it rather than the first. */
+const PANE_ACTIVE_KEY = "elastic.explorer.session.activeTab";
 /**
  * The column's range and its default are the shared shell's
  * (`FilePanelColumn.jsx`), which is the component that draws it — so the
@@ -82,7 +84,7 @@ function bySession<T>(key: string): Record<string, T> {
 }
 
 function forgetPanePreferences(doomed: (sessionId: string) => boolean): void {
-  for (const key of [PANE_COLLAPSED_KEY, PANE_WIDTH_KEY]) {
+  for (const key of [PANE_COLLAPSED_KEY, PANE_WIDTH_KEY, PANE_ACTIVE_KEY]) {
     const stored = bySession<unknown>(key);
     const kept = Object.fromEntries(Object.entries(stored).filter(([sessionId]) => !doomed(sessionId)));
     if (Object.keys(kept).length !== Object.keys(stored).length) writeLocal(key, JSON.stringify(kept));
@@ -348,8 +350,17 @@ function flushTabSave(sessionId: string): void {
   void saving.then(() => { if (savingSessions.get(sessionId) === saving) savingSessions.delete(sessionId); });
 }
 
+function rememberActiveTab(sessionId: string, activeId: string | null): void {
+  const active = bySession<string>(PANE_ACTIVE_KEY);
+  if ((active[sessionId] ?? null) === activeId) return;
+  if (activeId) active[sessionId] = activeId;
+  else delete active[sessionId];
+  writeLocal(PANE_ACTIVE_KEY, JSON.stringify(active));
+}
+
 function saveStrip(sessionId: string, strip: Strip): void {
   retainedStrips.set(sessionId, strip);
+  rememberActiveTab(sessionId, strip.activeId);
   notifySessionTabs();
   pendingSaves.set(sessionId, strip.tabs
     .map((tab, order) => ({ ...tab, order })));
@@ -853,7 +864,9 @@ export async function readSessionStrip(sessionId: string): Promise<Strip> {
       if (discardedSessions.has(sessionId) || (sessionGenerations.get(sessionId) ?? 0) !== generation) throw new Error("This session is no longer active.");
       const tabs = (persisted as ExplorerTab[]).filter(tab => tab.sessionId === sessionId);
       rememberTabOwners(sessionId, tabs.filter(tab => tab.kind === "file").map(tab => tab.id));
-      const strip = currentStrip(sessionId) ?? { tabs, activeId: tabs[0]?.id ?? null };
+      const remembered = bySession<string>(PANE_ACTIVE_KEY)[sessionId];
+      const activeId = tabs.some(tab => tab.id === remembered) ? remembered! : tabs[0]?.id ?? null;
+      const strip = currentStrip(sessionId) ?? { tabs, activeId };
       retainedStrips.set(sessionId, strip);
       notifySessionTabs();
       return strip;
@@ -966,3 +979,10 @@ export function flushSessionTabs(sessionId: string): Promise<void> {
   void settled.then(() => { if (savingSessions.get(sessionId) === settled) savingSessions.delete(sessionId); });
   return saving;
 }
+
+// The selected tab is remembered per session whichever way it changed (a click, a chord, an open).
+useExplorer.subscribe((state, previous) => {
+  if (state.ready && state.sessionId && state.sessionId === previous.sessionId && state.activeId !== previous.activeId) {
+    rememberActiveTab(state.sessionId, state.activeId);
+  }
+});

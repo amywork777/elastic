@@ -339,6 +339,17 @@ describe("the explorer strip", () => {
     expect(useExplorer.getState()).toMatchObject({ sessionId: "shut", ready: true, collapsed: true });
   });
 
+  it("comes back on the tab that was active, not the first", async () => {
+    const tool = { id: "tab-cad", sessionId: "active-back", projectId: PROJECT, order: 0, kind: "tool" as const, root: null, pluginId: "text-to-cad", toolId: "cad/cad_open", title: "CAD" };
+    const file = { id: "tab-file", sessionId: "active-back", projectId: PROJECT, order: 1, kind: "file" as const, root: null, path: "a.step", panel: null };
+    window.localStorage.setItem("elastic.explorer.session.activeTab", JSON.stringify({ "active-back": "tab-file" }));
+    vi.mocked(window.workbench.explorer.loadTabs).mockResolvedValueOnce([tool, file] as never);
+    await useExplorer.getState().bindSession("active-back", PROJECT);
+    expect(useExplorer.getState().activeId).toBe("tab-file");
+    useExplorer.getState().setActive("tab-cad");
+    expect(JSON.parse(window.localStorage.getItem("elastic.explorer.session.activeTab")!)["active-back"]).toBe("tab-cad");
+  });
+
   it("shares an in-flight session restore without applying it to a different session", async () => {
     const earlier = deferred<PersistedExplorerTab[]>();
     const fresh = `unloaded-${PROJECT}`;
