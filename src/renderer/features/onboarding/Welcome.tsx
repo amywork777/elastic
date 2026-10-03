@@ -1,3 +1,4 @@
+import LoadingIcon from "@workbench/ui/loading-icon";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Blocks, Check, FolderOpen, Loader2 } from "lucide-react";
 
@@ -9,7 +10,6 @@ import { useAgents, useAgentsProbing } from "@renderer/state/agents";
 import { useOnboarding } from "@renderer/state/onboarding";
 import { useSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";
-import appMark from "@renderer/assets/brand/elastic-mark.svg";
 import { errorMessage } from "@shared/ipc/errors";
 
 /**
@@ -90,7 +90,7 @@ export function Welcome() {
 function WelcomeStep() {
   return (
     <section aria-labelledby="onboarding-title">
-      <img alt="" className="size-12 object-contain" src={appMark} />
+      <LoadingIcon active={false} className="text-foreground" size={48} />
       <h1 className="mt-5 text-2xl font-medium tracking-tight outline-none" id="onboarding-title" tabIndex={-1}>
         Welcome to elastic
       </h1>

@@ -338,7 +338,10 @@ else that needs a real database belongs in the e2e.
 
 ## Brand
 
-The mark is `src/renderer/assets/brand/elastic-mark.svg`.
+The Dock icon is `build/icon.png` and its SVG is
+`src/renderer/assets/brand/elastic-mark.svg` (both from `scripts/brand-mark.mjs`).
+Inside the app the mark is the band and pegs alone, with no tile, in the text
+colour: the loading glyph's still pose (`Wordmark.tsx`, the welcome).
 
 ## Packaging
 
