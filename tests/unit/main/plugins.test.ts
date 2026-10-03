@@ -92,14 +92,16 @@ describe("readMarketplace", () => {
     });
     const market = readMarketplace(path.join(dir, "m"));
     expect(market.displayName).toBe("Mine");
-    expect(market.plugins.map((plugin) => plugin.name)).toEqual(["a", "b"]);
+    // A GitHub source is listed with where to clone it from; one that climbs out of the marketplace is not listed.
+    expect(market.plugins.map((plugin) => plugin.name)).toEqual(["a", "b", "remote"]);
     expect(market.plugins[0]!.path).toBe(path.join(dir, "m", "plugins", "a"));
+    expect(market.plugins[2]).toMatchObject({ path: null, remote: { url: "https://github.com/x/y.git", subdir: null } });
   });
 
   it("reads the app's own examples marketplace", () => {
     const market = readMarketplace(path.resolve("resources/plugins"));
     expect(market.plugins.map((plugin) => plugin.name)).toEqual(["csv-table", "filesystem", "memory", "mcp-app-demo"]);
-    for (const plugin of market.plugins) expect(() => readPlugin(plugin.path)).not.toThrow();
+    for (const plugin of market.plugins) expect(() => readPlugin(plugin.path!)).not.toThrow();
   });
 });
 

@@ -40,7 +40,8 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
  */
 export type Surface =
   | { kind: "home" }
-  | { kind: "plugins"; view: "browse" | "file-types" | { plugin: string } }
+  /** `entry`: a catalog card that is not installed, by its key. */
+  | { kind: "plugins"; view: "browse" | "file-types" | { plugin: string } | { entry: string } }
   | { kind: "app"; pluginId: string; toolId: string };
 
 type UiState = {

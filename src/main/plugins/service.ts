@@ -14,12 +14,14 @@
  * started (or failed to). A plugin with a slow `npx` server never holds up the
  * window.
  */
+import fs from "node:fs";
 import path from "node:path";
 
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 import {
   readToolUi,
+  type CatalogEntry,
   type Marketplace,
   type PluginRecord,
   type PluginServerState,
@@ -27,12 +29,15 @@ import {
   type PluginTool,
 } from "../../shared/plugins";
 import { APP_SCOPE, type ForwardedMethod, type HostedServer, type PluginHost } from "./host";
-import { readMarketplace, readPlugin, type ReadPlugin } from "./manifest";
-import type { PluginRegistry } from "./registry";
+import { buildCatalog, type CatalogMarket } from "./catalog";
+import { copyPluginFolder, fetchLatest, keyOf, parseGitRemote, shallowClone } from "./git";
+import { insidePlugin, readMarketplace, readPlugin, type MarketplaceEntryFile, type MarketplaceFile, type ReadPlugin } from "./manifest";
+import type { PluginRegistry, RemoteMarketplace } from "./registry";
 
 export type PluginsSnapshot = {
   plugins: PluginRecord[];
   marketplaces: Marketplace[];
+  catalog: CatalogEntry[];
   fileHandlers: Record<string, string>;
   fileConsent: Record<string, string[]>;
 };
@@ -48,6 +53,15 @@ export type PluginServiceDeps = {
    * of each app server (`builtin`) they may name. Turned off, never uninstalled.
    */
   bundled?: { marketplace: string; appServers: Readonly<Record<string, readonly string[]>> };
+  /**
+   * `<userData>/plugins`: git marketplaces are cloned under `marketplaces/`, and plugins from
+   * them (or from other repositories) copied under `cache/`, one folder per commit.
+   */
+  dataDir?: string;
+  /** Repositories added as marketplaces on the first run (`owner/repo` or git URLs). */
+  defaultMarketplaces?: readonly string[];
+  /** A git marketplace older than this is fetched again in the background. */
+  staleAfterMs?: number;
   /** Called after anything a snapshot shows has changed. */
   changed?: (snapshot: PluginsSnapshot) => void;
 };
@@ -76,6 +90,9 @@ export class PluginService {
   private readonly tools = new Map<string, ServerTools>();
   private listing = new Map<string, Promise<void>>();
   private generation = 0;
+  /** Clone folder → its fetch in flight. */
+  private readonly fetching = new Map<string, Promise<void>>();
+  private catalogCache: { signature: string; catalog: CatalogEntry[] } | null = null;
 
   constructor(private readonly deps: PluginServiceDeps) {
     this.installBundled();
@@ -107,6 +124,7 @@ export class PluginService {
       return;
     }
     for (const entry of market.plugins) {
+      if (!entry.path) continue;
       const current = this.registry.get(entry.name);
       if (current?.source.kind === "marketplace" && current.source.marketplace === market.file && path.resolve(current.source.path) === path.resolve(entry.path)) continue;
       this.registry.install(entry.name, { kind: "marketplace", marketplace: market.file, name: entry.name, path: entry.path });
@@ -235,7 +253,31 @@ export class PluginService {
       tools,
       defaultPrompts: manifest?.interface?.defaultPrompt ?? [],
       bundled: this.isBundled(read?.root ?? plugin.source.path),
+      updateAvailable: this.updateAvailable(plugin),
     };
+  }
+
+  /**
+   * Whether the plugin's marketplace now offers something newer: another commit
+   * for a remote entry, a different version (or different files, when neither
+   * names one) for a folder in a git marketplace. Folder marketplaces are used
+   * in place and are always current.
+   */
+  private updateAvailable(plugin: Loaded): boolean {
+    const source = plugin.source;
+    if (source.kind !== "marketplace" || !source.commit) return false;
+    const remote = this.registry.remoteMarketplaces().find((item) => isInside(item.dir, source.marketplace) || item.dir === source.marketplace);
+    let entry: MarketplaceEntryFile | undefined;
+    try { entry = readMarketplace(source.marketplace).plugins.find((item) => item.name === source.name); } catch { return false; }
+    if (!entry) return false;
+    if (entry.remote) return entry.remote.sha !== null && entry.remote.sha !== source.commit;
+    if (!remote?.commit || remote.commit === source.commit || !entry.path) return false;
+    try {
+      const latest = readPlugin(entry.path, entry.inline);
+      const installed = plugin.read?.manifest.version ?? null;
+      if (latest.manifest.version && installed) return latest.manifest.version !== installed;
+      return fingerprint(entry.path) !== fingerprint(source.path);
+    } catch { return false; }
   }
 
   plugins(): PluginRecord[] {
@@ -247,29 +289,83 @@ export class PluginService {
     return found ? this.record(found) : null;
   }
 
-  marketplaces(): Marketplace[] {
-    const installed = new Set(this.loaded.map((plugin) => plugin.source.path));
-    const files = [...new Set([...(this.deps.builtinMarketplaces?.() ?? []), ...this.registry.marketplaces()])];
-    return files.flatMap((file) => {
-      try {
-        const market = readMarketplace(file);
-        return [{
-          file: market.file,
-          name: market.name,
-          displayName: market.displayName,
-          plugins: market.plugins.map((entry) => ({ ...entry, displayName: entry.name, installed: installed.has(entry.path) })),
-        }];
-      } catch (error) {
+  /** Every marketplace this app lists, read: the bundled one, the examples, folders, then git clones. */
+  private markets(): Array<{ market: MarketplaceFile | null; kind: Marketplace["kind"]; remote: RemoteMarketplace | null; file: string }> {
+    const bundled = this.deps.bundled?.marketplace ?? null;
+    const builtins = [...new Set(this.deps.builtinMarketplaces?.() ?? [])];
+    const read = (file: string) => {
+      try { return readMarketplace(file); } catch (error) {
         console.warn(`[plugins] marketplace ${file} could not be read:`, error instanceof Error ? error.message : error);
-        return [];
+        return null;
       }
+    };
+    const local = [...builtins, ...this.registry.marketplaces().filter((file) => !builtins.includes(file))].map((file) => ({
+      market: read(file),
+      kind: (bundled && path.resolve(file) === path.resolve(bundled) ? "bundled" : builtins.includes(file) ? "builtin" : "local") as Marketplace["kind"],
+      remote: null,
+      file,
+    }));
+    const remotes = this.registry.remoteMarketplaces().map((remote) => ({
+      market: remote.commit && fs.existsSync(remote.dir) ? (() => { try { return readMarketplace(remote.dir); } catch { return null; } })() : null,
+      kind: "git" as const,
+      remote,
+      file: remote.dir,
+    }));
+    return [...local.filter((item) => item.market !== null), ...remotes];
+  }
+
+  marketplaces(): Marketplace[] {
+    const installed = new Set(this.loaded.flatMap((plugin) => plugin.source.kind === "marketplace" ? [`${plugin.source.marketplace}#${plugin.source.name}`] : [plugin.source.path]));
+    return this.markets().map(({ market, kind, remote, file }) => {
+      const failed = remote?.error && !this.fetching.has(remote.dir);
+      const status: Marketplace["status"] = remote && this.fetching.has(remote.dir) ? "fetching" : failed ? "failed" : "ready";
+      return {
+        file: market?.file ?? file,
+        name: market?.name ?? (remote ? parseGitRemote(remote.url).slug : path.basename(file)),
+        displayName: market?.displayName ?? (remote ? keyOf(remote.url).replace(/^https:\/\/(github\.com\/)?/, "") : path.basename(file)),
+        kind,
+        url: remote?.url ?? null,
+        commit: remote?.commit ?? null,
+        fetchedAt: remote?.fetchedAt ?? null,
+        status,
+        error: remote?.error ?? null,
+        plugins: (market?.plugins ?? []).map((entry) => ({
+          name: entry.name,
+          displayName: entry.name,
+          description: entry.description,
+          category: entry.category,
+          path: entry.path,
+          installed: installed.has(`${market!.file}#${entry.name}`) || (entry.path !== null && installed.has(entry.path)),
+        })),
+      };
     });
+  }
+
+  /** The merged list, rebuilt only when a marketplace or what is installed changed. */
+  catalog(): CatalogEntry[] {
+    const markets = this.markets().filter((item) => item.market !== null);
+    const bySource = new Map<string, string>();
+    for (const plugin of this.loaded) {
+      if (plugin.source.kind === "marketplace") bySource.set(`${plugin.source.marketplace}#${plugin.source.name}`, plugin.id);
+    }
+    const signature = JSON.stringify([
+      markets.map((item) => [item.market!.file, item.remote?.commit ?? null, fs.statSync(item.market!.file, { throwIfNoEntry: false })?.mtimeMs ?? 0]),
+      [...bySource.entries()], this.loaded.map((plugin) => plugin.id),
+    ]);
+    if (this.catalogCache?.signature === signature) return this.catalogCache.catalog;
+    const catalog = buildCatalog(
+      markets.map((item): CatalogMarket => ({ ...item.market!, kind: item.kind, url: item.remote?.url ?? null })),
+      { bySource, ids: new Set(this.loaded.map((plugin) => plugin.id)) },
+    );
+    this.catalogCache = { signature, catalog };
+    return catalog;
   }
 
   snapshot(): PluginsSnapshot {
     return {
       plugins: this.plugins(),
       marketplaces: this.marketplaces(),
+      catalog: this.catalog(),
       fileHandlers: this.registry.fileHandlers(),
       fileConsent: this.registry.fileConsent(),
     };
@@ -289,18 +385,70 @@ export class PluginService {
     return this.installRead(read, { kind: "local", path: read.root });
   }
 
+  /**
+   * Install one entry of a marketplace. From a folder marketplace it is used in
+   * place; from a git marketplace its folder is copied into the plugin cache at
+   * the marketplace's commit; from another repository (`url`, `github`,
+   * `git-subdir`) that repository is cloned into the cache at the entry's
+   * commit. An entry with no manifest of its own (`"strict": false`) gets the
+   * entry as its manifest, written into the cached copy.
+   */
   async installFromMarketplace(file: string, name: string): Promise<PluginRecord> {
-    const market = readMarketplace(file);
+    const found = this.markets().find((item) => item.market && (item.market.file === file || item.file === file));
+    const market = found?.market ?? readMarketplace(file);
     const entry = market.plugins.find((plugin) => plugin.name === name);
     if (!entry) throw new Error(`${market.displayName} has no plugin named "${name}"`);
-    const read = readPlugin(entry.path);
-    return this.installRead(read, { kind: "marketplace", marketplace: market.file, name, path: read.root });
+    if (entry.unsupported) throw new Error(entry.unsupported);
+    const remote = found?.remote ?? null;
+    let root: string;
+    let commit: string | null = null;
+    if (entry.remote) {
+      const target = this.cacheFolder(market, entry, entry.remote.sha ?? "latest");
+      commit = await shallowClone(entry.remote.url, target, { ref: entry.remote.ref, sha: entry.remote.sha });
+      root = entry.remote.subdir ? insidePlugin(target, entry.remote.subdir) : target;
+    } else if (remote && entry.path) {
+      commit = remote.commit;
+      root = this.cacheFolder(market, entry, commit ?? "latest");
+      copyPluginFolder(entry.path, root);
+    } else {
+      root = entry.path!;
+    }
+    if (entry.inline && root !== entry.path) {
+      const manifest = path.join(root, ".claude-plugin", "plugin.json");
+      if (!fs.existsSync(manifest) && !fs.existsSync(path.join(root, ".codex-plugin", "plugin.json"))) {
+        fs.mkdirSync(path.dirname(manifest), { recursive: true });
+        fs.writeFileSync(manifest, `${JSON.stringify({ name: entry.name, description: entry.description, ...entry.inline }, null, 2)}\n`);
+      }
+    }
+    const read = readPlugin(root, entry.inline ? { name: entry.name, description: entry.description, ...entry.inline } : null);
+    return this.installRead(read, { kind: "marketplace", marketplace: market.file, name, path: read.root, commit });
+  }
+
+  /** `<dataDir>/cache/<marketplace>/<plugin>/<commit>`: one folder per installed commit. */
+  private cacheFolder(market: MarketplaceFile, entry: MarketplaceEntryFile, commit: string): string {
+    if (!this.deps.dataDir) throw new Error("this app keeps no plugin cache; install the plugin from a folder");
+    const clean = (text: string) => text.replace(/[^A-Za-z0-9._-]+/g, "-").slice(0, 60) || "plugin";
+    return path.join(this.deps.dataDir, "cache", clean(market.name), clean(entry.name), clean(commit.slice(0, 12)));
+  }
+
+  /** Install a plugin again from its marketplace as it is now. */
+  async update(id: string): Promise<PluginRecord> {
+    const current = this.registry.get(id);
+    if (!current || current.source.kind !== "marketplace") throw new Error(`${id} was not installed from a marketplace`);
+    const previous = current.source.path;
+    const record = await this.installFromMarketplace(current.source.marketplace, current.source.name);
+    if (this.deps.dataDir && path.resolve(previous) !== path.resolve(record.root) && isInside(path.join(this.deps.dataDir, "cache"), previous)) {
+      fs.rmSync(previous, { recursive: true, force: true });
+    }
+    return record;
   }
 
   private async installRead(read: ReadPlugin, source: PluginSource): Promise<PluginRecord> {
     const id = pluginIdFor(read);
     const clash = this.registry.get(id);
-    if (clash && path.resolve(clash.source.path) !== path.resolve(read.root)) {
+    const sameEntry = clash?.source.kind === "marketplace" && source.kind === "marketplace"
+      && clash.source.marketplace === source.marketplace && clash.source.name === source.name;
+    if (clash && !sameEntry && path.resolve(clash.source.path) !== path.resolve(read.root)) {
       throw new Error(`a different plugin named "${id}" is already installed from ${clash.source.path}; uninstall it first`);
     }
     await this.host.closePlugin(id);
@@ -347,16 +495,95 @@ export class PluginService {
     return this.plugin(id)!;
   }
 
+  /**
+   * Add a marketplace: a folder (or its marketplace.json) on disk, or a git
+   * repository (`owner/repo`, a URL), cloned in the background. Answers at once.
+   */
   addMarketplace(input: string): Marketplace {
-    const market = readMarketplace(input);
-    this.registry.addMarketplace(market.file);
+    if (fs.existsSync(input)) {
+      const market = readMarketplace(input);
+      this.registry.addMarketplace(market.file);
+      this.emit();
+      return this.marketplaces().find((entry) => entry.file === market.file)!;
+    }
+    const remote = this.addRemote(input);
     this.emit();
-    return this.marketplaces().find((entry) => entry.file === market.file)!;
+    void this.fetchRemote(remote.dir);
+    return this.marketplaces().find((entry) => entry.file === remote.dir)!;
+  }
+
+  private addRemote(input: string): RemoteMarketplace {
+    if (!this.deps.dataDir) throw new Error("this app cannot fetch marketplaces; add a folder instead");
+    const [repository, ref] = input.trim().split("#");
+    const parsed = parseGitRemote(repository!);
+    const existing = this.registry.remoteMarketplaces().find((item) => keyOf(item.url) === parsed.key);
+    if (existing) return existing;
+    const entry: RemoteMarketplace = { url: parsed.url, ref: ref || null, dir: path.join(this.deps.dataDir, "marketplaces", parsed.slug), commit: null, fetchedAt: null, error: null };
+    this.registry.putRemoteMarketplace(entry);
+    return entry;
   }
 
   removeMarketplace(file: string): void {
-    this.registry.removeMarketplace(file);
+    const remote = this.registry.remoteMarketplaces().find((item) => item.dir === file || isInside(item.dir, file));
+    if (remote) {
+      this.registry.removeRemoteMarketplace(remote.dir);
+      fs.rmSync(remote.dir, { recursive: true, force: true });
+    } else {
+      this.registry.removeMarketplace(file);
+    }
     this.emit();
+  }
+
+  /**
+   * First run: add the default marketplaces once (a person who removes one keeps
+   * it removed). Then fetch, in the background, every git marketplace never
+   * fetched or older than `staleAfterMs`. Never waits on the network.
+   */
+  startBackground(now = Date.now()): void {
+    if (!this.registry.defaultsAdded()) {
+      for (const source of this.deps.defaultMarketplaces ?? []) {
+        try { this.addRemote(source); } catch (error) { console.warn(`[plugins] default marketplace ${source}:`, error instanceof Error ? error.message : error); }
+      }
+      this.registry.markDefaultsAdded();
+      this.emit();
+    }
+    const stale = this.deps.staleAfterMs ?? 6 * 60 * 60 * 1000;
+    for (const remote of this.registry.remoteMarketplaces()) {
+      if (!remote.commit || !fs.existsSync(remote.dir) || (remote.fetchedAt ?? 0) < now - stale) void this.fetchRemote(remote.dir);
+    }
+  }
+
+  /** Fetch every git marketplace again; answers at once, each lands with a change. */
+  refreshMarketplaces(): PluginsSnapshot {
+    for (const remote of this.registry.remoteMarketplaces()) void this.fetchRemote(remote.dir);
+    return this.snapshot();
+  }
+
+  /** Clone, or move to the latest commit; one fetch per marketplace at a time. Resolves when done, never rejects. */
+  fetchRemote(dir: string): Promise<void> {
+    const inFlight = this.fetching.get(dir);
+    if (inFlight) return inFlight;
+    const run = (async () => {
+      const remote = this.registry.remoteMarketplaces().find((item) => item.dir === dir);
+      if (!remote) return;
+      this.emit();
+      try {
+        const commit = fs.existsSync(path.join(dir, ".git"))
+          ? await fetchLatest(dir, remote.ref)
+          : await shallowClone(remote.url, dir, { ref: remote.ref });
+        readMarketplace(dir);
+        this.registry.putRemoteMarketplace({ ...remote, commit, fetchedAt: Date.now(), error: null });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[plugins] fetching ${remote.url}: ${message}`);
+        this.registry.putRemoteMarketplace({ ...remote, error: message });
+      }
+    })().finally(() => {
+      this.fetching.delete(dir);
+      this.emit();
+    });
+    this.fetching.set(dir, run);
+    return run;
   }
 
   setFileHandler(extension: string, handler: string | null): void {
@@ -435,6 +662,26 @@ export class PluginService {
 }
 
 /** MCP Apps: a tool whose visibility is the app alone is hidden from the model. */
+function isInside(parent: string, child: string): boolean {
+  const back = path.relative(path.resolve(parent), path.resolve(child));
+  return back === "" || (!back.startsWith("..") && !path.isAbsolute(back));
+}
+
+/** A folder's files and sizes, for "did it change" when no version says. */
+function fingerprint(dir: string): string {
+  const parts: string[] = [];
+  const walk = (folder: string, prefix: string) => {
+    for (const entry of fs.readdirSync(folder, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if ([".git", "node_modules", ".claude-plugin"].includes(entry.name)) continue;
+      const full = path.join(folder, entry.name);
+      if (entry.isDirectory()) walk(full, `${prefix}${entry.name}/`);
+      else parts.push(`${prefix}${entry.name}:${fs.statSync(full).size}`);
+    }
+  };
+  try { walk(dir, ""); } catch { return ""; }
+  return parts.join("|");
+}
+
 export function appOnly(tool: Pick<Tool, "_meta">): boolean {
   const ui = (tool._meta as { ui?: { visibility?: unknown } } | undefined)?.ui;
   return Array.isArray(ui?.visibility) && ui.visibility.length > 0 && ui.visibility.every((entry) => entry === "app");

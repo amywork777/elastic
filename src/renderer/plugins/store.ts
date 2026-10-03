@@ -18,7 +18,7 @@ type PluginsState = PluginsSnapshot & {
   receive: (snapshot: PluginsSnapshot) => void;
 };
 
-const EMPTY: PluginsSnapshot = { plugins: [], marketplaces: [], fileHandlers: {}, fileConsent: {} };
+const EMPTY: PluginsSnapshot = { plugins: [], marketplaces: [], catalog: [], fileHandlers: {}, fileConsent: {} };
 
 /**
  * The formats enabled plugins open are the ones the composer and the

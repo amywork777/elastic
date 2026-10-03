@@ -10,12 +10,14 @@
  */
 import { z } from "zod";
 
-import { MarketplaceSchema, PluginRecordSchema } from "../plugins";
+import { CatalogEntrySchema, MarketplaceSchema, PluginRecordSchema } from "../plugins";
 import { invoke } from "./define";
 
 export const PluginsSnapshotSchema = z.object({
   plugins: z.array(PluginRecordSchema),
   marketplaces: z.array(MarketplaceSchema),
+  /** Every marketplace's plugins, merged into one list (`src/main/plugins/catalog.ts`). */
+  catalog: z.array(CatalogEntrySchema).default([]),
   /** Extension → "builtin" or `<pluginId>/<toolId>`. */
   fileHandlers: z.record(z.string(), z.string()),
   /** Project path → plugin ids allowed to open its files. */
@@ -51,9 +53,16 @@ export const pluginsContract = {
     /** Sign in to one of a plugin's remote servers, in the system browser. Resolves when it is done. */
     signIn: invoke(z.object({ id: z.string().min(1), server: z.string().min(1) }), PluginRecordSchema),
     signOut: invoke(z.object({ id: z.string().min(1), server: z.string().min(1) }), PluginRecordSchema),
-    /** A folder chooser (or a path), then add the marketplace it holds. Null when cancelled. */
-    addMarketplace: invoke(z.object({ path: z.string().min(1).optional() }), MarketplaceSchema.nullable()),
+    /**
+     * Add a marketplace: `source` is a repository (`owner/repo` or a git URL), fetched in the
+     * background; `path` a folder; neither opens a folder chooser. Null when cancelled.
+     */
+    addMarketplace: invoke(z.object({ path: z.string().min(1).optional(), source: z.string().min(1).max(500).optional() }), MarketplaceSchema.nullable()),
     removeMarketplace: invoke(z.object({ file: z.string().min(1) }), z.void()),
+    /** Fetch every git marketplace again (in the background); answers at once. */
+    refreshMarketplaces: invoke(z.void(), PluginsSnapshotSchema),
+    /** Install a plugin again from its marketplace's latest commit. */
+    update: invoke(Id, PluginRecordSchema),
     /** Choose who renders an extension; null puts it back to the default. */
     setFileHandler: invoke(z.object({ extension: z.string().min(1), handler: z.string().min(1).nullable() }), z.void()),
     /** The person said yes: this plugin may open this project's files. */

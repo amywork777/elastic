@@ -117,30 +117,81 @@ function readLogo(root: string, manifest: PluginManifest): string | null {
   }
 }
 
-/** Read a plugin folder. Throws with a sentence when it is not one. */
-export function readPlugin(root: string): ReadPlugin {
+/**
+ * Read a plugin folder. Throws with a sentence when it is not one. `inline` is
+ * the manifest a marketplace entry carries for a folder that has none of its
+ * own (Claude Code's `"strict": false`): used only when no manifest is found.
+ */
+export function readPlugin(root: string, inline?: Record<string, unknown> | null): ReadPlugin {
   const resolved = path.resolve(root);
   if (!fs.statSync(resolved, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`${resolved} is not a folder`);
   const manifestFile = findManifest(resolved);
-  if (!manifestFile) {
+  if (!manifestFile && !inline) {
     throw new Error(`no plugin manifest in ${resolved} (looked for ${MANIFEST_LOCATIONS.join(", ")})`);
   }
-  const parsed = PluginManifestSchema.safeParse(readJson(manifestFile));
+  const parsed = PluginManifestSchema.safeParse(manifestFile ? readJson(manifestFile) : inline);
   if (!parsed.success) {
     throw new Error(`the manifest is not valid: ${parsed.error.issues.map((issue) => `${issue.path.join(".") || "manifest"}: ${issue.message}`).join("; ")}`);
   }
   const manifest = parsed.data;
   const skills = readSkills(resolved, manifest);
-  return { root: resolved, manifestFile, manifest, servers: readServers(resolved, manifest), skillsDir: skills.dir, skills: skills.names, logo: readLogo(resolved, manifest) };
+  return { root: resolved, manifestFile: manifestFile ?? "", manifest, servers: readServers(resolved, manifest), skillsDir: skills.dir, skills: skills.names, logo: readLogo(resolved, manifest) };
 }
+
+/** Where a marketplace entry's plugin comes from, when it is not inside the marketplace's own folder. */
+export type RemoteSource = { url: string; ref: string | null; sha: string | null; subdir: string | null };
+
+export type MarketplaceEntryFile = {
+  name: string;
+  description: string;
+  category: string | null;
+  version: string | null;
+  homepage: string | null;
+  /** The plugin folder inside the marketplace's folder, or null for a remote one. */
+  path: string | null;
+  /** A git repository (Claude Code's `url`, `github` and `git-subdir` sources), or null. */
+  remote: RemoteSource | null;
+  /** The entry itself, as the manifest of a folder that has none (`"strict": false`), or null. */
+  inline: Record<string, unknown> | null;
+  /** Why this entry cannot be installed from here (an npm or pip source), or null. */
+  unsupported: string | null;
+};
 
 export type MarketplaceFile = {
   file: string;
   root: string;
   name: string;
   displayName: string;
-  plugins: Array<{ name: string; description: string; category: string | null; path: string }>;
+  plugins: MarketplaceEntryFile[];
 };
+
+const str = (value: unknown): string | null => (typeof value === "string" && value.length > 0 ? value : null);
+
+/** One entry's `source`, as Codex and Claude Code write it. */
+function entrySource(root: string, source: unknown): Pick<MarketplaceEntryFile, "path" | "remote" | "unsupported"> | null {
+  const none = { path: null, remote: null, unsupported: null };
+  if (typeof source === "string") {
+    try { return { ...none, path: insidePlugin(root, source) }; } catch { return null; }
+  }
+  if (!source || typeof source !== "object") return null;
+  const item = source as Record<string, unknown>;
+  const kind = str(item.source);
+  if (kind === "local") {
+    const relative = str(item.path);
+    if (!relative) return null;
+    try { return { ...none, path: insidePlugin(root, relative) }; } catch { return null; }
+  }
+  const remote = (url: string | null, subdir: string | null = null) =>
+    url ? { ...none, remote: { url, ref: str(item.ref), sha: str(item.sha), subdir } } : null;
+  if (kind === "url" || kind === "git") return remote(str(item.url));
+  if (kind === "github") return remote(str(item.repo) ? `https://github.com/${str(item.repo)}.git` : null);
+  if (kind === "git-subdir") {
+    const subdir = str(item.path);
+    if (subdir && (subdir.split(/[\\/]/).includes("..") || path.isAbsolute(subdir))) return null;
+    return remote(str(item.url) ?? (str(item.repo) ? `https://github.com/${str(item.repo)}.git` : null), subdir);
+  }
+  return { ...none, unsupported: `elastic cannot install a plugin from a "${kind ?? "unknown"}" source yet` };
+}
 
 export const MARKETPLACE_LOCATIONS = [
   path.join(".agents", "plugins", "marketplace.json"),
@@ -168,17 +219,22 @@ export function readMarketplace(input: string): MarketplaceFile {
     : file.endsWith(path.join(".claude-plugin", "marketplace.json")) ? path.resolve(path.dirname(file), "..") : path.dirname(file);
   const raw = readJson(file) as { name?: unknown; interface?: { displayName?: unknown }; plugins?: unknown };
   if (!Array.isArray(raw.plugins)) throw new Error(`${file} lists no plugins`);
-  const plugins = raw.plugins.flatMap((entry: unknown) => {
+  const plugins = raw.plugins.flatMap((entry: unknown): MarketplaceEntryFile[] => {
     if (!entry || typeof entry !== "object") return [];
-    const item = entry as { name?: unknown; description?: unknown; category?: unknown; source?: unknown };
+    const item = entry as Record<string, unknown>;
     if (typeof item.name !== "string") return [];
-    const source = typeof item.source === "string" ? item.source
-      : item.source && typeof item.source === "object" && (item.source as { source?: unknown }).source === "local"
-        ? (item.source as { path?: unknown }).path : null;
-    if (typeof source !== "string") return [];
-    let target: string;
-    try { target = insidePlugin(root, source); } catch { return []; }
-    return [{ name: item.name, description: typeof item.description === "string" ? item.description : "", category: typeof item.category === "string" ? item.category : null, path: target }];
+    const source = entrySource(root, item.source);
+    if (!source) return [];
+    const { source: _source, strict, ...rest } = item;
+    return [{
+      name: item.name,
+      description: str(item.description) ?? "",
+      category: str(item.category),
+      version: str(item.version),
+      homepage: str(item.homepage),
+      ...source,
+      inline: strict === false ? rest : null,
+    }];
   });
   const name = typeof raw.name === "string" ? raw.name : path.basename(root);
   const displayName = typeof raw.interface?.displayName === "string" ? raw.interface.displayName : name;

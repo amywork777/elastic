@@ -147,13 +147,58 @@ with the reason. A bundled plugin can be turned off, which takes its tools and
 its skill out of later sessions, but not uninstalled. The workspace tools
 (open, reveal, list tabs) are the shell's and every session has them.
 
-## Marketplaces
+## Marketplaces and the Plugins page
 
 A marketplace is Codex's `.agents/plugins/marketplace.json`, Claude Code's
-`.claude-plugin/marketplace.json`, or a bare `marketplace.json`, listing plugins
-with local sources. Add one from Plugins › Add › Add a marketplace. The
-examples marketplace ships with the app (`resources/plugins/marketplace.json`).
-Remote (git) sources are not installable yet.
+`.claude-plugin/marketplace.json`, or a bare `marketplace.json`. It can be a
+folder, or a git repository elastic fetches: Plugins › Add › Add a marketplace
+from GitHub takes `owner/repo` or any git URL (`#ref` for a branch or tag).
+A first run adds three: Claude Code's official marketplace
+(`anthropics/claude-plugins-official`), Codex's (`openai/plugins`, "Codex
+official") and text-to-cad's (`earthtojake/text-to-cad`), beside the bundled
+plugins and the examples (`resources/plugins/marketplace.json`). Remove any of
+them under Sources; a removed default stays removed. Codex's
+`openai-primary-runtime` lives only inside Codex's own runtime and is not
+offered.
+
+Git work uses the person's own `git` and credentials: no token is stored, a
+private repository works when their git can reach it, and git never prompts
+(`GIT_TERMINAL_PROMPT=0`). A marketplace is a shallow clone under
+`<userData>/plugins/marketplaces/`, fetched in the background on start when it
+is older than six hours and by Refresh; the page never waits on the network.
+Git LFS objects stay pointers.
+
+Every entry kind the two formats use installs:
+
+| `source` | Installs |
+| --- | --- |
+| `"./folder"`, `{ "source": "local", "path" }` | from a folder marketplace, in place; from a git marketplace, a copy at the marketplace's commit |
+| `{ "source": "url", "url", "sha"? }`, `{ "source": "github", "repo" }` | a shallow clone of that repository at `sha` |
+| `{ "source": "git-subdir", "url", "path", "ref"?, "sha"? }` | the same, then its subfolder |
+| an entry with `"strict": false` and no manifest of its own | the entry becomes its manifest |
+| anything else (`npm`, `pip`) | listed as Can't install |
+
+Copies and clones live under `<userData>/plugins/cache/<marketplace>/<plugin>/<commit>`.
+A plugin from a git marketplace shows Update when its marketplace offers a new
+commit (`sha`) or a new version (or different files, when it names none);
+Update installs again and drops the old copy.
+
+The Plugins page is one list (`src/main/plugins/catalog.ts`): every
+marketplace's entries, and the same plugin offered by two marketplaces once,
+matched by repository folder and then by name. Its card installs from the
+first source: a folder with a Codex manifest (MCP App views are declared
+there), then any folder, then a remote repository; the others are listed on
+its page under Also offered by. Each card says whether it works here, read
+from its folder without installing it:
+
+| Label | Means |
+| --- | --- |
+| Works | MCP servers that run here, and skills |
+| May need sign-in | a remote server; you sign in if it asks |
+| Partly | some parts elastic does not run: Claude Code's hooks, slash commands, subagents, language servers, output styles; ChatGPT apps |
+| Needs Codex / Needs ChatGPT | nothing but a launcher Codex supplies, or ChatGPT apps |
+| Checked on install | a plugin in another repository: elastic reads it when you install it |
+| Can't install | a source kind elastic does not install |
 
 ## Where the code is
 

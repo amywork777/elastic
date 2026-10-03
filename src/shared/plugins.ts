@@ -130,8 +130,12 @@ export type PluginServerState = z.infer<typeof PluginServerStateSchema>;
 export const PluginSourceSchema = z.discriminatedUnion("kind", [
   /** A folder on disk, used in place (edits show up on refresh). */
   z.object({ kind: z.literal("local"), path: z.string() }),
-  /** A plugin listed in a marketplace.json; `path` is where it resolved to. */
-  z.object({ kind: z.literal("marketplace"), marketplace: z.string(), name: z.string(), path: z.string() }),
+  /**
+   * A plugin listed in a marketplace.json; `path` is where it resolved to. From a
+   * git marketplace or a remote entry, `path` is its copy in the plugin cache and
+   * `commit` the commit it was copied at (what an update is checked against).
+   */
+  z.object({ kind: z.literal("marketplace"), marketplace: z.string(), name: z.string(), path: z.string(), commit: z.string().nullable().optional() }),
 ]);
 export type PluginSource = z.infer<typeof PluginSourceSchema>;
 
@@ -157,6 +161,8 @@ export const PluginRecordSchema = z.object({
   defaultPrompts: z.array(z.string()).default([]),
   /** Ships with the app (`resources/bundled`): it can be turned off, not uninstalled. */
   bundled: z.boolean().default(false),
+  /** Its marketplace (or repository) has a newer commit than the one it was installed at. */
+  updateAvailable: z.boolean().default(false),
 });
 export type PluginRecord = z.infer<typeof PluginRecordSchema>;
 
@@ -166,19 +172,68 @@ export const MarketplaceEntrySchema = z.object({
   displayName: z.string(),
   description: z.string(),
   category: z.string().nullable(),
-  path: z.string(),
+  /** Its folder inside the marketplace, or null when it is in another repository. */
+  path: z.string().nullable(),
   installed: z.boolean(),
 });
 export type MarketplaceEntry = z.infer<typeof MarketplaceEntrySchema>;
 
 export const MarketplaceSchema = z.object({
-  /** The marketplace.json this was read from. */
+  /** The marketplace.json this was read from; for a git marketplace not fetched yet, its clone folder. */
   file: z.string(),
   name: z.string(),
   displayName: z.string(),
+  /** bundled: elastic's own; builtin: ships with the app; local: a folder; git: a repository elastic fetches. */
+  kind: z.enum(["bundled", "builtin", "local", "git"]).default("local"),
+  url: z.string().nullable().default(null),
+  commit: z.string().nullable().default(null),
+  fetchedAt: z.number().nullable().default(null),
+  status: z.enum(["ready", "fetching", "failed"]).default("ready"),
+  error: z.string().nullable().default(null),
   plugins: z.array(MarketplaceEntrySchema),
 });
 export type Marketplace = z.infer<typeof MarketplaceSchema>;
+
+/** Whether a plugin will work here, read from its manifest without installing it. */
+export const CompatibilitySchema = z.object({
+  level: z.enum(["works", "signin", "partly", "codex", "unavailable", "unknown"]),
+  /** The card's label: Works, May need sign-in, Partly, Needs Codex, Needs ChatGPT, Can't install, Checked on install. */
+  label: z.string(),
+  /** One sentence: what works and what elastic skips. */
+  detail: z.string(),
+});
+export type Compatibility = z.infer<typeof CompatibilitySchema>;
+
+/** One marketplace's listing of a catalog entry. */
+export const CatalogSourceSchema = z.object({
+  marketplace: z.string(),
+  marketplaceName: z.string(),
+  /** Its name in that marketplace. */
+  name: z.string(),
+  kind: z.enum(["bundled", "builtin", "local", "git"]),
+  /** Its folder is on disk (inside the marketplace), not in another repository. */
+  onDisk: z.boolean(),
+  /** That folder has a Codex manifest, where MCP App views are declared. */
+  codex: z.boolean(),
+  url: z.string().nullable(),
+});
+export type CatalogSource = z.infer<typeof CatalogSourceSchema>;
+
+/** One card on the Plugins page: a plugin, however many marketplaces offer it. */
+export const CatalogEntrySchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  displayName: z.string(),
+  description: z.string(),
+  category: z.string().nullable(),
+  version: z.string().nullable(),
+  homepage: z.string().nullable(),
+  compat: CompatibilitySchema,
+  /** The first is what Install uses; the rest are alternates. */
+  sources: z.array(CatalogSourceSchema).min(1),
+  installedId: z.string().nullable(),
+});
+export type CatalogEntry = z.infer<typeof CatalogEntrySchema>;
 
 /** Where a tool call comes from: a session's explorer (its own server processes) or the app (a global page). */
 export const PluginScopeSchema = z.object({

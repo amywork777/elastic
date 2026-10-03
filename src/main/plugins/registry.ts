@@ -1,10 +1,12 @@
 /**
  * What is installed, and whether it is on: `<userData>/plugins/installed.json`.
  *
- * Installing records where a plugin lives; nothing is copied. A local plugin
- * is used in place (edit it, press Refresh, see the change), and a
- * marketplace plugin is used where its marketplace keeps it. The file also
- * keeps the marketplaces a person added, the file-type handler choices
+ * Installing records where a plugin lives. A local plugin is used in place
+ * (edit it, press Refresh, see the change), and so is one from a local
+ * marketplace; a plugin from a git marketplace or repository is copied into
+ * the plugin cache at one commit (`service.ts`). The file also keeps the
+ * marketplaces a person added (folders, and git repositories with the commit
+ * each was fetched at), whether the default ones were added, the file-type handler choices
  * (extension → `<pluginId>/<toolId>` or "builtin") and which plugins a
  * project allowed to open its files. Plain `node:fs`, so it is testable
  * without Electron.
@@ -23,10 +25,27 @@ const InstalledSchema = z.object({
 });
 export type InstalledPlugin = z.infer<typeof InstalledSchema>;
 
+/** A marketplace in a git repository, cloned into `dir`. */
+const RemoteMarketplaceSchema = z.object({
+  url: z.string(),
+  ref: z.string().nullable().default(null),
+  /** Where its clone is: `<userData>/plugins/marketplaces/<slug>`. */
+  dir: z.string(),
+  /** The commit the clone is at, or null before the first fetch finished. */
+  commit: z.string().nullable().default(null),
+  fetchedAt: z.number().nullable().default(null),
+  /** Why the last fetch failed, or null. */
+  error: z.string().nullable().default(null),
+});
+export type RemoteMarketplace = z.infer<typeof RemoteMarketplaceSchema>;
+
 const FileSchema = z.object({
   version: z.literal(1).default(1),
   plugins: z.array(InstalledSchema).default([]),
   marketplaces: z.array(z.string()).default([]),
+  remoteMarketplaces: z.array(RemoteMarketplaceSchema).default([]),
+  /** The default marketplaces were offered once; removing one keeps it removed. */
+  defaultsAdded: z.boolean().default(false),
   /** Extension (no dot, lowercase) → "builtin" or `<pluginId>/<toolId>`. Unset: the plugin's, when one claims it. */
   fileHandlers: z.record(z.string(), z.string()).default({}),
   /** `<projectPath>` → plugin ids allowed to open its files without asking. */
@@ -113,6 +132,30 @@ export class PluginRegistry {
 
   removeMarketplace(file: string): void {
     this.data.marketplaces = this.data.marketplaces.filter((entry) => entry !== file);
+    this.write();
+  }
+
+  remoteMarketplaces(): RemoteMarketplace[] {
+    return this.data.remoteMarketplaces.map((entry) => ({ ...entry }));
+  }
+
+  /** Add or update a git marketplace, by its clone folder. */
+  putRemoteMarketplace(entry: RemoteMarketplace): void {
+    this.data.remoteMarketplaces = [...this.data.remoteMarketplaces.filter((item) => item.dir !== entry.dir), entry];
+    this.write();
+  }
+
+  removeRemoteMarketplace(dir: string): void {
+    this.data.remoteMarketplaces = this.data.remoteMarketplaces.filter((item) => item.dir !== dir);
+    this.write();
+  }
+
+  defaultsAdded(): boolean {
+    return this.data.defaultsAdded;
+  }
+
+  markDefaultsAdded(): void {
+    this.data.defaultsAdded = true;
     this.write();
   }
 

@@ -42,15 +42,21 @@ function tablesFrame(): FrameLocator {
   return page.frameLocator('[data-plugin-frame^="csv-table/tables/"] iframe');
 }
 
-test("the examples marketplace is on the Plugins page, and Tables installs from it", async () => {
+test("one list on the Plugins page: the bundled plugins installed, the examples to install, and Tables installs", async () => {
   const rail = page.getByRole("navigation", { name: "Rail" });
   await rail.getByRole("button", { name: "Plugins" }).click();
   const browse = page.getByTestId("plugins-page");
   await expect(browse.getByRole("heading", { name: "Plugins", level: 1 })).toBeVisible();
-  await expect(browse.getByRole("heading", { name: "Examples" })).toBeVisible();
+  const catalog = browse.getByTestId("plugin-catalog");
   for (const name of ["csv-table", "filesystem", "memory", "mcp-app-demo"]) {
     await expect(browse.getByRole("button", { name: `Install ${name}` })).toBeVisible();
   }
+  // elastic's own tools are plugins too, installed on start.
+  for (const name of ["elastic-browser", "elastic-documents", "elastic-pdf", "elastic-terminals"]) {
+    await expect(catalog.locator(`[data-catalog-entry="${name}"]`).getByText("Installed")).toBeVisible();
+  }
+  await expect(catalog.locator('[data-catalog-entry="csv-table"]').getByText("Works")).toBeVisible();
+  await expect(browse.getByTestId("plugin-sources").getByText("Built in")).toBeVisible();
   await shoot("plugins-browse.png");
   await browse.getByRole("button", { name: "Install csv-table" }).click();
   await expect(browse.getByRole("button", { name: "Install csv-table" })).toHaveCount(0, { timeout: 30_000 });

@@ -41,6 +41,8 @@ export async function launch(options: {
     ...process.env,
     NODE_ENV: "test",
     WORKBENCH_FAKE_AGENT: fakeAgent,
+    // No network: the default marketplaces are fetched only where a spec asks (`undefined` below).
+    WORKBENCH_NO_DEFAULT_MARKETPLACES: "1",
     ...(options.fakeArgs ? { WORKBENCH_FAKE_AGENT_ARGS: options.fakeArgs } : {}),
     ...options.env,
   };

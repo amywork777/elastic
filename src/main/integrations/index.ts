@@ -94,6 +94,15 @@ export function bundledMarketplace(): string {
   return path.join(resourcesDir(), "bundled");
 }
 
+/**
+ * The marketplaces a first run lists beside elastic's own: Claude Code's
+ * official one, Codex's (`openai/plugins`, "Codex official"), and
+ * text-to-cad's. Fetched in the background; a person can remove any of them.
+ * Codex's `openai-primary-runtime` lives only inside Codex's runtime, so it is
+ * not among them.
+ */
+const DEFAULT_MARKETPLACES = ["anthropics/claude-plugins-official", "openai/plugins", "earthtojake/text-to-cad"];
+
 /** The integration every session gets whatever is on: opening, revealing and listing its tabs. */
 const CORE_INTEGRATION = "workspace";
 
@@ -126,6 +135,8 @@ export async function initIntegrations(deps: { sendCommand: (command: Integratio
     host,
     builtinMarketplaces: () => [bundledMarketplace(), builtinMarketplace()],
     bundled: { marketplace: bundledMarketplace(), appServers: appServerTools() },
+    dataDir: path.join(userData, "plugins"),
+    defaultMarketplaces: DEFAULT_MARKETPLACES,
     changed: (snapshot) => {
       refreshSkills(userData);
       deps.pluginsChanged?.(snapshot);
@@ -133,6 +144,8 @@ export async function initIntegrations(deps: { sendCommand: (command: Integratio
   });
   skillsInstance = materialiseSkills(userData);
   void pluginsInstance.listAll();
+  // E2E runs get no network: their marketplaces are the ones a spec adds.
+  if (process.env.WORKBENCH_NO_DEFAULT_MARKETPLACES !== "1") pluginsInstance.startBackground();
   commandsInstance = new RendererCommands({
     sessionRoot,
     send: deps.sendCommand,

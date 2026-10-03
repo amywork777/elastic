@@ -60,12 +60,16 @@ export const pluginsHandlers = {
     signOut: async ({ id, server }) => {
       try { return await plugins().signOut(id, server); } catch (error) { throw sentence(error); }
     },
-    addMarketplace: async ({ path: given }, ctx) => {
-      const folder = given ?? await chooseFolder(ctx, "Choose a marketplace folder");
-      if (!folder) return null;
-      try { return plugins().addMarketplace(folder); } catch (error) { throw sentence(error); }
+    addMarketplace: async ({ path: given, source }, ctx) => {
+      const input = source ?? given ?? await chooseFolder(ctx, "Choose a marketplace folder");
+      if (!input) return null;
+      try { return plugins().addMarketplace(input); } catch (error) { throw sentence(error); }
     },
     removeMarketplace: ({ file }) => plugins().removeMarketplace(file),
+    refreshMarketplaces: () => plugins().refreshMarketplaces(),
+    update: async ({ id }) => {
+      try { return await plugins().update(id); } catch (error) { throw sentence(error); }
+    },
     setFileHandler: ({ extension, handler }) => {
       if (handler && handler !== "builtin") {
         const [pluginId, ...rest] = handler.split("/");

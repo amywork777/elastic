@@ -1,8 +1,9 @@
-import { ArrowRight, Blocks, ChevronLeft, FileType, FolderPlus, Link2, MoreHorizontal, Plus, RefreshCw, Search, Store, Trash2 } from "lucide-react";
+import { ArrowRight, Blocks, ChevronLeft, Download, FileType, FolderPlus, GitBranch, Link2, MoreHorizontal, Plus, RefreshCw, Search, Store, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@renderer/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@renderer/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +22,7 @@ import { newSessionKey, useComposer } from "@renderer/state/composer";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import { useUi, type Surface } from "@renderer/state/ui";
-import type { MarketplaceEntry, PluginRecord } from "@shared/plugins";
+import type { CatalogEntry, CatalogSource, Compatibility, Marketplace, PluginRecord } from "@shared/plugins";
 
 const message = (error: unknown) => (error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': (IpcError: )?/, "") : String(error));
 
@@ -33,9 +34,10 @@ function usePluginsView(): [View, (view: View) => void] {
   return [surface.kind === "plugins" ? surface.view : "browse", (view) => setSurface({ kind: "plugins", view })];
 }
 
-/** Add ▾: a plugin folder, or a marketplace. */
+/** Add ▾: a marketplace from GitHub (or any git URL), a marketplace folder, or a plugin folder. */
 function AddMenu() {
   const [, show] = usePluginsView();
+  const [githubOpen, setGithubOpen] = useState(false);
   const installFolder = async () => {
     try {
       const plugin = await window.workbench.plugins.installFolder({});
@@ -49,15 +51,51 @@ function AddMenu() {
     } catch (error) { toast.error(message(error)); }
   };
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button className="h-7 gap-1 text-xs" size="sm" variant="secondary"><Plus className="size-3.5" /> Add</Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => void installFolder()}><FolderPlus className="size-4" /> Install a plugin folder…</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void addMarketplace()}><Store className="size-4" /> Add a marketplace…</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button className="h-7 gap-1 text-xs" size="sm" variant="secondary"><Plus className="size-3.5" /> Add</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setGithubOpen(true)}><GitBranch className="size-4" /> Add a marketplace from GitHub…</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void addMarketplace()}><Store className="size-4" /> Add a marketplace folder…</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void installFolder()}><FolderPlus className="size-4" /> Install a plugin folder…</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AddFromGithub onOpenChange={setGithubOpen} open={githubOpen} />
+    </>
+  );
+}
+
+/** The repository box: `owner/repo` or a git URL, fetched in the background with the person's own git. */
+function AddFromGithub({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!value.trim()) return;
+    setBusy(true);
+    try {
+      const market = await window.workbench.plugins.addMarketplace({ source: value.trim() });
+      if (market) toast.success(`Fetching ${market.displayName}. Its plugins appear in the list when it arrives.`);
+      setValue("");
+      onOpenChange(false);
+    } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
+  };
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add a marketplace from GitHub</DialogTitle>
+          <DialogDescription>A repository with a Codex or Claude Code marketplace. elastic fetches it with your git, so private repositories work when your git can reach them.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+          <Input aria-label="Repository" autoFocus className="h-8 text-sm" onChange={(event) => setValue(event.target.value)} placeholder="owner/repo or https://…" value={value} />
+        </form>
+        <DialogFooter>
+          <Button disabled={busy || !value.trim()} onClick={() => void submit()} size="sm">{busy ? <><Spinner className="size-3.5" /> Adding</> : "Add"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -84,7 +122,7 @@ function PluginsSidebar() {
           {!ready ? <div className="px-2 py-1 text-muted-foreground text-xs">Loading…</div> : null}
           {ready && plugins.length === 0 ? <div className="px-2 py-1 text-muted-foreground text-xs">Nothing installed yet.</div> : null}
           {plugins.map((plugin) => (
-            <button className={row(typeof view === "object" && view.plugin === plugin.id)} key={plugin.id} onClick={() => show({ plugin: plugin.id })} type="button">
+            <button className={row(typeof view === "object" && "plugin" in view && view.plugin === plugin.id)} key={plugin.id} onClick={() => show({ plugin: plugin.id })} type="button">
               <PluginLogo className={cn("size-4", !plugin.enabled && "opacity-50")} plugin={plugin} />
               <span className={cn("truncate", !plugin.enabled && "text-muted-foreground")}>{plugin.displayName}</span>
               {plugin.error || plugin.servers.some((server) => server.status === "failed") ? <span aria-label="Has a problem" className="ml-auto size-1.5 shrink-0 rounded-full bg-destructive" />
@@ -109,38 +147,71 @@ function PageHeader({ title, description, actions }: { title: string; descriptio
   );
 }
 
-function InstallButton({ marketplace, entry }: { marketplace: string; entry: MarketplaceEntry }) {
+const COMPAT_TONE: Record<Compatibility["level"], string> = {
+  works: "bg-emerald-500",
+  signin: "bg-amber-500",
+  partly: "bg-sky-500",
+  codex: "bg-muted-foreground/60",
+  unavailable: "bg-muted-foreground/60",
+  unknown: "bg-muted-foreground/30",
+};
+
+/** Works / May need sign-in / Partly / Needs Codex …: a dot and a word, the sentence on hover. */
+function CompatLabel({ compat }: { compat: Compatibility }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs">
+      <span aria-hidden className={cn("size-1.5 rounded-full", COMPAT_TONE[compat.level])} />
+      {compat.label}
+    </span>
+  );
+}
+
+const SOURCE_KIND: Record<CatalogSource["kind"], string> = { bundled: "ships with elastic", builtin: "ships with elastic", local: "a folder", git: "a repository" };
+
+function sourceText(source: CatalogSource): string {
+  return source.url ? `${source.marketplaceName} · ${source.url.replace(/^https:\/\//, "").replace(/\.git$/, "")}` : `${source.marketplaceName} · ${SOURCE_KIND[source.kind]}`;
+}
+
+function InstallButton({ entry, source }: { entry: CatalogEntry; source?: CatalogSource }) {
   const [busy, setBusy] = useState(false);
   const [, show] = usePluginsView();
+  const from = source ?? entry.sources[0]!;
   const install = async () => {
     setBusy(true);
     try {
-      const plugin = await window.workbench.plugins.installFromMarketplace({ marketplace, name: entry.name });
-      toast.success(`${plugin.displayName} plugin installed`, { action: { label: "Try now", onClick: () => show({ plugin: plugin.id }) } });
+      const plugin = await window.workbench.plugins.installFromMarketplace({ marketplace: from.marketplace, name: from.name });
+      toast.success(`${plugin.displayName} plugin installed`, { action: { label: "Open", onClick: () => show({ plugin: plugin.id }) } });
     } catch (error) {
       toast.error(message(error));
     } finally { setBusy(false); }
   };
-  if (entry.installed) return <span className="text-muted-foreground text-xs">Installed</span>;
+  if (entry.installedId && !source) return <span className="text-muted-foreground text-xs">Installed</span>;
+  if (entry.compat.level === "unavailable" && !source) return null;
   return (
-    <Button aria-label={`Install ${entry.name}`} className="h-7 gap-1 text-xs" disabled={busy} onClick={() => void install()} size="sm" variant="secondary">
+    <Button aria-label={`Install ${entry.name}${source ? ` from ${source.marketplaceName}` : ""}`} className="h-7 gap-1 text-xs" disabled={busy} onClick={() => void install()} size="sm" variant="secondary">
       {busy ? <><Spinner className="size-3.5" /> Installing</> : <><Plus className="size-3.5" /> Install</>}
     </Button>
   );
 }
 
-/** Browse: every marketplace's plugins, grouped by marketplace, searchable. */
+/** Browse: one list of every marketplace's plugins, the same plugin once, searchable. */
 function BrowsePage() {
+  const catalog = usePlugins((state) => state.catalog);
   const marketplaces = usePlugins((state) => state.marketplaces);
   const installed = usePlugins((state) => state.plugins);
   const [query, setQuery] = useState("");
   const [, show] = usePluginsView();
   const [refreshing, setRefreshing] = useState(false);
   const needle = query.trim().toLowerCase();
-  const matches = (entry: MarketplaceEntry) => !needle || `${entry.name} ${entry.description} ${entry.category ?? ""}`.toLowerCase().includes(needle);
+  const visible = useMemo(() => catalog.filter((entry) => !needle
+    || `${entry.name} ${entry.displayName} ${entry.description} ${entry.category ?? ""}`.toLowerCase().includes(needle)), [catalog, needle]);
+  const fetching = marketplaces.filter((market) => market.status === "fetching");
   const refresh = async () => {
     setRefreshing(true);
-    try { await window.workbench.plugins.refresh(); } catch (error) { toast.error(message(error)); } finally { setRefreshing(false); }
+    try {
+      await window.workbench.plugins.refresh();
+      await window.workbench.plugins.refreshMarketplaces();
+    } catch (error) { toast.error(message(error)); } finally { setRefreshing(false); }
   };
   return (
     <div className="mx-auto w-full max-w-3xl px-8 py-8">
@@ -149,41 +220,127 @@ function BrowsePage() {
           <Button aria-label="Refresh" className="size-7" disabled={refreshing} onClick={() => void refresh()} size="icon" variant="ghost"><RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} /></Button>
           <AddMenu />
         </>}
-        description="Plugins give agents new tools (MCP servers) and skills, and can add their own views: a tab, a page on the rail, or how a file type opens."
+        description="Plugins give agents new tools (MCP servers) and skills, and can add their own views: a tab, a page on the rail, or how a file type opens. Plugins made for Codex and Claude Code work here."
         title="Plugins"
       />
-      <div className="relative mb-6">
+      <div className="relative mb-2">
         <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
-        <Input aria-label="Search plugins" className="h-8 pl-8 text-sm" onChange={(event) => setQuery(event.target.value)} placeholder="Search plugins" value={query} />
+        <Input aria-label="Search plugins" className="h-8 pl-8 text-sm" onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${catalog.length} plugins`} value={query} />
       </div>
-      {marketplaces.length === 0 ? <p className="text-muted-foreground text-sm">No marketplaces. Add one, or install a plugin folder, from Add.</p> : null}
-      {marketplaces.map((market) => {
-        const entries = market.plugins.filter(matches);
-        if (entries.length === 0) return null;
-        return (
-          <section className="mb-8" key={market.file}>
-            <div className="mb-2 flex items-center gap-2">
-              <h2 className="font-medium text-sm">{market.displayName}</h2>
-              <span className="truncate text-muted-foreground text-xs" title={market.file}>{market.plugins.length} plugin{market.plugins.length === 1 ? "" : "s"}</span>
-            </div>
-            <div className="divide-y divide-border rounded-lg border">
-              {entries.map((entry) => {
-                const record = installed.find((plugin) => plugin.root === entry.path) ?? null;
-                return (
-                  <div className="flex items-center gap-3 px-3 py-2.5" key={entry.name}>
-                    {record ? <PluginLogo className="size-8" plugin={record} /> : <PluginLogo className="size-8" plugin={{ logo: null, brandColor: null, displayName: entry.name }} />}
-                    <button className="min-w-0 flex-1 text-left" disabled={!record} onClick={() => record && show({ plugin: record.id })} type="button">
-                      <div className="truncate font-medium text-sm">{record?.displayName ?? entry.name}</div>
-                      <div className="truncate text-muted-foreground text-xs">{entry.description || record?.description || "No description"}</div>
-                    </button>
-                    <InstallButton entry={entry} marketplace={market.file} />
+      <p aria-live="polite" className="mb-4 h-4 text-muted-foreground text-xs" role="status">
+        {fetching.length > 0 ? <><Spinner className="mr-1 inline size-3" /> Fetching {fetching.map((market) => market.displayName).join(", ")}…</> : null}
+      </p>
+      {catalog.length === 0 ? <p className="text-muted-foreground text-sm">No plugins listed yet. Add a marketplace, or install a plugin folder, from Add.</p> : null}
+      {catalog.length > 0 && visible.length === 0 ? <p className="text-muted-foreground text-sm">No plugin matches "{query}".</p> : null}
+      {visible.length > 0 ? (
+        <div className="divide-y divide-border rounded-lg border" data-testid="plugin-catalog">
+          {visible.map((entry) => {
+            const record = entry.installedId ? installed.find((plugin) => plugin.id === entry.installedId) ?? null : null;
+            return (
+              <div className="flex items-center gap-3 px-3 py-2.5" data-catalog-entry={entry.name} key={entry.key}>
+                <PluginLogo className="size-8" plugin={record ?? { logo: null, brandColor: null, displayName: entry.displayName }} />
+                <button className="min-w-0 flex-1 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={() => show(record ? { plugin: record.id } : { entry: entry.key })} type="button">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium text-sm">{record?.displayName ?? entry.displayName}</span>
+                    <CompatLabel compat={entry.compat} />
                   </div>
-                );
-              })}
+                  <div className="truncate text-muted-foreground text-xs">{entry.description || record?.description || "No description"}</div>
+                </button>
+                {record?.updateAvailable ? <UpdateButton plugin={record} /> : <InstallButton entry={entry} />}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+      <SourcesSection marketplaces={marketplaces} />
+    </div>
+  );
+}
+
+function UpdateButton({ plugin }: { plugin: PluginRecord }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button aria-label={`Update ${plugin.displayName}`} className="h-7 gap-1 text-xs" disabled={busy} size="sm" variant="secondary"
+      onClick={() => void (async () => {
+        setBusy(true);
+        try { await window.workbench.plugins.update({ id: plugin.id }); toast.success(`${plugin.displayName} updated`); } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
+      })()}>
+      {busy ? <><Spinner className="size-3.5" /> Updating</> : <><Download className="size-3.5" /> Update</>}
+    </Button>
+  );
+}
+
+/** Where the list comes from: each marketplace, how fresh it is, and Remove for the ones a person can drop. */
+function SourcesSection({ marketplaces }: { marketplaces: Marketplace[] }) {
+  if (marketplaces.length === 0) return null;
+  return (
+    <section className="mt-10" data-testid="plugin-sources">
+      <h2 className="mb-2 font-medium text-sm">Sources</h2>
+      <div className="divide-y divide-border rounded-lg border">
+        {marketplaces.map((market) => (
+          <div className="flex items-center gap-3 px-3 py-2" key={market.file}>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm">{market.displayName}</div>
+              <div className={cn("truncate text-xs", market.status === "failed" ? "text-destructive" : "text-muted-foreground")}>
+                {market.status === "fetching" ? "Fetching…"
+                  : market.status === "failed" ? `Could not fetch: ${market.error ?? "unknown error"}`
+                    : [`${market.plugins.length} plugin${market.plugins.length === 1 ? "" : "s"}`,
+                      market.kind === "bundled" || market.kind === "builtin" ? "ships with elastic" : market.url ? market.url.replace(/^https:\/\//, "").replace(/\.git$/, "") : "a folder",
+                      market.commit ? market.commit.slice(0, 7) : null].filter(Boolean).join(" · ")}
+              </div>
             </div>
-          </section>
-        );
-      })}
+            {market.kind === "local" || market.kind === "git" ? (
+              <Button aria-label={`Remove ${market.displayName}`} className="h-7 text-xs" size="sm" variant="ghost"
+                onClick={() => void window.workbench.plugins.removeMarketplace({ file: market.file }).catch((error: unknown) => toast.error(message(error)))}>Remove</Button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** A catalog card that is not installed: what it is, whether it works here, and every marketplace that offers it. */
+function EntryPage({ entry }: { entry: CatalogEntry }) {
+  const [, show] = usePluginsView();
+  const [first, ...alternates] = entry.sources;
+  return (
+    <div className="mx-auto w-full max-w-3xl px-8 py-8">
+      <button className="mb-4 flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground" onClick={() => show("browse")} type="button">
+        <ChevronLeft className="size-3.5" /> Plugins
+      </button>
+      <div className="flex items-start gap-4 pb-6">
+        <PluginLogo className="size-14 rounded-xl" plugin={{ logo: null, brandColor: null, displayName: entry.displayName }} />
+        <div className="min-w-0 flex-1">
+          <h1 className="font-semibold text-xl">{entry.displayName}</h1>
+          <p className="mt-1 text-muted-foreground text-sm">{entry.description || "No description"}</p>
+        </div>
+        <InstallButton entry={entry} />
+      </div>
+      <Section title="In elastic">
+        <div className="flex items-start gap-3 rounded-lg border px-3 py-2.5">
+          <CompatLabel compat={entry.compat} />
+          <p className="min-w-0 flex-1 text-muted-foreground text-xs">{entry.compat.detail}</p>
+        </div>
+      </Section>
+      <Section title="Information">
+        <dl className="divide-y divide-border rounded-lg border text-sm">
+          {([["Version", entry.version], ["Category", entry.category], ["Website", entry.homepage], ["Source", first ? sourceText(first) : null]] as Array<[string, string | null]>).map(([label, value]) => (
+            <div className="flex gap-4 px-3 py-2" key={label}>
+              <dt className="w-28 shrink-0 text-muted-foreground">{label}</dt>
+              <dd className="min-w-0 break-all">{value ?? "Unavailable"}</dd>
+            </div>
+          ))}
+        </dl>
+      </Section>
+      {alternates.length > 0 ? (
+        <Section title="Also offered by">
+          {alternates.map((source) => (
+            <Row action={<InstallButton entry={entry} source={source} />} key={`${source.marketplace}#${source.name}`} primary={source.marketplaceName}
+              secondary={sourceText(source)} />
+          ))}
+        </Section>
+      ) : null}
     </div>
   );
 }
@@ -213,10 +370,12 @@ function DetailPage({ plugin }: { plugin: PluginRecord }) {
     try { await work(); } catch (error) { toast.error(message(error)); } finally { setBusy(false); }
   };
   const apps = plugin.tools;
+  const marketplaceName = (file: string) => usePlugins.getState().marketplaces.find((market) => market.file === file)?.displayName ?? "a marketplace";
   const info: Array<[string, string | null]> = [
     ["Developer", plugin.developer],
     ["Version", plugin.version],
-    ["Source", plugin.bundled ? "Ships with elastic" : plugin.source.kind === "marketplace" ? `${plugin.source.name} from a marketplace` : "Local folder"],
+    ["Source", plugin.bundled ? "Ships with elastic" : plugin.source.kind === "marketplace"
+      ? `${plugin.source.name} from ${marketplaceName(plugin.source.marketplace)}${plugin.source.commit ? ` at ${plugin.source.commit.slice(0, 7)}` : ""}` : "Local folder"],
     ["Folder", plugin.root],
   ];
   return (
@@ -231,6 +390,7 @@ function DetailPage({ plugin }: { plugin: PluginRecord }) {
           <p className="mt-1 text-muted-foreground text-sm">{plugin.description || "No description"}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {plugin.updateAvailable ? <UpdateButton plugin={plugin} /> : null}
           <label className="flex items-center gap-2 text-sm">
             <Switch aria-label={plugin.enabled ? "Turn off" : "Turn on"} checked={plugin.enabled} disabled={busy}
               onCheckedChange={(enabled) => void act(() => window.workbench.plugins.setEnabled({ id: plugin.id, enabled }))} />
@@ -371,14 +531,15 @@ function FileTypesPage() {
 /** The rail's Plugins: its own sidebar and page. */
 export function PluginsSurface({ sidebarWidth }: { sidebarWidth: number }) {
   const [view] = usePluginsView();
-  const plugin = usePlugins((state) => (typeof view === "object" ? state.plugins.find((entry) => entry.id === view.plugin) ?? null : null));
+  const plugin = usePlugins((state) => (typeof view === "object" && "plugin" in view ? state.plugins.find((entry) => entry.id === view.plugin) ?? null : null));
+  const entry = usePlugins((state) => (typeof view === "object" && "entry" in view ? state.catalog.find((item) => item.key === view.entry) ?? null : null));
   return (
     <div className="flex h-full min-w-0 flex-1">
       <aside aria-label="Plugins sidebar" className="shrink-0 overflow-hidden" style={{ width: sidebarWidth }}><PluginsSidebar /></aside>
       <main className="min-w-0 flex-1 bg-background" data-testid="plugins-page">
         <div className="app-drag h-[var(--titlebar-height)] shrink-0" />
         <ScrollArea className="h-[calc(100%-var(--titlebar-height))]">
-          {view === "file-types" ? <FileTypesPage /> : plugin ? <DetailPage plugin={plugin} /> : <BrowsePage />}
+          {view === "file-types" ? <FileTypesPage /> : plugin ? <DetailPage plugin={plugin} /> : entry ? <EntryPage entry={entry} /> : <BrowsePage />}
         </ScrollArea>
       </main>
     </div>
