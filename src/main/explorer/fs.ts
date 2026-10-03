@@ -906,6 +906,39 @@ export type Schedule = (run: () => void, ms: number) => () => void;
 
 const timer: Schedule = (run, ms) => startTimer(ms, run);
 
+/**
+ * chokidar (v4 and later) holds one `fs.watch` per directory, so a root with
+ * tens of thousands of folders (a whole `~/code`) runs the process out of file
+ * handles, and then nothing else can open one: not the agent's pipes, not a
+ * file read. Past `backgroundDirectories` folders the background watcher is
+ * not started at all; listed directories and opened files keep their direct
+ * watches, so what is on screen stays live.
+ */
+export type WatchLimits = { backgroundDirectories: number };
+export const DEFAULT_WATCH_LIMITS: WatchLimits = { backgroundDirectories: 5_000 };
+
+/**
+ * Whether the root has at most `cap` folders the background watcher would
+ * walk (the same exclusions). Stops counting as soon as it passes the cap.
+ */
+async function fitsUnder(realRoot: string, ignored: (relative: string, stats?: Stats) => boolean, cap: number): Promise<boolean> {
+  let count = 0;
+  const queue = [realRoot];
+  while (queue.length > 0) {
+    const directory = queue.shift()!;
+    const entries = await fs.readdir(directory, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const absolute = path.join(directory, entry.name);
+      if (ignored(toRelative(realRoot, absolute), entry as unknown as Stats)) continue;
+      count += 1;
+      if (count > cap) return false;
+      queue.push(absolute);
+    }
+  }
+  return true;
+}
+
 export class FileWatchers {
   private readonly watchers = new Map<string, WatchedRoot>();
   private readonly listedDirectories = new Map<string, Set<string>>();
@@ -939,6 +972,7 @@ export class FileWatchers {
   constructor(
     private readonly emit: (root: string, changes: FileChange[]) => void,
     private readonly schedule: Schedule = timer,
+    private readonly limits: WatchLimits = DEFAULT_WATCH_LIMITS,
   ) {}
 
   /**
@@ -981,6 +1015,15 @@ export class FileWatchers {
     const realRoot = await realRootOf(root);
     const ignoredInBackground = await readBackgroundWatchExclusions(realRoot);
     if (this.watchers.get(root) !== owner) return;
+    if (!(await fitsUnder(realRoot, ignoredInBackground, this.limits.backgroundDirectories))) {
+      if (this.watchers.get(root) !== owner) return;
+      console.info(`[explorer] ${root} has more than ${this.limits.backgroundDirectories} folders: watching open folders and files only`);
+      await Promise.all([...(this.listedDirectories.get(root) ?? [])].map((directory) =>
+        this.watchListedDirectory(root, directory),
+      ));
+      return;
+    }
+    if (this.watchers.get(root) !== owner) return;
 
     const watcher = watch(realRoot, {
       ignoreInitial: true,
@@ -1011,7 +1054,19 @@ export class FileWatchers {
       .on("unlinkDir", record("removed", true))
       // A watcher that dies silently leaves a stale tree, which looks like a
       // bug in the tree. Say so instead.
-      .on("error", (error: unknown) => console.error(`[explorer] watch ${root}`, error));
+      .on("error", (error: unknown) => {
+        // Out of file handles: every further watch fails too, and the process
+        // cannot open anything else while they are held. Give the background
+        // watcher up (listed directories keep their own) and say so once.
+        if ((error as NodeJS.ErrnoException | null)?.code === "EMFILE") {
+          if (owner.watcher !== watcher) return;
+          owner.watcher = null;
+          console.error(`[explorer] ${root}: out of file handles; watching open folders and files only`);
+          void watcher.close();
+          return;
+        }
+        console.error(`[explorer] watch ${root}`, error);
+      });
 
     owner.watcher = watcher;
     await Promise.all([...(this.listedDirectories.get(root) ?? [])].map((directory) =>

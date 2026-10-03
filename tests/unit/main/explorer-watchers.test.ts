@@ -225,6 +225,52 @@ describe("visible file watching", () => {
   });
 });
 
+describe("large roots", () => {
+  it("skips the background recursive watcher past the folder cap, and still watches what is listed", async () => {
+    for (const name of ["a", "b", "c", "d"]) await fs.mkdir(path.join(root, name, "inner"), { recursive: true });
+    const capped = new FileWatchers(emit, undefined, { backgroundDirectories: 3 });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      await capped.watch(root);
+      expect(driver.recursive).not.toHaveBeenCalled();
+      await capped.watchListedDirectory(root, "a");
+      expect(driver.direct).toHaveBeenCalledTimes(1);
+      expect(info).toHaveBeenCalledTimes(1);
+    } finally {
+      await capped.closeAll();
+      error.mockRestore();
+      info.mockRestore();
+    }
+  });
+
+  it("keeps the background recursive watcher for a root under the cap", async () => {
+    const roomy = new FileWatchers(emit, undefined, { backgroundDirectories: 50 });
+    try {
+      await roomy.watch(root);
+      expect(driver.recursive).toHaveBeenCalledTimes(1);
+    } finally {
+      await roomy.closeAll();
+    }
+  });
+
+  it("closes the background watcher when the process runs out of file handles, and says so once", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await watchers.watch(root);
+      const onError = recursive.on.mock.calls.find(([event]) => event === "error")![1] as (error: unknown) => void;
+      const emfile = Object.assign(new Error("EMFILE: too many open files, watch"), { code: "EMFILE" });
+      onError(emfile);
+      onError(emfile);
+      onError(emfile);
+      await vi.waitFor(() => expect(recursive.close).toHaveBeenCalledTimes(1));
+      expect(error).toHaveBeenCalledTimes(1);
+    } finally {
+      error.mockRestore();
+    }
+  });
+});
+
 describe("following an open file", () => {
   // The batch windows run on this clock: a test steps through them, and
   // reads the length each one asked for, instead of sleeping against them.
