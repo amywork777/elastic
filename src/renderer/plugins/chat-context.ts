@@ -1,5 +1,6 @@
 import { appContextBlocks, appContextPromptBlocks, appContextSummary, useComposer } from "@renderer/state/composer";
 import { useSessions } from "@renderer/state/sessions";
+import { useUi } from "@renderer/state/ui";
 
 /**
  * How an MCP App reaches the chat it sits beside, the two MCP Apps host requests a view can make:
@@ -10,7 +11,9 @@ import { useSessions } from "@renderer/state/sessions";
  * - `ui/message`: the person's message, now. It goes through the composer's queue like a typed
  *   prompt, so it waits behind a running turn.
  *
- * The chat is the frame's own session; a frame with none (a rail page) reaches the selected one.
+ * The chat is the frame's own session; a frame with none (a rail page) reaches the selected one,
+ * and then takes the person there (Home, that chat, the composer focused), since a page with no
+ * chat beside it would otherwise leave them looking at a view that seemed to do nothing.
  * When the frame's entry leaves the composer (the message went, or the person took the chip out),
  * `watch` calls back, and the frame tells its view the context is empty
  * (`openai/modelContext: null`, the key text-to-cad and Codex use), so the view starts again.
@@ -30,6 +33,13 @@ export function createChatContext({ frameId, source, sessionId }: { frameId: str
     if (!id) throw new Error(NO_CHAT);
     return id;
   };
+  /** A page with no chat of its own shows the person the chat it just reached. */
+  const reveal = (key: string) => {
+    if (sessionId) return;
+    if (useSessions.getState().activeId !== key) useSessions.getState().select(key);
+    useUi.getState().setSurface({ kind: "home" });
+    useComposer.getState().requestFocus(key);
+  };
   /** The session this frame's entry was queued in, while it is there. */
   let queuedIn: string | null = null;
   return {
@@ -39,6 +49,7 @@ export function createChatContext({ frameId, source, sessionId }: { frameId: str
       if (queuedIn && queuedIn !== key) useComposer.getState().removeAppContext(queuedIn, frameId);
       useComposer.getState().setAppContext(key, { frameId, source, blocks });
       queuedIn = blocks.length ? key : null;
+      if (blocks.length) reveal(key);
       return {};
     },
     message: async ({ content }) => {
@@ -47,6 +58,7 @@ export function createChatContext({ frameId, source, sessionId }: { frameId: str
       if (blocks.length === 0) throw new Error("The message has no text or image to send.");
       const entry = { frameId, source, blocks };
       void useComposer.getState().submit(key, appContextSummary([entry]) || source, appContextPromptBlocks([entry]));
+      reveal(key);
       return {};
     },
     watch: (onCleared) => useComposer.subscribe((state) => {

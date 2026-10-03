@@ -7,6 +7,7 @@ import { NO_CHAT, createChatContext } from "@renderer/plugins/chat-context";
 import { appContextBlocks, useComposer } from "@renderer/state/composer";
 import type { TakenDraft } from "@renderer/state/composer";
 import { useSessions } from "@renderer/state/sessions";
+import { useUi } from "@renderer/state/ui";
 
 const session = "session-1";
 const quickEdit = (text: string) => ({ type: "text", text, _meta: { "openai/title": "Quick edit · a.step" } });
@@ -96,4 +97,27 @@ it("shows a chip, and the next message carries the queued text and image after w
     { type: "image", data: "iVBORw0KGgo=", mimeType: "image/png", uri: null },
   ]);
   expect(useComposer.getState().appContexts[draftKey]).toBeUndefined();
+});
+
+it("a page with no chat of its own takes the person to the chat it queued or sent into", async () => {
+  useSessions.setState({ activeId: "selected" });
+  useUi.setState({ surface: { kind: "app", pluginId: "text-to-cad", toolId: "cad/cad_home" } });
+  const page = createChatContext({ frameId: "rail", source: "text-to-cad", sessionId: null });
+  const focus = vi.spyOn(useComposer.getState(), "requestFocus");
+  await page.updateModelContext({ content: [quickEdit("Round it.")] });
+  expect(useUi.getState().surface).toEqual({ kind: "home" });
+  expect(useSessions.getState().activeId).toBe("selected");
+  expect(focus).toHaveBeenCalledWith("selected");
+  useUi.setState({ surface: { kind: "app", pluginId: "text-to-cad", toolId: "cad/cad_home" } });
+  vi.spyOn(useComposer.getState(), "submit").mockResolvedValue();
+  await page.message({ content: [quickEdit("Make it a cat.")] });
+  expect(useUi.getState().surface).toEqual({ kind: "home" });
+});
+
+it("a view in a chat's own tab stays where it is", async () => {
+  useUi.setState({ surface: { kind: "home" } });
+  const tab = createChatContext({ frameId: "cad", source: "text-to-cad", sessionId: session });
+  const setSurface = vi.spyOn(useUi.getState(), "setSurface");
+  await tab.updateModelContext({ content: [quickEdit("Round it.")] });
+  expect(setSurface).not.toHaveBeenCalled();
 });
