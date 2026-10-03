@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useBrowser } from "@renderer/state/browser";
+import { pageOccluded, useBrowser } from "@renderer/state/browser";
 import { useExplorer } from "@renderer/state/explorer";
 import type { BrowserTarget } from "@shared/browser";
 
@@ -142,5 +142,29 @@ describe("browser chrome cost", () => {
     useBrowser.getState().setConsoleOpen(binding.tabId, true);
     await vi.advanceTimersByTimeAsync(1);
     expect(window.workbench.browser.metadata).toHaveBeenLastCalledWith({ ...binding, logs: true });
+  });
+});
+
+describe("what hides the page", () => {
+  const view = { left: 700, top: 70, right: 1300, bottom: 570 };
+  const overlay = (html: string, box: { left: number; top: number; width: number; height: number }) => {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    const element = wrapper.firstElementChild!;
+    element.getBoundingClientRect = () => ({ ...box, x: box.left, y: box.top, right: box.left + box.width, bottom: box.top + box.height, toJSON() {} });
+    return element;
+  };
+
+  it("never steps aside for a tooltip, even one over the page", () => {
+    const hint = overlay('<div data-radix-popper-content-wrapper><div data-slot="tooltip-content">Console<span role="tooltip">Console</span></div></div>', { left: 1200, top: 40, width: 80, height: 40 });
+    expect(pageOccluded([hint], view)).toBe(false);
+  });
+
+  it("steps aside for any dialog, and for a menu only where it overlaps the page", () => {
+    expect(pageOccluded([overlay('<div role="dialog"></div>', { left: 100, top: 100, width: 300, height: 200 })], view)).toBe(true);
+    const over = overlay('<div role="menu"></div>', { left: 900, top: 60, width: 200, height: 160 });
+    const elsewhere = overlay('<div role="menu"></div>', { left: 100, top: 60, width: 200, height: 160 });
+    expect(pageOccluded([over], view)).toBe(true);
+    expect(pageOccluded([elsewhere], view)).toBe(false);
   });
 });

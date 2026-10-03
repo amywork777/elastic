@@ -16,6 +16,27 @@ type BrowserState = {
   contextAttachment: (binding: BrowserBinding, target: BrowserTarget, kind: "selection" | "screenshot") => Promise<Blob>;
 };
 
+type Box = { left: number; top: number; right: number; bottom: number };
+
+/**
+ * Whether an overlay of the window's own covers the page. The page is a native view drawn over
+ * the window, so a menu, dialog or toast that overlaps it can only show if the page steps aside.
+ * A dialog always counts (its backdrop dims the whole window). A tooltip never does (it is a
+ * hint, and hiding the page on every hover blanks the tab). A menu, popover or toast counts only
+ * where its box overlaps the page.
+ */
+export function pageOccluded(overlays: Iterable<Element>, view: Box): boolean {
+  for (const overlay of overlays) {
+    if (overlay.matches('[role="tooltip"]') || overlay.querySelector('[role="tooltip"], [data-slot="tooltip-content"]')) continue;
+    // A dialog dims the whole window behind it, the page included, wherever its box sits.
+    if (overlay.matches('[role="dialog"], [role="alertdialog"]')) return true;
+    const box = overlay.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0) continue;
+    if (box.left < view.right && box.right > view.left && box.top < view.bottom && box.bottom > view.top) return true;
+  }
+  return false;
+}
+
 /** Renderer chrome borrows a page; unmount hides it and never destroys its document. */
 export const useBrowser = create<BrowserState>((set, get) => {
   /** Wakes a mounted tab's poll now (the console was just opened). */
@@ -57,7 +78,7 @@ export const useBrowser = create<BrowserState>((set, get) => {
         if (disposed || !ready) return;
         const rect = element.getBoundingClientRect();
         const pageURL = get().targets[binding.tabId]?.url;
-        const occluded = !!document.querySelector('[role="dialog"], [role="menu"], [data-radix-popper-content-wrapper], [data-sonner-toast]');
+        const occluded = pageOccluded(document.querySelectorAll('[role="dialog"], [role="menu"], [data-radix-popper-content-wrapper], [data-sonner-toast]'), rect);
         const bounds = !occluded && pageURL && pageURL !== "about:blank" && rect.width > 0 && rect.height > 0
           ? { x: Math.max(0, rect.x), y: Math.max(0, rect.y), width: rect.width, height: rect.height } : null;
         const key = JSON.stringify(bounds);
