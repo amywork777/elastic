@@ -39,7 +39,7 @@ import {
   UI_ENTRYPOINTS_EXTENSION,
   type PluginServerConfig,
 } from "../../shared/plugins";
-import { expandPluginRoot, insidePlugin } from "./manifest";
+import { ELASTIC_NODE, expandPluginRoot, insidePlugin } from "./manifest";
 import { isAuthError, ServerAuthProvider, SignInRequired, signIn, type AuthStore } from "./oauth";
 
 /** The MCP methods a proxy may forward, and the result each is read as. */
@@ -167,8 +167,10 @@ export class PluginHost {
     for (const [name, value] of Object.entries(config.env)) env[name] = expandPluginRoot(value, server.root);
     env.PLUGIN_ROOT = server.root;
     env.CLAUDE_PLUGIN_ROOT = server.root;
+    const appNode = config.command === ELASTIC_NODE;
+    if (appNode) env.ELECTRON_RUN_AS_NODE = "1";
     const transport = new StdioClientTransport({
-      command: expandPluginRoot(config.command!, server.root),
+      command: appNode ? process.execPath : expandPluginRoot(config.command!, server.root),
       args: config.args.map((arg) => expandPluginRoot(arg, server.root)),
       env,
       cwd,

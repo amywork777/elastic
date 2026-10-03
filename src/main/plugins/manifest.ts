@@ -63,6 +63,13 @@ function readJson(file: string): unknown {
 }
 
 /** `${CLAUDE_PLUGIN_ROOT}` and `${PLUGIN_ROOT}` in a command, an argument or a value. */
+/**
+ * A server `command` that names this app's own binary run as Node
+ * (`ELECTRON_RUN_AS_NODE`), so a plugin written in JavaScript runs on a
+ * machine with no Node installed. Codex and Claude Code plugins say `node`.
+ */
+export const ELASTIC_NODE = "${ELASTIC_NODE}";
+
 export function expandPluginRoot(value: string, root: string): string {
   return value.replaceAll("${CLAUDE_PLUGIN_ROOT}", root).replaceAll("${PLUGIN_ROOT}", root);
 }

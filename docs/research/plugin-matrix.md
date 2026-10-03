@@ -26,6 +26,7 @@ from this 0.7.8 setup.
 | --- | --- | --- | --- | --- | --- | --- |
 | text-to-cad (cadgen 0.7.8 + PR #509) | yes, unchanged | ready (stdio) | 16 | rail page, thread tab, `Open with` for STEP/STL/GLB... | | rail page renders recents with thumbnails; a STEP file renders (fixed: plugin frames are now their own origin, see CAD below) |
 | Linear (Claude Code plugin) | yes (after the bare `.mcp.json` fix) | Sign in (HTTP, OAuth) | after sign-in | none | | registration and PKCE work; the sign-in reaches `mcp.linear.app/authorize` |
+| Code Review (bundled, `elastic-code-review`) | built in | ready (stdio, `${ELASTIC_NODE}`) | 8 (6 for agents, `show_pr`, the rail page) | rail page, thread tab | read-only check with Amy's real `gh`: rail page loaded; `earthtojake/text-to-cad` listed 22 open; #509 rendered 3 files and 10 checks (`code-review-real-pr509.png`) | no open marketplace has a code review MCP App; this is elastic's own, over the person's `gh`. Stand-in gh e2e: `code-review-rail.png`, `code-review-pr.png` |
 | Figma (Claude Code plugin) | yes, 14 skills | Sign in (HTTP, OAuth) | after sign-in | none | | `mcp.figma.com` refuses client registration (403): only apps Figma approved can sign in |
 | Playwright MCP (`@playwright/mcp`) | yes | ready | 25 | none (no MCP App) | `browser_navigate` to example.com returns its snapshot | needs `--browser chrome` (or its own browser install) |
 | Shell (`mcp-shell-server` via uvx) | yes | ready | 1 | none | `shell_execute uname` returns Darwin | no terminal MCP App with a UI exists that I found |

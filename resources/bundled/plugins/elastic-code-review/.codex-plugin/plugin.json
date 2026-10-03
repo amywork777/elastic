@@ -1,0 +1,25 @@
+{
+  "name": "elastic-code-review",
+  "version": "0.1.0",
+  "description": "Review GitHub pull requests: a page of the ones waiting on you, a tab per pull request with its checks, diff and comment threads, and review buttons. Uses your GitHub CLI sign-in.",
+  "author": {
+    "name": "elastic"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Code Review",
+    "shortDescription": "Review GitHub pull requests beside the chat.",
+    "longDescription": "Lists the pull requests waiting on your review, yours, and the ones recently updated, and opens any of them in a tab: title, branches, checks, changed files, the diff with its comment threads, and Comment, Request changes and Approve. Agents read pull requests, diffs and comments, and post only when you ask. Everything goes through your own GitHub CLI (gh auth login); no token is stored.",
+    "developerName": "elastic",
+    "category": "Developer tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "logo": "./assets/logo.svg",
+    "brandColor": "#24292F",
+    "defaultPrompt": [
+      "Show the pull requests waiting on my review",
+      "Review the open pull request on this branch and summarise the risks"
+    ]
+  }
+}

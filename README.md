@@ -34,6 +34,10 @@ app ships an examples marketplace (`resources/plugins/`): Tables (opens CSV
 files, a rail page, a skill), the reference filesystem and memory servers, and
 the MCP Apps demo. Add your own folder or marketplace from Add.
 
+Code Review comes built in: the pull requests waiting on you on a rail page, and
+any pull request in a tab with its checks, diff, comment threads and review
+buttons, through your own GitHub CLI sign-in (`gh auth login`).
+
 - How to write one, and how the pieces fit: [docs/plugins.md](docs/plugins.md)
 - What Codex does, which this copies: [docs/research/codex-plugins.md](docs/research/codex-plugins.md)
   and the UX study with screenshots, [docs/research/codex-ux/README.md](docs/research/codex-ux/README.md)

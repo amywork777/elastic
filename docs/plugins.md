@@ -132,10 +132,10 @@ skipped, and the log says so.
 ## Bundled plugins
 
 elastic's own tools are plugins too, the way Codex ships its browser and code
-review: `resources/bundled/` is a marketplace of four plugins (Browser,
-Documents, PDF, Terminals, ids `elastic-<domain>`), installed on start and
-listed on the Plugins page under Built in. Each carries its skill and names an
-app server in its `.mcp.json`:
+review: `resources/bundled/` is a marketplace of five plugins (Browser,
+Documents, PDF, Terminals and Code Review, ids `elastic-<domain>`), installed on
+start and listed on the Plugins page under Built in. The first four carry a
+skill and name an app server in their `.mcp.json`:
 
 ```json
 { "mcpServers": { "app-browser": { "builtin": "browser" } } }
@@ -149,6 +149,31 @@ under `resources/bundled/` may name one; another plugin that tries is listed
 with the reason. A bundled plugin can be turned off, which takes its tools and
 its skill out of later sessions, but not uninstalled. The workspace tools
 (open, reveal, list tabs) are the shell's and every session has them.
+
+### Code Review
+
+`elastic-code-review` is the one bundled plugin that is an ordinary MCP
+server with an MCP App, the open counterpart of Codex's Code Review (which
+ships only inside ChatGPT.app). It reaches GitHub through the person's own
+GitHub CLI (`gh search prs`, `gh pr view`, `gh pr diff`, `gh api`), so the
+sign-in is theirs and no token is stored; signed out, every view says to run
+`gh auth login`. `ELASTIC_GH` names another gh (the tests' stand-in,
+`tests/fixtures/code-review/gh.mjs`).
+
+- Rail page (`code_review_home`, `global`): Needs your review, Yours and
+  Recently updated across GitHub, Compact or Detailed, each group folds; an
+  Open box takes `owner/repo`, `owner/repo#123` or a pull request URL.
+- Pull request tab (`show_pr`, `thread`): the session repository's open pull
+  requests, or one pull request with its branches, checks, changed files, the
+  diff with its comment threads (reply, or `+` on a line to comment), and
+  Comment, Request changes and Approve.
+- Agent tools: `list_prs`, `get_pr`, `get_pr_diff`, `list_review_comments`
+  (read), `add_review_comment` and `submit_review` (write, `readOnlyHint:
+  false`, so the agent's own permission flow asks), and `show_pr`.
+
+Its server runs on `${ELASTIC_NODE}`: a `command` the host replaces with its
+own binary run as Node (`ELECTRON_RUN_AS_NODE`), so a plugin in JavaScript
+needs no Node on the machine (`src/main/plugins/manifest.ts`).
 
 ## Marketplaces and the Plugins page
 

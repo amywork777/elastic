@@ -32,6 +32,15 @@
       }
     },
     {
+      "name": "elastic-code-review",
+      "description": "Review GitHub pull requests beside the chat: what waits on you, each pull request's checks, diff and threads, and review buttons. Uses your GitHub CLI sign-in.",
+      "category": "Developer tools",
+      "source": {
+        "source": "local",
+        "path": "./plugins/elastic-code-review"
+      }
+    },
+    {
       "name": "elastic-terminals",
       "description": "Agents open, read and type into elastic's terminal tabs.",
       "category": "Developer tools",

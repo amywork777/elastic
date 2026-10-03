@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Code Review</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: var(--color-background-primary, Canvas);
+    --bg2: var(--color-background-secondary, color-mix(in srgb, CanvasText 5%, Canvas));
+    --bg3: var(--color-background-tertiary, color-mix(in srgb, CanvasText 9%, Canvas));
+    --fg: var(--color-text-primary, CanvasText);
+    --fg2: var(--color-text-secondary, color-mix(in srgb, CanvasText 60%, Canvas));
+    --line: var(--color-border-primary, color-mix(in srgb, CanvasText 12%, Canvas));
+    --danger: var(--color-text-danger, #c2410c);
+    --ring: var(--color-ring-primary, color-mix(in srgb, CanvasText 40%, Canvas));
+    --radius: var(--border-radius-md, 8px);
+    --add: color-mix(in srgb, #1a7f37 14%, var(--bg));
+    --del: color-mix(in srgb, #cf222e 14%, var(--bg));
+    --pass: #1a7f37; --fail: #cf222e; --wait: #9a6700;
+    font-family: var(--font-sans, system-ui, sans-serif);
+    font-size: 13px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 1px solid var(--line); background: var(--bg2); border-radius: var(--radius); padding: 4px 10px; }
+  button:hover { background: var(--bg3); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+  button.quiet { border-color: transparent; background: transparent; }
+  button.quiet:hover { background: var(--bg2); }
+  button.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  button[disabled] { opacity: .5; cursor: default; }
+  input[type=text], textarea { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 5px 8px; }
+  textarea { width: 100%; resize: vertical; min-height: 56px; }
+  a { color: inherit; }
+  .muted { color: var(--fg2); }
+  .error { color: var(--danger); }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); min-height: 41px; }
+  .bar h1 { font-size: 13px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scroll { flex: 1; min-height: 0; overflow: auto; }
+  .status { padding: 32px; text-align: center; color: var(--fg2); }
+  .empty { max-width: 420px; margin: 64px auto; padding: 0 24px; display: flex; flex-direction: column; gap: 10px; text-align: center; align-items: center; }
+  .empty h2 { margin: 0; font-size: 15px; font-weight: 600; }
+  .empty p { margin: 0; color: var(--fg2); line-height: 1.5; }
+
+  /* Lists */
+  .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .segmented button { border: 0; border-radius: 0; background: transparent; padding: 3px 9px; }
+  .segmented button[aria-pressed=true] { background: var(--bg3); }
+  section.group > button.head { width: 100%; display: flex; gap: 6px; align-items: center; border: 0; border-radius: 0; background: transparent; padding: 10px 12px 6px; font-weight: 600; text-align: left; }
+  section.group > button.head .count { color: var(--fg2); font-weight: 400; }
+  section.group > button.head .chev { width: 10px; color: var(--fg2); transition: transform .12s; }
+  section.group > button.head[aria-expanded=false] .chev { transform: rotate(-90deg); }
+  ul.prs { list-style: none; margin: 0; padding: 0 6px 6px; }
+  ul.prs li button { width: 100%; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; border: 0; background: transparent; padding: 6px 8px; border-radius: var(--radius); }
+  ul.prs li button:hover { background: var(--bg2); }
+  .pr-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pr-when { color: var(--fg2); font-size: 12px; white-space: nowrap; }
+  .pr-meta { grid-column: 1 / -1; color: var(--fg2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .compact .pr-meta { display: none; }
+  .draft { font-size: 11px; color: var(--fg2); border: 1px solid var(--line); border-radius: 99px; padding: 0 6px; margin-left: 6px; }
+  form.open { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  form.open input { flex: 1; min-width: 0; }
+
+  /* A pull request */
+  .pr-head { padding: 12px 16px 10px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  .pr-head h2 { font-size: 15px; font-weight: 600; margin: 0; line-height: 1.35; }
+  .pr-head .num { color: var(--fg2); font-weight: 400; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--fg2); font-size: 12px; }
+  .branch { color: var(--fg); background: var(--bg2); border-radius: 4px; padding: 1px 6px; }
+  .checks { display: inline-flex; gap: 10px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: 1px; }
+  .dot.passed { background: var(--pass); } .dot.failed { background: var(--fail); } .dot.pending { background: var(--wait); }
+  details.checklist summary { cursor: pointer; }
+  details.checklist ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+  .split { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(160px, 240px) 1fr; }
+  @media (max-width: 640px) { .split { grid-template-columns: 1fr; } nav.files { display: none; } }
+  nav.files { border-right: 1px solid var(--line); overflow: auto; padding: 6px; }
+  nav.files button { width: 100%; display: flex; gap: 6px; justify-content: space-between; border: 0; background: transparent; padding: 4px 6px; text-align: left; border-radius: 6px; }
+  nav.files button:hover, nav.files button[aria-current=true] { background: var(--bg2); }
+  nav.files .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+  .delta { font-size: 11px; white-space: nowrap; }
+  .delta .a { color: var(--pass); } .delta .d { color: var(--fail); }
+  .diffs { overflow: auto; padding: 10px 12px 24px; }
+  .file { border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+  .file > header { position: sticky; top: -10px; z-index: 1; display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: var(--bg2); border-bottom: 1px solid var(--line); font-weight: 600; }
+  .file > header .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.diff { border-collapse: collapse; width: 100%; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+  table.diff td { padding: 0 8px; vertical-align: top; white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
+  table.diff td.n { width: 1%; min-width: 40px; text-align: right; color: var(--fg2); user-select: none; white-space: nowrap; padding: 0 6px; position: relative; }
+  table.diff tr.add td.code, table.diff tr.add td.n { background: var(--add); }
+  table.diff tr.del td.code, table.diff tr.del td.n { background: var(--del); }
+  table.diff tr.hunk td { color: var(--fg2); background: var(--bg2); padding: 3px 8px; }
+  table.diff td.n button.plus { position: absolute; left: 2px; top: 1px; width: 18px; height: 18px; padding: 0; line-height: 16px; font-family: var(--font-sans, system-ui, sans-serif); font-size: 13px; opacity: 0; border-radius: 4px; background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  table.diff tr:hover td.n button.plus, table.diff td.n button.plus:focus-visible { opacity: 1; }
+  tr.thread > td { white-space: normal; padding: 6px 10px 8px 56px; background: var(--bg); font-family: var(--font-sans, system-ui, sans-serif); font-size: 13px; }
+  .comment { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 6px; background: var(--bg); }
+  .comment .who { font-weight: 600; } .comment .when { color: var(--fg2); font-size: 12px; margin-left: 6px; }
+  .comment .body { white-space: pre-wrap; margin-top: 4px; line-height: 1.45; }
+  .compose { display: flex; flex-direction: column; gap: 6px; }
+  .compose .actions { display: flex; gap: 6px; justify-content: flex-end; }
+  footer.review { border-top: 1px solid var(--line); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; background: var(--bg); }
+  footer.review .actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+  footer.review .actions .note { flex: 1; font-size: 12px; }
+  .outdated { padding: 6px 10px; color: var(--fg2); font-size: 12px; border-bottom: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="status" id="status" role="status">Loading…</div>
+<script>
+// The view side of MCP Apps by hand, as the Tables example does it: JSON-RPC
+// over postMessage to the host. The view calls its own server's tools for
+// everything it shows; nothing here talks to GitHub itself.
+const PROTOCOL = "2026-01-26";
+let nextId = 1;
+const pending = new Map();
+const send = (message) => window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+const request = (method, params) => new Promise((resolve, reject) => {
+  const id = nextId++;
+  pending.set(id, { resolve, reject });
+  send({ id, method, params });
+});
+const call = (name, args = {}) => request("tools/call", { name, arguments: args });
+const openLink = (url) => request("ui/open-link", { url }).catch(() => {});
+
+function applyContext(context) {
+  const variables = context?.styles?.variables ?? {};
+  for (const [name, value] of Object.entries(variables)) if (value) document.documentElement.style.setProperty(name, value);
+  if (context?.theme) document.documentElement.style.colorScheme = context.theme;
+  if (context?.displayMode) displayMode = context.displayMode;
+}
+
+window.addEventListener("message", (event) => {
+  if (event.source !== window.parent) return;
+  const message = event.data;
+  if (!message || message.jsonrpc !== "2.0") return;
+  if (message.id !== undefined && message.method === undefined) {
+    const entry = pending.get(message.id);
+    pending.delete(message.id);
+    if (message.error) entry?.reject(new Error(message.error.message));
+    else entry?.resolve(message.result);
+    return;
+  }
+  if (message.method === "ui/notifications/tool-input") inputArgs = message.params?.arguments ?? {};
+  else if (message.method === "ui/notifications/tool-result") { stack = []; show(message.params, firstCall()); }
+  else if (message.method === "ui/notifications/host-context-changed") applyContext(message.params);
+  else if (message.method === "ui/resource-teardown" && message.id !== undefined) send({ id: message.id, result: {} });
+  else if (message.id !== undefined) send({ id: message.id, error: { code: -32601, message: "not supported" } });
+});
+
+const escape = (text) => String(text ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+const $ = (selector, root = document) => root.querySelector(selector);
+
+function ago(iso) {
+  if (!iso) return "";
+  const seconds = Math.max(1, (Date.now() - new Date(iso).getTime()) / 1000);
+  for (const [unit, size] of [["y", 31536000], ["mo", 2592000], ["d", 86400], ["h", 3600], ["m", 60]]) {
+    if (seconds >= size) return `${Math.floor(seconds / size)}${unit} ago`;
+  }
+  return "just now";
+}
+
+let stack = [];          // views to go Back to, newest last: { result, label }
+let inputArgs = {};      // the arguments of the call that opened this view
+let displayMode = "inline";
+/** The call that opened this view, to make again: the rail page's, or the tab's. */
+const firstCall = () => displayMode === "fullscreen" && Object.keys(inputArgs).length === 0
+  ? { name: "code_review_home", args: {} } : { name: "show_pr", args: inputArgs };
+let current = null;      // { result, call }: what is drawn, and how to fetch it again
+let density = "detailed";
+const collapsed = new Set();
+
+/** Draw a tool result. `origin` is the call that produced it, for Try again. */
+function show(result, origin) {
+  current = { result, origin };
+  const data = result?.structuredContent;
+  if (result?.isError || data?.view === "error") return drawError(data ?? {}, result);
+  if (data?.view === "home") return drawHome(data);
+  if (data?.view === "list") return drawList(data);
+  if (data?.view === "pr") return drawPr(data);
+  document.body.innerHTML = `<div class="status">Nothing to show.</div>`;
+}
+
+async function go(name, args, label) {
+  if (current) stack.push({ result: current.result, origin: current.origin, label });
+  document.body.innerHTML = `<div class="status" role="status">Opening…</div>`;
+  try { show(await call(name, args), { name, args }); }
+  catch (error) { drawError({ message: error.message }); }
+}
+
+function back() {
+  const previous = stack.pop();
+  if (previous) show(previous.result, previous.origin);
+}
+
+const backButton = () => stack.length ? `<button class="quiet" id="back" aria-label="Back">Back</button>` : "";
+function wireBack() { $("#back")?.addEventListener("click", back); }
+
+function drawError(data, result) {
+  const message = data.message ?? result?.content?.map((part) => part.text).join("\n") ?? "Something went wrong.";
+  const title = data.reason === "signed-out" ? "Sign in to GitHub" : data.reason === "missing" ? "Install the GitHub CLI" : "Code Review could not load this";
+  const hint = data.reason === "signed-out" ? "Sign in with gh auth login in a terminal, then try again. Code Review uses your GitHub CLI sign-in and stores no token of its own." : message;
+  document.body.innerHTML = `<div class="bar">${backButton()}<h1>Code Review</h1></div>
+    <div class="scroll"><div class="empty" role="alert"><h2>${escape(title)}</h2><p>${escape(hint)}</p>
+    ${current?.origin ? `<button id="retry">Try again</button>` : ""}</div></div>`;
+  wireBack();
+  $("#retry")?.addEventListener("click", () => { const origin = current.origin; current = null; go(origin.name, origin.args, "Code Review"); });
+}
+
+function prRow(pr) {
+  const meta = [pr.repo, pr.author, pr.branch].filter(Boolean).map(escape).join(" · ");
+  return `<li><button data-repo="${escape(pr.repo)}" data-number="${pr.number}">
+    <span class="pr-title">${escape(pr.title)}<span class="muted"> #${pr.number}</span>${pr.draft ? `<span class="draft">Draft</span>` : ""}</span>
+    <span class="pr-when">${escape(ago(pr.updatedAt))}</span>
+    <span class="pr-meta">${meta}</span></button></li>`;
+}
+
+function wirePrRows(label) {
+  for (const button of document.querySelectorAll("ul.prs button")) {
+    button.addEventListener("click", () => go("show_pr", { repo: button.dataset.repo, number: Number(button.dataset.number) }, label));
+  }
+}
+
+/** "owner/repo#12", "#12" in a list of one repository, or a pull request URL. */
+function parseTarget(text, repo) {
+  const value = text.trim();
+  if (/github\.com\/[^/]+\/[^/]+\/pull\/\d+/.test(value)) return { url: value };
+  const full = /^([\w.-]+\/[\w.-]+)#(\d+)$/.exec(value);
+  if (full) return { repo: full[1], number: Number(full[2]) };
+  const short = /^#?(\d+)$/.exec(value);
+  if (short && repo) return { repo, number: Number(short[1]) };
+  if (/^[\w.-]+\/[\w.-]+$/.test(value)) return { repo: value };
+  return null;
+}
+
+function openForm(repo) {
+  return `<form class="open" id="open" aria-label="Open a pull request">
+    <input type="text" id="target" aria-label="Pull request" placeholder="${repo ? `#123, owner/repo#123 or a pull request URL` : "owner/repo, owner/repo#123 or a pull request URL"}">
+    <button type="submit">Open</button></form><div id="open-error" class="error" style="padding:0 12px"></div>`;
+}
+
+function wireOpenForm(repo, label) {
+  $("#open").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const target = parseTarget($("#target").value, repo);
+    if (!target) { $("#open-error").textContent = "Use owner/repo, owner/repo#123 or a pull request URL."; return; }
+    go("show_pr", target, label);
+  });
+}
+
+function drawHome(data) {
+  const sections = [["review", "Needs your review"], ["yours", "Yours"], ["recent", "Recently updated"]];
+  // On the rail page the app's own header already says Code Review.
+  document.body.innerHTML = `<div class="bar">${backButton()}<h1>${displayMode === "fullscreen" ? "" : "Code Review"}</h1>
+      <div class="segmented" role="group" aria-label="View">
+        <button aria-pressed="${density === "compact"}" data-density="compact">Compact</button>
+        <button aria-pressed="${density === "detailed"}" data-density="detailed">Detailed</button>
+      </div></div>
+    ${openForm(null)}
+    <div class="scroll ${density}">${sections.map(([key, label]) => {
+      const list = data.sections[key] ?? [];
+      const open = !collapsed.has(key);
+      return `<section class="group" aria-label="${label}">
+        <button class="head" aria-expanded="${open}" data-section="${key}"><span class="chev" aria-hidden="true">&#9662;</span>${label} <span class="count">${list.length}</span></button>
+        ${open ? (list.length ? `<ul class="prs">${list.map(prRow).join("")}</ul>` : `<div class="muted" style="padding:2px 14px 8px">None</div>`) : ""}
+      </section>`;
+    }).join("")}</div>`;
+  wireBack();
+  wireOpenForm(null, "Code Review");
+  wirePrRows("Code Review");
+  for (const button of document.querySelectorAll("[data-density]")) button.addEventListener("click", () => { density = button.dataset.density; drawHome(data); });
+  for (const button of document.querySelectorAll("[data-section]")) {
+    button.addEventListener("click", () => {
+      const key = button.dataset.section;
+      if (collapsed.has(key)) collapsed.delete(key); else collapsed.add(key);
+      drawHome(data);
+      $(`[data-section="${key}"]`)?.focus();
+    });
+  }
+}
+
+function drawList(data) {
+  document.body.innerHTML = `<div class="bar">${backButton()}<h1>${escape(data.repo)}</h1><span class="muted">${data.prs.length} open</span></div>
+    ${openForm(data.repo)}
+    <div class="scroll detailed">${data.prs.length ? `<ul class="prs" style="padding-top:6px">${data.prs.map(prRow).join("")}</ul>`
+      : `<div class="empty"><h2>No open pull requests</h2><p>${escape(data.repo)} has none open. Open a closed or merged one by its number above.</p></div>`}</div>`;
+  wireBack();
+  wireOpenForm(data.repo, data.repo);
+  wirePrRows(data.repo);
+}
+
+/** A unified diff as files of hunks of lines, each line with its old and new numbers. */
+function parseDiff(diff) {
+  const files = [];
+  // Inside a hunk, its header's counts say how many lines are left, so an empty
+  // context line (a tool that trimmed its space) is still a line.
+  let file = null, oldLine = 0, newLine = 0, oldLeft = 0, newLeft = 0;
+  for (const line of diff.split("\n")) {
+    if (oldLeft > 0 || newLeft > 0) {
+      if (line.startsWith("+")) { file.rows.push({ kind: "add", text: line.slice(1), newLine: newLine++ }); newLeft -= 1; continue; }
+      if (line.startsWith("-")) { file.rows.push({ kind: "del", text: line.slice(1), oldLine: oldLine++ }); oldLeft -= 1; continue; }
+      if (line.startsWith("\\")) { file.rows.push({ kind: "hunk", text: line }); continue; }
+      file.rows.push({ kind: "ctx", text: line.slice(1), oldLine: oldLine++, newLine: newLine++ });
+      oldLeft -= 1; newLeft -= 1;
+      continue;
+    }
+    if (line.startsWith("diff --git ")) {
+      const match = / b\/(.*)$/.exec(line);
+      file = { path: match ? match[1] : line.slice(11), rows: [], binary: false };
+      files.push(file);
+      continue;
+    }
+    if (!file) continue;
+    if (line.startsWith("Binary files")) { file.binary = true; continue; }
+    const hunk = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/.exec(line);
+    if (hunk) {
+      oldLine = Number(hunk[1]); oldLeft = hunk[2] === undefined ? 1 : Number(hunk[2]);
+      newLine = Number(hunk[3]); newLeft = hunk[4] === undefined ? 1 : Number(hunk[4]);
+      file.rows.push({ kind: "hunk", text: line });
+    }
+  }
+  return files;
+}
+
+function commentHtml(comment) {
+  return `<div class="comment"><span class="who">${escape(comment.author)}</span><span class="when">${escape(ago(comment.createdAt))}</span>
+    <div class="body">${escape(comment.body)}</div></div>`;
+}
+
+function drawPr(data) {
+  const { pr } = data;
+  const files = parseDiff(data.diff ?? "");
+  // Threads: root comments by file and line, replies under their root.
+  const roots = data.comments.filter((comment) => !comment.inReplyTo);
+  const replies = (id) => data.comments.filter((comment) => comment.inReplyTo === id);
+  const anchored = new Set();
+  const threadsAt = (path, side, line) => roots.filter((comment) => comment.path === path && comment.line === line && (comment.side ?? "RIGHT") === side);
+  const counts = { passed: 0, failed: 0, pending: 0 };
+  for (const check of pr.checks) counts[check.state] += 1;
+  const checkSummary = pr.checks.length
+    ? `<details class="checklist"><summary><span class="checks">${["failed", "pending", "passed"].filter((state) => counts[state]).map((state) => `<span><span class="dot ${state}" aria-hidden="true"></span>${counts[state]} ${state}</span>`).join("")}</span></summary>
+       <ul>${pr.checks.map((check) => `<li><span class="dot ${check.state}" aria-hidden="true"></span>${escape(check.name)} <span class="muted">${check.state}</span></li>`).join("")}</ul></details>`
+    : `<span>No checks</span>`;
+  const state = pr.state === "MERGED" ? "Merged" : pr.state === "CLOSED" ? "Closed" : pr.draft ? "Draft" : "Open";
+  const review = { APPROVED: "Approved", CHANGES_REQUESTED: "Changes requested", REVIEW_REQUIRED: "Review required" }[pr.review] ?? "";
+
+  const rowsHtml = (file) => {
+    if (file.binary) return `<tr class="hunk"><td colspan="3">Binary file</td></tr>`;
+    return file.rows.map((row, index) => {
+      if (row.kind === "hunk") return `<tr class="hunk"><td colspan="3">${escape(row.text)}</td></tr>`;
+      const side = row.kind === "del" ? "LEFT" : "RIGHT";
+      const line = side === "LEFT" ? row.oldLine : row.newLine;
+      const threads = threadsAt(file.path, side, line);
+      for (const thread of threads) anchored.add(thread.id);
+      const plus = `<button class="plus" data-add="${index}" aria-label="Comment on ${side === "LEFT" ? "old" : "new"} line ${line}">+</button>`;
+      return `<tr class="${row.kind}" data-row="${index}"><td class="n">${row.kind === "add" ? "" : row.oldLine}${row.kind === "del" ? plus : ""}</td>
+        <td class="n">${row.kind === "del" ? "" : row.newLine}${row.kind === "del" ? "" : plus}</td><td class="code">${escape(row.text) || " "}</td></tr>
+        ${threads.map((thread) => `<tr class="thread"><td colspan="3">${[thread, ...replies(thread.id)].map(commentHtml).join("")}
+          <div class="compose"><textarea aria-label="Reply" placeholder="Reply…" data-reply="${thread.id}"></textarea>
+          <div class="actions"><button data-send-reply="${thread.id}">Reply</button></div></div></td></tr>`).join("")}`;
+    }).join("");
+  };
+  const filesHtml = files.map((file, index) => {
+    const stats = pr.files.find((entry) => entry.path === file.path);
+    return `<article class="file" id="file-${index}" data-path="${escape(file.path)}"><header><span class="path">${escape(file.path)}</span>
+      ${stats ? `<span class="delta"><span class="a">+${stats.additions}</span> <span class="d">-${stats.deletions}</span></span>` : ""}</header>
+      <table class="diff" aria-label="Diff of ${escape(file.path)}"><tbody>${rowsHtml(file)}</tbody></table></article>`;
+  }).join("");
+  const outdated = roots.filter((comment) => !anchored.has(comment.id));
+
+  document.body.innerHTML = `<div class="bar">${backButton()}<h1>${escape(pr.repo)} #${pr.number}</h1>
+      <button class="quiet" id="github">Open on GitHub</button><button class="quiet" id="refresh">Refresh</button></div>
+    <div class="pr-head"><h2>${escape(pr.title)} <span class="num">#${pr.number}</span></h2>
+      <div class="row"><span>${state}</span><span>${escape(pr.author)}</span><span class="branch">${escape(pr.head)}</span> into <span class="branch">${escape(pr.base)}</span>
+        <span>${pr.changedFiles} files</span><span class="delta"><span class="a">+${pr.additions}</span> <span class="d">-${pr.deletions}</span></span>${review ? `<span>${review}</span>` : ""}</div>
+      <div class="row">${checkSummary}</div></div>
+    <div class="split"><nav class="files" aria-label="Changed files">${files.map((file, index) => {
+      const stats = pr.files.find((entry) => entry.path === file.path);
+      return `<button data-jump="${index}"><span class="name">${escape(file.path)}</span>${stats ? `<span class="delta"><span class="a">+${stats.additions}</span> <span class="d">-${stats.deletions}</span></span>` : ""}</button>`;
+    }).join("")}</nav>
+      <div class="diffs" id="diffs">${data.truncated ? `<div class="outdated">This diff is large; it is cut short here. Open it on GitHub for the rest.</div>` : ""}
+        ${outdated.length ? `<div class="file"><header><span class="path">Comments not on the current diff</span></header><div style="padding:8px 10px">${outdated.map((thread) => `<div class="muted" style="font-size:12px;margin:4px 0">${escape(thread.path)}${thread.originalLine ? `, line ${thread.originalLine}` : ""}</div>${[thread, ...replies(thread.id)].map(commentHtml).join("")}`).join("")}</div></div>` : ""}
+        ${filesHtml || `<div class="status">No changes.</div>`}</div></div>
+    <footer class="review" aria-label="Review"><textarea id="review-body" aria-label="Review comment" placeholder="Leave a review comment"></textarea>
+      <div class="actions"><span class="note muted" id="review-note" role="status"></span>
+        <button id="comment">Comment</button>${state === "Merged" || state === "Closed" ? "" : `<button id="request">Request changes</button><button class="primary" id="approve">Approve</button>`}</div></footer>`;
+  wireBack();
+  $("#github").addEventListener("click", () => openLink(pr.url));
+  $("#refresh").addEventListener("click", async () => {
+    try { show(await call("show_pr", { repo: pr.repo, number: pr.number }), { name: "show_pr", args: { repo: pr.repo, number: pr.number } }); }
+    catch (error) { $("#review-note").textContent = error.message; }
+  });
+  for (const button of document.querySelectorAll("[data-jump]")) {
+    button.addEventListener("click", () => {
+      for (const other of document.querySelectorAll("[data-jump]")) other.setAttribute("aria-current", String(other === button));
+      $(`#file-${button.dataset.jump}`).scrollIntoView({ block: "start" });
+    });
+  }
+  const refresh = async (note) => {
+    const next = await call("show_pr", { repo: pr.repo, number: pr.number });
+    show(next, current?.origin);
+    if (note) $("#review-note").textContent = note;
+  };
+  for (const button of document.querySelectorAll("[data-send-reply]")) {
+    button.addEventListener("click", async () => {
+      const id = Number(button.dataset.sendReply);
+      const box = $(`[data-reply="${id}"]`);
+      if (!box.value.trim()) return box.focus();
+      button.disabled = true;
+      const result = await call("add_review_comment", { repo: pr.repo, number: pr.number, in_reply_to: id, body: box.value }).catch((error) => ({ isError: true, content: [{ text: error.message }] }));
+      if (result.isError) { button.disabled = false; $("#review-note").textContent = result.content?.[0]?.text ?? "Could not reply"; return; }
+      await refresh("Reply posted.");
+    });
+  }
+  // A new comment on a line: a compose row under it.
+  for (const article of document.querySelectorAll("article.file")) {
+    const file = files[Number(article.id.slice(5))];
+    article.addEventListener("click", (event) => {
+      const plus = event.target.closest("button.plus");
+      if (!plus) return;
+      const row = file.rows[Number(plus.dataset.add)];
+      const tr = plus.closest("tr");
+      if (tr.nextElementSibling?.classList.contains("new-comment")) { tr.nextElementSibling.querySelector("textarea").focus(); return; }
+      const side = row.kind === "del" ? "LEFT" : "RIGHT";
+      const line = side === "LEFT" ? row.oldLine : row.newLine;
+      tr.insertAdjacentHTML("afterend", `<tr class="thread new-comment"><td colspan="3"><div class="compose">
+        <textarea aria-label="Comment on ${side === "LEFT" ? "old" : "new"} line ${line}" placeholder="Comment on ${side === "LEFT" ? "old" : "new"} line ${line}"></textarea>
+        <div class="actions"><button class="quiet" data-cancel>Cancel</button><button data-post>Comment</button></div></div></td></tr>`);
+      const box = tr.nextElementSibling;
+      box.querySelector("textarea").focus();
+      box.querySelector("[data-cancel]").addEventListener("click", () => { box.remove(); plus.focus(); });
+      box.querySelector("[data-post]").addEventListener("click", async (click) => {
+        const text = box.querySelector("textarea").value;
+        if (!text.trim()) return;
+        click.currentTarget.disabled = true;
+        const result = await call("add_review_comment", { repo: pr.repo, number: pr.number, path: file.path, line, side, body: text }).catch((error) => ({ isError: true, content: [{ text: error.message }] }));
+        if (result.isError) { click.currentTarget.disabled = false; $("#review-note").textContent = result.content?.[0]?.text ?? "Could not comment"; return; }
+        await refresh("Comment posted.");
+      });
+    });
+  }
+  const submit = (event) => async () => {
+    const body = $("#review-body").value;
+    if (event !== "approve" && !body.trim()) { $("#review-note").textContent = "Write a comment first."; $("#review-body").focus(); return; }
+    const buttons = ["comment", "request", "approve"].map((id) => $(`#${id}`)).filter(Boolean);
+    for (const button of buttons) button.disabled = true;
+    const result = await call("submit_review", { repo: pr.repo, number: pr.number, event, body }).catch((error) => ({ isError: true, content: [{ text: error.message }] }));
+    if (result.isError) {
+      for (const button of buttons) button.disabled = false;
+      $("#review-note").textContent = result.content?.[0]?.text ?? "Could not submit the review";
+      return;
+    }
+    await refresh({ approve: "Approved.", request_changes: "Changes requested.", comment: "Review comment posted." }[event]);
+  };
+  $("#comment").addEventListener("click", submit("comment"));
+  $("#request")?.addEventListener("click", submit("request_changes"));
+  $("#approve")?.addEventListener("click", submit("approve"));
+}
+
+request("ui/initialize", { appInfo: { name: "code-review", version: "0.1.0" }, appCapabilities: {}, protocolVersion: PROTOCOL })
+  .then((answer) => {
+    applyContext(answer.hostContext);
+    $("#status").textContent = "Loading pull requests…";
+    send({ method: "ui/notifications/initialized", params: {} });
+  })
+  .catch((error) => { const status = $("#status"); status.textContent = `Could not connect to the app: ${error.message}`; status.className = "status error"; });
+</script>
+</body>
+</html>
