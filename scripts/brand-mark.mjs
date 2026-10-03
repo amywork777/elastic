@@ -2,25 +2,26 @@
  * elastic's mark, drawn as geometry so the app icon, the in-app mark, the
  * wordmark and the variants sheet all come from one place.
  *
- * The idea: a pink rubber band stretched around plugin pegs. The band's sides
+ * The idea: a rubber band stretched around plugin pegs. The band's sides
  * bow inward, so it reads as elastic under tension rather than a triangle.
- * Colours are Amy's taste "tool" route (~/code/taste/kit/tokens/tool.css): a
- * near-black graphite tile, warm paper pegs, pink band with its darker ink for
- * the inner edge. Every fill is flat; depth is a contact shadow and the band's
+ * Colours are neutral (Amy, 2026-10-02: no pink): a near-black graphite tile,
+ * grey pegs, a white band with a grey inner edge. Every fill is flat; depth is a contact shadow and the band's
  * inner edge, never a gradient or a glow.
  */
 
 export const TILE = 824;
 
 export const PALETTE = {
-  graphite: "#17161a",
-  graphiteEdge: "#2a2830",
-  paper: "#f7f3ee",
-  paperShade: "#d9d2c9",
-  plum: "#3a2a47",
-  pink: "#ff6fa3",
-  pinkInk: "#d6447e",
-  pinkLight: "#ffb0cb",
+  graphite: "#17171a",
+  graphiteEdge: "#2a2a2e",
+  /* pegs and the dot grid on the dark tile */
+  paper: "#8e8e96",
+  paperShade: "#6c6c74",
+  plum: "#2a2a2e",
+  /* the band: white, a grey inner edge for its thickness, a bright outer line */
+  pink: "#f2f2f4",
+  pinkInk: "#b4b4bb",
+  pinkLight: "#ffffff",
 };
 
 /** |x/a|^n + |y/a|^n = 1, sampled. macOS's icon corner is this curve, not a circular arc. */
