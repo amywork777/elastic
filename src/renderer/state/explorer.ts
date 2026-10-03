@@ -107,13 +107,15 @@ export function pruneSessionStorage(sessions: ReadonlySet<string>): void {
  * its width is a fact about the work: a CAD project is looked at, a scratch
  * folder is talked to. Opening a file, a review, a browser or a terminal
  * shows the pane without writing anything — the preference is what the person
- * chose, not what an agent's tool call did.
+ * chose, not what an agent's tool call did. With no choice recorded, a
+ * session that comes back with tabs (a relaunch) opens the pane on them, as it
+ * was when the tabs were opened; one with none stays closed.
  *
  * There is no entry for "no session": without one the explorer is not drawn
  * at all, so there is no choice to remember and nothing to remember it for.
  */
-function collapsedFor(sessionId: string): boolean {
-  return bySession<boolean>(PANE_COLLAPSED_KEY)[sessionId] ?? true;
+function collapsedFor(sessionId: string, hasTabs = false): boolean {
+  return bySession<boolean>(PANE_COLLAPSED_KEY)[sessionId] ?? !hasTabs;
 }
 
 /**
@@ -466,7 +468,7 @@ export const useExplorer = create<ExplorerState>((set, get) => ({
       const latest = currentStrip(sessionId) ?? strip;
       const restored = dedupeFileTabs(latest.tabs, latest.activeId);
       set({ ...restored, trees: latest.trees ?? {}, reveal: latest.reveal ?? null,
-        collapsed: latest.collapsed ?? collapsedFor(sessionId), width: latest.width ?? widthFor(sessionId), ready: true });
+        collapsed: latest.collapsed ?? collapsedFor(sessionId, restored.tabs.length > 0), width: latest.width ?? widthFor(sessionId), ready: true });
     } catch (error) {
       if (binding !== bindingSequence || get().sessionId !== sessionId) return;
       // Failed reads must never masquerade as an empty strip and overwrite saved tabs.
