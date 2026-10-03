@@ -1,24 +1,18 @@
 import { createElement, useEffect, useState } from "react";
 
 /*
- * elastic's mark as a loading glyph: a band around three pegs, in the text colour; while
- * something loads the pegs drift apart and back so the band stretches and
- * settles. Pure SVG (SMIL), no raster and no animation loop in JS. The band's
- * geometry is the app icon's (scripts/brand-mark.mjs) at a small scale.
+ * elastic's mark as a loading glyph: a band around three pegs, in the text colour. While
+ * something loads the band winds itself around the pegs, then unwinds from where it
+ * started. Pure SVG (SMIL), no raster and no animation loop in JS. The band's geometry is
+ * the app icon's (scripts/brand-mark.mjs) at a small scale, centred in the box.
  */
 
 const PEG_R = 7;
 const BAND_W = 9;
 const SAG = 0.08;
 
-/** Rest, then each peg in turn pulled out a little. Clockwise on screen, like the icon. */
-const POSES = [
-  [[26, 38], [78, 28], [50, 78]],
-  [[24, 37], [88, 20], [50, 79]],
-  [[26, 38], [78, 28], [50, 78]],
-  [[25, 39], [77, 29], [46, 90]],
-  [[26, 38], [78, 28], [50, 78]],
-];
+/** Clockwise on screen, like the icon; the band's reach past them is centred at 50,50. */
+const PEGS = [[24, 35], [76, 25], [48, 75]];
 
 const f = (n) => n.toFixed(2);
 
@@ -47,20 +41,16 @@ function bandPath(pegs, d) {
   return `${path}Z`;
 }
 
-const DURATION = "2.4s";
-const SPLINES = POSES.slice(1).map(() => "0.45 0 0.25 1").join(";");
-const TIMES = POSES.map((_, i) => (i / (POSES.length - 1)).toFixed(3)).join(";");
+const DURATION = "2.2s";
+const EASE = "0.45 0 0.25 1";
 
-function animate(attributeName, values) {
-  return createElement("animate", {
-    attributeName,
-    values: values.join(";"),
-    keyTimes: TIMES,
-    keySplines: SPLINES,
-    calcMode: "spline",
-    dur: DURATION,
-    repeatCount: "indefinite",
-  });
+/** Draw the band on over the first half, then take it off from its start over the second. */
+function wind() {
+  const common = { keyTimes: "0;0.5;1", keySplines: `${EASE};${EASE}`, calcMode: "spline", dur: DURATION, repeatCount: "indefinite" };
+  return [
+    createElement("animate", { key: "array", attributeName: "stroke-dasharray", values: "0 100;100 100;100 100", ...common }),
+    createElement("animate", { key: "offset", attributeName: "stroke-dashoffset", values: "0;0;-100", ...common }),
+  ];
 }
 
 /**
@@ -86,23 +76,24 @@ export default function LoadingIcon({ active = true, size = 96, className = "", 
 
   const moving = active && animateOk && !reducedMotion;
   const center = PEG_R + BAND_W / 2;
-  const rest = POSES[0];
-  const band = (d, props) =>
-    createElement(
-      "path",
-      { d: bandPath(rest, d), fill: "none", strokeLinejoin: "round", ...props },
-      moving ? animate("d", POSES.map((pose) => bandPath(pose, d))) : null,
-    );
-  const pegs = rest.map((peg, i) =>
-    createElement(
-      "circle",
-      { key: i, cx: peg[0], cy: peg[1], r: PEG_R - 1, fill: "currentColor", opacity: 0.45 },
-      moving ? animate("cx", POSES.map((pose) => pose[i][0])) : null,
-      moving ? animate("cy", POSES.map((pose) => pose[i][1])) : null,
-    ),
+  const pegs = PEGS.map((peg, i) =>
+    createElement("circle", { key: i, cx: peg[0], cy: peg[1], r: PEG_R - 1, fill: "currentColor", opacity: 0.45 }),
+  );
+  const band = createElement(
+    "path",
+    {
+      d: bandPath(PEGS, center),
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: BAND_W,
+      strokeLinejoin: "round",
+      strokeLinecap: "round",
+      pathLength: 100,
+    },
+    moving ? wind() : null,
   );
 
-  // Keep this tiny public entry usable without the CAD surface's JSX transform.
+  // Keep this tiny public entry usable without a JSX transform.
   return createElement(
     "svg",
     {
@@ -115,7 +106,6 @@ export default function LoadingIcon({ active = true, size = 96, className = "", 
       className: `shrink-0 select-none ${className}`,
     },
     pegs,
-    band(center, { stroke: "currentColor", strokeWidth: BAND_W }),
-    
+    band,
   );
 }

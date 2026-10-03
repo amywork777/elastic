@@ -47,9 +47,10 @@ so a plugin's view matches the window in light and dark. Bundled plugins
 `scripts/brand-mark.mjs` draws the app icon, the in-app mark, the wordmark
 PNGs and the variants sheet (`docs/brand/variants.png`). The mark is a pink
 band stretched around three pegs on a dark tile: the pegs are plugins, the
-band is the app stretching to fit them. The pink lives in the icon only.
+band is the app stretching to fit them, centred in the tile (`centred` in
+`scripts/brand-mark.mjs`). The pink lives in the icon only.
 
 The loading glyph (`@workbench/ui/loading-icon`) is the band itself, drawn in
-the text colour: while something loads, the pegs drift apart and back so the
-band stretches and settles. It holds still under reduced motion. It also sits
+the text colour: while something loads, the band winds itself around the pegs,
+then unwinds from where it started (Amy's pick, "Wind", from the mark lab). It holds still under reduced motion. It also sits
 above the new-session prompt, the way Codex shows its mark there.

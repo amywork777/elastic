@@ -118,12 +118,25 @@ export function markArt({ tile = "dark", pegs, pegR = 46, bandW = 62, sag = 0.07
   );
 }
 
+/**
+ * Pegs moved (and scaled by `scale` about their centre) so the band is centred
+ * in the tile. The band reaches the same distance past every peg and its sides
+ * bow inward, so centring the pegs' box centres the band.
+ */
+export function centred(pegs, { scale = 1 } = {}) {
+  const xs = pegs.map((p) => p[0]);
+  const ys = pegs.map((p) => p[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  return pegs.map(([x, y]) => [Math.round(TILE / 2 + (x - cx) * scale), Math.round(TILE / 2 + (y - cy) * scale)]);
+}
+
 /** The variants on the sheet (docs/brand/variants.png). The first is the one in use. */
 export const VARIANTS = [
   {
     name: "tension",
     note: "Dark tile; the right peg sits far out, so the band is visibly pulled and its sides bow in.",
-    art: { tile: "dark", pegs: [[200, 300], [700, 210], [430, 650]], sag: 0.08 },
+    art: { tile: "dark", pegs: centred([[200, 300], [700, 210], [430, 650]], { scale: 0.92 }), sag: 0.08 },
   },
   {
     name: "stretch",
