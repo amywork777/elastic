@@ -169,7 +169,7 @@ export function SessionRow({
             />
           ) : (
             // The whole title, when the row has cut it short.
-            <TooltipHint content={projectName ? `${session.title} — ${projectName}` : session.title} overflowOnly>
+            <TooltipHint content={projectName ? `${session.title} · ${projectName}` : session.title} overflowOnly>
               <button
                 // The session on screen, said as well as tinted.
                 aria-current={selected ? "page" : undefined}
@@ -296,7 +296,7 @@ function ChangeCounts({ session, onOpen }: { session: Session; onOpen: () => voi
   }
   const files = `${changedFiles} ${changedFiles === 1 ? "file" : "files"} changed`;
   return (
-    <TooltipHint content={`${REPORTED_HINT} — Review shows the working tree`}>
+    <TooltipHint content={`${REPORTED_HINT}. Review shows the working tree`}>
       <button
         aria-label={`Review changes: ${files}, ${insertions} added, ${deletions} removed. ${REPORTED_HINT}; Review shows the working tree`}
         className="flex h-4 shrink-0 items-center gap-0.5 rounded-sm px-0.5 font-mono text-[10px] leading-none tabular-nums hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"

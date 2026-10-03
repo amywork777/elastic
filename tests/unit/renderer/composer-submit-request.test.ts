@@ -77,12 +77,12 @@ it("a send the caller refuses says why and leaves the draft in the box", async (
   const { toast } = await import("sonner");
   const onSubmit = vi.fn(async () => undefined);
   useComposer.getState().setDraft(newSessionKey(A.id), "make a cube");
-  const view = render(createElement(Composer, { sessionId: null, newDraftKey: newSessionKey(A.id), chips: null, commands: [], status: "ready", onSubmit, refuseSend: "No agent ready — sign in to one first" }));
+  const view = render(createElement(Composer, { sessionId: null, newDraftKey: newSessionKey(A.id), chips: null, commands: [], status: "ready", onSubmit, refuseSend: "No agent ready. Sign in to one first" }));
   const send = view.getByRole("button", { name: "Submit" });
   expect(send).toHaveAttribute("aria-disabled", "true");
-  expect(send).toHaveAccessibleDescription("No agent ready — sign in to one first");
+  expect(send).toHaveAccessibleDescription("No agent ready. Sign in to one first");
   act(() => useComposer.getState().requestSubmit(newSessionKey(A.id)));
-  await waitFor(() => expect(toast.info).toHaveBeenCalledWith("No agent ready — sign in to one first"));
+  await waitFor(() => expect(toast.info).toHaveBeenCalledWith("No agent ready. Sign in to one first"));
   expect(onSubmit).not.toHaveBeenCalled();
   expect(useComposer.getState().drafts[newSessionKey(A.id)]).toBe("make a cube");
 });

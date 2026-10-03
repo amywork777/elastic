@@ -468,7 +468,7 @@ test("in the composer, Shift+Enter is a newline, Enter sends, Escape stops, and 
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-session-view]")).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
-  await page.getByPlaceholder("Send another message — it goes next").click();
+  await page.getByPlaceholder("Send another message, it goes next").click();
   await page.keyboard.press("Escape");
   await expect(page.locator("[data-stopped]")).toBeVisible();
   await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle");

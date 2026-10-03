@@ -26,7 +26,6 @@ vi.mock("node:fs", async (importOriginal) => {
   }) as typeof actual.realpathSync;
   return { ...actual, realpathSync, default: { ...actual, realpathSync } };
 });
-vi.mock("@main/telemetry", () => ({ track: () => {}, fileExtension: () => "none" }));
 vi.mock("electron", () => ({ BrowserWindow: {}, dialog: {}, ipcMain: {}, shell: { showItemInFolder } }));
 vi.mock("@main/db/repositories", () => ({
   projects: {

@@ -23,7 +23,6 @@ vi.mock("@main/acp/agent-options", () => ({ AgentOptionStore: class {} }));
 vi.mock("@main/acp/sessions", () => ({ SessionManager: class { archive = calls.archive; } }));
 vi.mock("@main/integrations", () => ({ forgetSession: calls.forgetSession, mcpServersFor: () => [], sessionPreamble: () => null, skillsRoot: () => null }));
 vi.mock("@main/cad", () => ({ forgetCadSession: calls.forgetCad, sessionRuntimePath: () => [] }));
-vi.mock("@main/telemetry", () => ({ track: () => {} }));
 vi.mock("@main/db/repositories", () => ({ agentOptions: {}, projects: {}, sessions: {}, sessionStates: {}, settings: {} }));
 vi.mock("@main/projects/git", () => ({ emptyTreeIfUnborn: () => {}, head: () => {}, isUnder: () => false, samePath: () => false }));
 vi.mock("@main/projects/workspace", () => ({ releaseWorkspace: () => {} }));

@@ -24,12 +24,6 @@ describe("Settings", () => {
     expect(settings.layout).toEqual({ sidebarWidth: 230, sidebarCollapsed: false });
   });
 
-  it("has telemetry on with an opt-out (plan §14)", () => {
-    expect(defaultSettings().telemetry).toBe(true);
-    // And the opt-out survives, which is the half that matters: a stored false
-    // is not a missing field, so a later build cannot default it back on.
-    expect(SettingsSchema.parse({ telemetry: false }).telemetry).toBe(false);
-  });
 
   it("fills in fields a row written by an older build is missing", () => {
     // Settings rows are per-key JSON in sqlite, so a new field is not a schema

@@ -267,7 +267,7 @@ describe("Sidebar", () => {
     useProjects.setState({ projects: [], ready: true, activeId: "d1", draft });
     wrap(<Sidebar />);
 
-    expect(screen.getByText("gearbox — new session")).toBeInTheDocument();
+    expect(screen.getByText("gearbox · new session")).toBeInTheDocument();
     expect(screen.queryByText("No sessions yet")).toBeNull();
   });
 

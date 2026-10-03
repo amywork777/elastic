@@ -25,7 +25,6 @@ vi.mock("@main/db/repositories", () => ({
   settings: { get: () => ({ ...state.stored }) },
 }));
 vi.mock("@main/cad", () => ({ viewers: () => ({}) }));
-vi.mock("@main/telemetry", () => ({ changedSettingsKeys: () => [], track: () => {} }));
 vi.mock("@main/settings-effects", () => ({ applySettingsEffects: () => {} }));
 vi.mock("@main/ipc/register", () => ({
   IpcError: class extends Error {},

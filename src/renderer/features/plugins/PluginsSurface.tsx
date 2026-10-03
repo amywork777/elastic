@@ -234,7 +234,7 @@ function CatalogRow({ entry }: { entry: CatalogEntry }) {
   const record = entry.installedId ? installed.find((plugin) => plugin.id === entry.installedId) ?? null : null;
   return (
     <div className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/60" data-catalog-entry={entry.name}>
-      <PluginLogo className="size-9 rounded-[10px]" plugin={record ?? { logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
+      <PluginLogo className="size-9 rounded-[10px]" plugin={record ?? { id: entry.name, logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
       <button className="min-w-0 flex-1 rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={() => show(record ? { plugin: record.id } : { entry: entry.key })} type="button">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate font-medium">{record?.displayName ?? entry.displayName}</span>
@@ -341,7 +341,7 @@ function UpdateButton({ plugin }: { plugin: PluginRecord }) {
 function SourcesSection({ marketplaces }: { marketplaces: Marketplace[] }) {
   if (marketplaces.length === 0) return null;
   return (
-    <section className="mt-10" data-testid="plugin-sources">
+    <section className="mt-10 px-2" data-testid="plugin-sources">
       <h2 className="mb-2 font-medium text-sm">Sources</h2>
       <div className="divide-y divide-border rounded-lg border">
         {marketplaces.map((market) => (
@@ -377,7 +377,7 @@ function EntryPage({ entry }: { entry: CatalogEntry }) {
         <ChevronLeft className="size-3.5" /> Plugins
       </button>
       <div className="flex items-start gap-4 pb-6">
-        <PluginLogo className="size-14 rounded-xl" plugin={{ logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
+        <PluginLogo className="size-14 rounded-xl" plugin={{ id: entry.name, logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
         <div className="min-w-0 flex-1">
           <h1 className="font-semibold text-xl">{entry.displayName}</h1>
           <p className="mt-1 text-muted-foreground text-sm">{entry.description || "No description"}</p>
@@ -501,7 +501,7 @@ function DetailPage({ plugin }: { plugin: PluginRecord }) {
           <Row key={tool.id} primary={tool.title} secondary={[
             tool.entrypoints.map((entry) => entry.type === "global" ? "rail page" : entry.type === "thread" ? "tab" : `opens .${entry.extensions.join(", .")}`).join(" · "),
             tool.description,
-          ].filter(Boolean).join(" — ")}
+          ].filter(Boolean).join(" · ")}
           action={tool.entrypoints.some((entry) => entry.type === "global")
             ? <Button className="h-7 text-xs" onClick={() => setSurface({ kind: "app", pluginId: plugin.id, toolId: tool.id })} size="sm" variant="secondary">Open</Button> : null} />
         ))}

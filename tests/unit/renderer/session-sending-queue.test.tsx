@@ -70,13 +70,13 @@ describe("the queued prompts' remove buttons", () => {
 });
 
 describe("the composer's accessible name", () => {
-  // It was the placeholder, so it read "Do anything" at rest and "Send another message — it goes next"
+  // It was the placeholder, so it read "Do anything" at rest and "Send another message, it goes next"
   // the moment a turn started: the same box announced as two different controls.
   it("is the same while a turn runs as when idle", () => {
     const { rerender } = render(<SessionView session={SESSION} />);
     expect(screen.getByRole("textbox", { name: "Prompt" })).toBeInTheDocument();
     act(() => useAcp.setState({ sessions: { s1: { ...initialSessionState("s1", "claude"), status: "running" } } }));
     rerender(<SessionView session={SESSION} />);
-    expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveAttribute("placeholder", "Send another message — it goes next");
+    expect(screen.getByRole("textbox", { name: "Prompt" })).toHaveAttribute("placeholder", "Send another message, it goes next");
   });
 });

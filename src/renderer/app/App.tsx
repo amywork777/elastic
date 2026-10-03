@@ -25,7 +25,7 @@ function useDocumentTitle(route: string, showWelcome: boolean): void {
   const sessionTitle = useSessions((state) => state.sessions.find((session) => session.id === state.activeId)?.title.trim() || null);
   const page = route === "settings" ? "Settings" : showWelcome ? "Welcome" : sessionTitle;
   useEffect(() => {
-    document.title = page ? `elastic — ${page}` : "elastic";
+    document.title = page ? `elastic · ${page}` : "elastic";
   }, [page]);
 }
 

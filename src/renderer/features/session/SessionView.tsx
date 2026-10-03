@@ -337,7 +337,7 @@ export function SessionView({ session }: { session: Session }) {
             disabled={composerDisabled}
             onStop={() => reportRefusal(cancel(session.id), "stop the turn", "Could not")}
             onSubmit={onSubmit}
-            placeholder={running ? "Send another message — it goes next" : "Do anything"}
+            placeholder={running ? "Send another message, it goes next" : "Do anything"}
             sessionId={session.id}
             status={composerStatus}
             trailing={chips?.trailing ?? null}

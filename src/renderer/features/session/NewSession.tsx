@@ -217,7 +217,7 @@ export function NewSession({ project }: { project: Project }) {
    */
   const start = async (text: string, content: PromptBlock[], draft: TakenDraft): Promise<boolean> => {
     if (!startingAgentId) {
-      setFailure({ message: "Install an agent first — Settings › Agents lists what elastic can run.", auth: false });
+      setFailure({ message: "Install an agent first. Settings › Agents lists what elastic can run.", auth: false });
       return false;
     }
     setBusy(true);
@@ -382,7 +382,7 @@ export function NewSession({ project }: { project: Project }) {
   const noAgent = detected && !listError && !tableProbing && !installed.some((candidate) => candidate.auth !== "unauthenticated");
   // Either way nothing can start a session from here, so the chips are shown
   // as they are and not offered, and a send says why instead of going out.
-  const unavailable = listError ? "The agent list could not be read" : noAgent ? "No agent ready — sign in to one first" : undefined;
+  const unavailable = listError ? "The agent list could not be read" : noAgent ? "No agent ready. Sign in to one first" : undefined;
   const offeredNames = offered.map((candidate) => candidate.name);
   const signInTo = offeredNames.length > 0 ? offeredNames.join(" or ") : "an agent";
   // Until detection has answered and some probe has come back, all three

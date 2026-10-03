@@ -83,7 +83,7 @@ describe("Settings search", () => {
     const box = screen.getByPlaceholderText("Search settings");
     // Whole queries at once: every page is mounted while one is active, and
     // typing them a letter at a time is seconds of re-renders.
-    fireEvent.change(box, { target: { value: "telemetry" } });
+    fireEvent.change(box, { target: { value: "notification" } });
     expect(await screen.findByRole("button", { name: "General" })).toBeInTheDocument();
     fireEvent.change(box, { target: { value: "" } });
     fireEvent.change(box, { target: { value: "worktree" } });

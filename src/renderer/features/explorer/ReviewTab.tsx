@@ -760,7 +760,7 @@ function FileSection({
       {open ? (
         file.binary ? (
           <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-            Binary file — no textual diff.
+            Binary file, no text diff.
           </p>
         ) : failure || diff ? (
           <>

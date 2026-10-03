@@ -32,21 +32,21 @@ beforeEach(() => {
 it("names the settings route", () => {
   useUi.setState({ route: "settings" });
   render(<App />);
-  expect(document.title).toBe("elastic — Settings");
+  expect(document.title).toBe("elastic · Settings");
 });
 
 it("names the welcome", () => {
   useOnboarding.setState({ enabled: true });
   useSettings.setState({ settings: { ...defaultSettings(), onboardingCompleted: false }, ready: true } as never);
   render(<App />);
-  expect(document.title).toBe("elastic — Welcome");
+  expect(document.title).toBe("elastic · Welcome");
 });
 
 it("names the active session, and is plain with none", () => {
   render(<App />);
   expect(document.title).toBe("elastic");
   act(() => useSessions.setState({ sessions: [BRACKET], activeId: "s1" }));
-  expect(document.title).toBe("elastic — Bracket");
+  expect(document.title).toBe("elastic · Bracket");
   act(() => useSessions.setState({ activeId: null }));
   expect(document.title).toBe("elastic");
 });

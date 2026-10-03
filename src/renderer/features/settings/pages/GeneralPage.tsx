@@ -35,14 +35,6 @@ const TIMING: { value: NotificationSoundTiming; label: string }[] = [
   { value: "unfocused", label: "When unfocused" },
 ];
 
-/** The whole vocabulary of `src/main/telemetry.ts`, printed rather than summarised. */
-const TELEMETRY_EVENTS: [string, string][] = [
-  ["App launched", "nothing else"],
-  ["Session created", "which agent, by its registry id"],
-  ["File opened", "the extension — step, md, py — never the name or the path"],
-  ["Settings changed", "the name of the field, never its value"],
-];
-
 export function GeneralPage() {
   const settings = useSettingsValue();
   const patch = useSettingsPatch();
@@ -115,7 +107,7 @@ export function GeneralPage() {
         {isMac ? (
           <SwitchRow
             checked={settings.showInMenuBar}
-            description="Keep a elastic item in the menu bar for bringing the window back."
+            description="Keep an elastic item in the menu bar for bringing the window back."
             keywords="tray status bar"
             onChange={(showInMenuBar) => patch({ showInMenuBar })}
             title="Show in menu bar"
@@ -192,28 +184,6 @@ export function GeneralPage() {
         />
       </SettingCard>
 
-      <SettingCard title="Privacy">
-        <SwitchRow
-          checked={settings.telemetry}
-          description="Anonymous counts through Aptabase. Four events, listed below, and nothing else."
-          keywords="telemetry analytics aptabase usage data"
-          onChange={(telemetry) => patch({ telemetry })}
-          title="Share usage data"
-        >
-          <dl className="grid grid-cols-[minmax(0,9rem)_1fr] gap-x-4 gap-y-1 rounded-lg bg-muted/50 px-3 py-2.5 text-xs">
-            {TELEMETRY_EVENTS.map(([event, carries]) => (
-              <div className="contents" key={event}>
-                <dt className="text-foreground">{event}</dt>
-                <dd className="text-muted-foreground">{carries}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-2 px-1 text-xs text-muted-foreground">
-            Aptabase adds the app version, the OS and a random per-install id. Nothing carries a
-            path, a file name, a project name, a prompt or an agent's output.
-          </p>
-        </SwitchRow>
-      </SettingCard>
     </>
   );
 }

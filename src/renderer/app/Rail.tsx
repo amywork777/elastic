@@ -60,7 +60,7 @@ export function Rail() {
           label={apps.filter((other) => other.plugin.id === plugin.id).length > 1 ? `${plugin.displayName}: ${tool.title}` : plugin.displayName}
           onClick={() => setSurface({ kind: "app", pluginId: plugin.id, toolId: tool.id })}
         >
-          <PluginLogo className="size-5" plugin={plugin} />
+          <PluginLogo className="size-[18px]" plugin={plugin} />
         </RailButton>
       ))}
     </nav>

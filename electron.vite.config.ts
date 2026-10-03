@@ -21,7 +21,6 @@ const alias = {
 // could be set by whoever launches the binary is a key anyone can point at
 // their own project. Absent (a checkout, a community build) it compiles to "",
 // which makes src/main/telemetry.ts inert — no init, no network call.
-const aptabaseKey = process.env.WORKBENCH_APTABASE_KEY ?? "";
 
 export default defineConfig({
   main: {
@@ -29,7 +28,6 @@ export default defineConfig({
     resolve: { alias },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion()),
-      __APTABASE_KEY__: JSON.stringify(aptabaseKey),
     },
     build: {
       rollupOptions: {

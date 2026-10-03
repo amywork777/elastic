@@ -39,7 +39,7 @@ export default function MissingFileAlert({ missingFileRef, rootPath = "" }: Miss
                 <span className="mt-2 block text-xs leading-5">
                   This viewer serves{" "}
                   <code className="rounded bg-muted px-1 py-0.5 text-foreground">{servedRoot}</code>.
-                  The path above is outside it — most likely a viewer from another
+                  The path above is outside it, most likely a viewer from another
                   checkout is holding this port. Start one for this workspace on a
                   free port instead.
                 </span>

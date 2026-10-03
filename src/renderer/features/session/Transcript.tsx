@@ -277,7 +277,7 @@ const TurnView = memo(function TurnView({
         <p className="not-prose mt-1 px-1.5 text-[13px] leading-5 text-muted-foreground italic">The agent declined.</p>
       ) : turn.stopReason === "max_tokens" || turn.stopReason === "max_turn_requests" ? (
         <p className="not-prose mt-1 px-1.5 text-[13px] leading-5 text-muted-foreground italic">
-          Stopped at the agent&apos;s limit — send &quot;continue&quot; to go on.
+          Stopped at the agent&apos;s limit. Send &quot;continue&quot; to go on.
         </p>
       ) : null}
     </div>

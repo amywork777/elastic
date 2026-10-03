@@ -309,7 +309,7 @@ function AuthenticationSection({ agent }: { agent: AgentStatus }) {
 
       {!agent.installed && cliLogin ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          Install {agent.name} first — signing in runs its own CLI.
+          Install {agent.name} first: signing in runs its own CLI.
         </p>
       ) : null}
 
@@ -359,7 +359,7 @@ function SkillsSection({ agent }: { agent: AgentStatus }) {
                  ? `which ${agent.name} loads by itself.`
                  : `and, because ${agent.name} does not load one, a line in the first prompt saying where they are. The app's MCP server can read them too.`
              } Nothing is installed into ${agent.name}'s own configuration.`
-              : "elastic hands its skills to every session. This build has none composed yet — run `npm run build`."
+              : "elastic hands its skills to every session. This build has none composed yet. Run `npm run build`."
           }
         />
       </p>
@@ -381,8 +381,8 @@ function McpSection({ agent }: { agent: AgentStatus }) {
   return (
     <Section title="MCP servers">
       <p className="text-xs text-muted-foreground">
-        Every elastic session gets the app&apos;s own server — how an agent opens a file in the
-        explorer, attaches a snapshot, or reads a skill — beside whatever {agent.name} is
+        Every elastic session gets the app&apos;s own server (how an agent opens a file in the
+        explorer, attaches a snapshot, or reads a skill) beside whatever {agent.name} is
         configured with itself. That configuration is {agent.name}&apos;s; this app does not touch it.
       </p>
     </Section>

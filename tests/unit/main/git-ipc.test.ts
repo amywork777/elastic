@@ -19,7 +19,6 @@ const state = vi.hoisted(() => ({
   worktreeRoot: "",
   settings: {} as Record<string, unknown>,
 }));
-vi.mock("@main/telemetry", () => ({ track: () => {}, fileExtension: () => "none" }));
 vi.mock("electron", () => ({ BrowserWindow: {}, dialog: {}, ipcMain: {}, shell: {} }));
 vi.mock("@main/db/repositories", async () => {
   const { defaultSettings } = await import("@shared/types");

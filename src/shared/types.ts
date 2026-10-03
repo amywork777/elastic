@@ -628,12 +628,6 @@ export const SettingsSchema = z.object({
   notificationSoundTiming: NotificationSoundTimingSchema.default("unfocused"),
   /** Hand the notification to the OS as a banner as well as showing it in-app. */
   notificationOsBanners: z.boolean().default(true),
-  /**
-   * On with an opt-out (plan §14). Aptabase is a no-op without a compiled-in
-   * key either way, and `src/main/telemetry.ts` reads this per event, so
-   * turning it off stops the next one rather than the next launch.
-   */
-  telemetry: z.boolean().default(true),
 
   /* Appearance */
   theme: ThemePreferenceSchema.default("system"),

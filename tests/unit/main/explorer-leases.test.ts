@@ -10,7 +10,6 @@ import type { WebContents } from "electron";
 
 const fixture = vi.hoisted(() => ({ root: "/projects/demo", gone: false }));
 const watchers = vi.hoisted(() => ({ watch: vi.fn(async () => {}), unwatch: vi.fn(async () => {}) }));
-vi.mock("@main/telemetry", () => ({ track: () => {}, fileExtension: () => "none" }));
 vi.mock("electron", () => ({ BrowserWindow: {}, dialog: {}, ipcMain: {}, shell: {} }));
 vi.mock("@main/explorer/fs", async (importOriginal) => ({
   ...(await importOriginal<object>()),

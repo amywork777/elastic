@@ -202,7 +202,7 @@ function drawError(data, result) {
   const message = data.message ?? result?.content?.map((part) => part.text).join("\n") ?? "Something went wrong.";
   const title = data.reason === "signed-out" ? "Sign in to GitHub" : data.reason === "missing" ? "Install the GitHub CLI" : "Code Review could not load this";
   const hint = data.reason === "signed-out" ? "Sign in with gh auth login in a terminal, then try again. Code Review uses your GitHub CLI sign-in and stores no token of its own." : message;
-  document.body.innerHTML = `<div class="bar">${backButton()}<h1>Code Review</h1></div>
+  document.body.innerHTML = `<div class="bar">${backButton()}<h1>${displayMode === "fullscreen" ? "" : "Code Review"}</h1></div>
     <div class="scroll"><div class="empty" role="alert"><h2>${escape(title)}</h2><p>${escape(hint)}</p>
     ${current?.origin ? `<button id="retry">Try again</button>` : ""}</div></div>`;
   wireBack();

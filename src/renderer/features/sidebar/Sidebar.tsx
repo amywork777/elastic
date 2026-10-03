@@ -182,7 +182,7 @@ function PendingGroup({ name, onOpen }: { name: string; onOpen: () => void }) {
       type="button"
     >
       <FolderOpen className="size-3 shrink-0 text-muted-foreground" />
-      <span className="truncate text-[11px] font-medium text-muted-foreground">{name} — new session</span>
+      <span className="truncate text-[11px] font-medium text-muted-foreground">{name} · new session</span>
     </button>
   );
 }

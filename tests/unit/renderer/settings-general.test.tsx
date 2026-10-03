@@ -9,8 +9,7 @@ import { useUi } from "@renderer/state/ui";
 import { defaultSettings } from "@shared/types";
 
 /**
- * Settings › General says what telemetry sends, and only that: each event by
- * name, and for a file only its kind — never its name or its path.
+ * Settings › General.
  */
 beforeEach(() => {
   useUi.setState({ route: "settings", settingsSection: "general", commandPaletteOpen: false });
@@ -18,15 +17,6 @@ beforeEach(() => {
 });
 
 describe("Settings › General", () => {
-  it("lists every telemetry event it sends, and says a file is never named", () => {
-    render(<TooltipProvider><SettingsRoute /></TooltipProvider>);
-    expect(screen.getByText("Share usage data")).toBeInTheDocument();
-    for (const event of ["App launched", "Session created", "File opened", "Settings changed"]) {
-      expect(screen.getByText(event, { exact: true })).toBeInTheDocument();
-    }
-    expect(screen.getByText(/never the name or the path/)).toBeInTheDocument();
-  });
-
   it("names every extension the sound chooser allows", async () => {
     render(<TooltipProvider><SettingsRoute /></TooltipProvider>);
     expect(await screen.findByText(/An aiff, wav, mp3, m4a or ogg file/)).toBeInTheDocument();

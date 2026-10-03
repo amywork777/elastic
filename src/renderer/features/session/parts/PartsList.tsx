@@ -1,3 +1,4 @@
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { AlertCircle, Paperclip, RotateCcw, Unplug } from "lucide-react";
 import { useMemo } from "react";
 
@@ -93,12 +94,14 @@ function ViewItemView({
     case "error":
       return (
         <div
-          className="not-prose my-2 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] leading-5"
+          className="not-prose my-2 flex flex-wrap items-start gap-x-2 gap-y-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] leading-5"
           data-part="error"
           role="alert"
         >
           <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-          <div className="min-w-0 flex-1 whitespace-pre-wrap break-words">{item.message}</div>
+          {/* The actions wrap under the message in a narrow chat rather than squeezing it into a column. */}
+          <div className="min-w-[12rem] flex-1 basis-0 whitespace-pre-wrap break-words">{item.message}</div>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
           {onReconnect ? (
             <Button className="h-6 shrink-0 gap-1 px-2 text-[12px]" onClick={onReconnect} size="sm" variant="ghost">
               <Unplug className="size-3" />
@@ -111,6 +114,7 @@ function ViewItemView({
               Retry
             </Button>
           ) : null}
+          </div>
         </div>
       );
     case "image":
@@ -124,14 +128,15 @@ function ViewItemView({
       );
     case "attachment":
       return (
-        <span
-          className="not-prose my-1 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[12px]"
-          data-part="attachment"
-          title={item.uri}
-        >
-          <Paperclip className="size-3 text-muted-foreground" />
-          {item.name}
-        </span>
+        <TooltipHint content={item.uri}>
+          <span
+            className="not-prose my-1 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[12px]"
+            data-part="attachment"
+          >
+            <Paperclip className="size-3 text-muted-foreground" />
+            {item.name}
+          </span>
+        </TooltipHint>
       );
     case "mode":
       return (

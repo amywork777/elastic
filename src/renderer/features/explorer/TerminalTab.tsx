@@ -12,6 +12,7 @@ import "@xterm/xterm/css/xterm.css";
 
 import { Button } from "@renderer/components/ui/button";
 import { useResolvedTheme } from "@renderer/hooks/use-theme";
+import { useSettings } from "@renderer/state/settings";
 import { terminalPromptRoot } from "@renderer/lib/terminal-workspace";
 import { useExplorer, updateSessionTab } from "@renderer/state/explorer";
 import { isTerminalReply } from "@shared/terminal-replies";
@@ -88,6 +89,43 @@ function themeFor(mode: "light" | "dark") {
       };
 }
 
+/**
+ * A CSS custom property as the `#rrggbb` xterm wants. The app's tokens are oklch, which xterm
+ * cannot parse, so the browser resolves them through a canvas. Null where there is no canvas or
+ * no token (a test), and the palette above stands.
+ */
+function tokenHex(name: string): string | null {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!value) return null;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return null;
+    context.fillStyle = value;
+    context.fillRect(0, 0, 1, 1);
+    const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
+    return `#${[r, g, b].map((channel) => (channel ?? 0).toString(16).padStart(2, "0")).join("")}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The palette with the window's own surface and text: the terminal sits on the colour theme's
+ * background (Graphite, Nord, ...) rather than a fixed black or white card.
+ */
+function themedFor(mode: "light" | "dark") {
+  const base = themeFor(mode);
+  const background = tokenHex("--background");
+  const foreground = tokenHex("--foreground");
+  return {
+    ...base,
+    ...(background ? { background, cursorAccent: background } : {}),
+    ...(foreground ? { foreground, cursor: foreground } : {}),
+  };
+}
+
 /** Before Settings has written `--font-mono`, and in a test with no stylesheet. */
 const FALLBACK_FONT = 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Mono", Consolas, monospace';
 
@@ -148,6 +186,8 @@ export function TerminalTab({
 }) {
   const update = useExplorer((state) => state.update);
   const mode = useResolvedTheme();
+  // A colour theme change rebuilds the terminal, as a light/dark change does, to take its surface.
+  const colorThemeId = useSettings((state) => state.settings?.colorTheme ?? "default");
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -213,7 +253,7 @@ export function TerminalTab({
       // Main keeps 512 KB for replay; this is what a person can scroll back
       // through in the widget itself.
       scrollback: 5000,
-      theme: themeFor(mode),
+      theme: themedFor(mode),
       // The pane has no room for a widget-drawn scrollbar next to the app's.
       scrollOnUserInput: true,
     });
@@ -381,7 +421,7 @@ export function TerminalTab({
       termRef.current = null;
     };
     // `tabId` is fixed for the component's life: the body is keyed on it.
-  }, [ptyId, sessionId, readOnly, mode, tabId]);
+  }, [ptyId, sessionId, readOnly, mode, colorThemeId, tabId]);
 
   // A new shell for this tab. The old pty is killed first: main keeps an
   // exited pty's scrollback (up to 512 KB) until its tab lets go of the id,
@@ -417,7 +457,7 @@ export function TerminalTab({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <div className="min-h-0 flex-1 overflow-hidden px-2 pt-2" data-selectable data-terminal-body ref={hostRef} />
+      <div className="min-h-0 flex-1 overflow-hidden px-3 pt-2" data-selectable data-terminal-body ref={hostRef} />
       <div className="flex h-6 shrink-0 items-center gap-2 border-t px-3 text-[11px] text-muted-foreground">
         <span className="truncate">{cwd ?? project.path}</span>
         {agent ? <span className="shrink-0 rounded-sm bg-muted px-1">agent</span> : null}

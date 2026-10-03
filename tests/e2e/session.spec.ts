@@ -451,7 +451,7 @@ test("a queued prompt goes out when the turn ends", async () => {
   await composer.fill("slow");
   await composer.press("Enter");
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
-  await page.getByPlaceholder("Send another message — it goes next").fill("thought and then ok");
+  await page.getByPlaceholder("Send another message, it goes next").fill("thought and then ok");
   await page.keyboard.press("Enter");
   await expect(page.getByText("1 queued prompt")).toBeVisible();
   await page.getByRole("button", { name: "Stop" }).click();
@@ -465,7 +465,7 @@ test("a queued prompt can be edited in place and goes out as edited", async () =
   await composer.fill("slow");
   await composer.press("Enter");
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
-  await page.getByPlaceholder("Send another message — it goes next").fill("thought and then nope");
+  await page.getByPlaceholder("Send another message, it goes next").fill("thought and then nope");
   await page.keyboard.press("Enter");
   await expect(page.getByText("1 queued prompt")).toBeVisible();
   await page.getByRole("button", { name: "thought and then nope", exact: true }).click();
