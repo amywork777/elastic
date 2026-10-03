@@ -50,6 +50,8 @@ export type ActivityRow = {
   command: string | null;
   /** The path the row is about, for the tooltip and the explorer. */
   path: string | null;
+  /** The MCP server of an MCP tool call (a plugin's, or elastic's own without its `app-`), or null. */
+  server: string | null;
   status: ToolCallStatus;
   /** Line counts over the diffs this call reported. */
   insertions: number;
@@ -168,17 +170,41 @@ export function activityRow(part: ToolCallPart): ActivityRow {
   return row;
 }
 
+/**
+ * An MCP tool call, by the name the agent gives it: Claude Code's
+ * `mcp__<server>__<tool>`, Codex's `mcp.<server>.<tool>`. Null for anything else.
+ */
+export function mcpToolOf(part: Pick<ToolCallPart, "name" | "title">): { server: string; tool: string } | null {
+  for (const text of [part.name ?? "", part.title.trim()]) {
+    const match = /^mcp__(.+?)__(.+)$/.exec(text) ?? /^mcp\.([^.\s]+)\.(\S+)$/.exec(text);
+    if (match) return { server: match[1]!.replace(/^app-/, ""), tool: match[2]! };
+  }
+  return null;
+}
+
+const MCP_VERBS: Record<ToolCallStatus, string> = {
+  pending: "Using",
+  in_progress: "Using",
+  completed: "Used",
+  failed: "Could not use",
+  cancelled: "Cancelled using",
+};
+
 function computeActivityRow(part: ToolCallPart): ActivityRow {
-  const glyph = glyphOf(part);
+  const mcp = mcpToolOf(part);
+  // An MCP call is a tool the agent used, whatever kind the adapter filed it under.
+  const glyph = mcp ? (part.content.some((content) => content.type === "image") ? "image" : "other") : glyphOf(part);
   const path = pathOf(part);
   const command = glyph === "execute" ? commandOf(part) : null;
   const counts = diffTotals(part);
   return {
     id: part.id,
     glyph,
-    label: command !== null && !part.title.trim() ? "" : labelOf(part, glyph, path, command !== null),
+    label: mcp ? `${MCP_VERBS[part.status]} ${mcp.server}: ${mcp.tool}`
+      : command !== null && !part.title.trim() ? "" : labelOf(part, glyph, path, command !== null),
     command,
     path,
+    server: mcp?.server ?? null,
     status: part.status,
     insertions: counts.insertions,
     deletions: counts.deletions,
@@ -398,7 +424,7 @@ export function commandLine(command: string, max = 120): string {
 /* Folding                                                                     */
 /* -------------------------------------------------------------------------- */
 
-type Bucket = { glyph: Glyph; paths: Set<string>; count: number; active: boolean };
+type Bucket = { glyph: Glyph; server: string | null; paths: Set<string>; count: number; active: boolean };
 
 /**
  * "Edited 3 files, ran 2 commands, read hand.py" — one segment per kind in
@@ -407,12 +433,14 @@ type Bucket = { glyph: Glyph; paths: Set<string>; count: number; active: boolean
  * running: it folds in the past tense.
  */
 export function foldSummary(rows: ActivityRow[]): string {
-  const buckets = new Map<Glyph, Bucket>();
+  const buckets = new Map<string, Bucket>();
   for (const row of rows) {
-    let bucket = buckets.get(row.glyph);
+    // An MCP server's calls fold by server: "used cad", as Codex says "Used Cad integration".
+    const key = row.server ? `mcp:${row.server}` : row.glyph;
+    let bucket = buckets.get(key);
     if (!bucket) {
-      bucket = { glyph: row.glyph, paths: new Set(), count: 0, active: false };
-      buckets.set(row.glyph, bucket);
+      bucket = { glyph: row.glyph, server: row.server, paths: new Set(), count: 0, active: false };
+      buckets.set(key, bucket);
     }
     bucket.count += 1;
     if (row.path) {
@@ -442,6 +470,7 @@ const NOUNS: Record<Glyph, [singular: string, plural: string]> = {
 };
 
 function segment(bucket: Bucket): string {
+  if (bucket.server) return `${bucket.active ? "using" : "used"} ${bucket.server}`;
   const [done, doing] = VERBS[bucket.glyph];
   const action = (bucket.active ? doing : done).toLowerCase();
   const files = bucket.paths.size;

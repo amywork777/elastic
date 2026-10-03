@@ -125,7 +125,7 @@ test("a new session runs a Codex-shaped turn through every state", async () => {
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
 
-  const composer = page.getByPlaceholder("Describe a part to build…", { exact: true });
+  const composer = page.getByPlaceholder("Ask for anything…", { exact: true });
   await composer.fill("showcase: write a greeting script and tidy up");
   await composer.press("Enter");
 
@@ -288,7 +288,7 @@ test("text in an agent's message can be selected", async () => {
   // Prepare that same turn when this test runs on its own as well.
   if ((await page.locator("[data-part=text]").count()) === 0) {
     await expect(page.locator("[data-new-session] [data-chip=model]")).toContainText("Fast");
-    const composer = page.getByPlaceholder("Describe a part to build…", { exact: true });
+    const composer = page.getByPlaceholder("Ask for anything…", { exact: true });
     await composer.fill("showcase: write a greeting script and tidy up");
     await composer.press("Enter");
     await page.locator("[data-permission][data-outcome=pending]").getByRole("button", { name: "Yes", exact: true }).click();
@@ -545,7 +545,7 @@ test("the new session is created in the mode its chip is on, and Manual waits", 
   await expect(chip).toContainText("Manual");
   await expectNoChevrons();
 
-  const composer = page.getByPlaceholder("Describe a part to build…", { exact: true });
+  const composer = page.getByPlaceholder("Ask for anything…", { exact: true });
   await composer.fill("permission to run ls");
   await composer.press("Enter");
 
@@ -579,18 +579,24 @@ test("the full-access mode is never asked anything", async () => {
   await page.getByRole("menu").getByRole("menuitemradio", { name: /Full access/ }).click();
   await expect(chip).toContainText("Full access");
 
-  const composer = page.getByPlaceholder("Describe a part to build…", { exact: true });
+  const composer = page.getByPlaceholder("Ask for anything…", { exact: true });
   await composer.fill("permission to run ls");
   await composer.press("Enter");
+  // The first turn's reply, finished: "idle" alone can be read before the
+  // turn starts, and a prompt sent then lands behind it.
+  const agentTurns = page.locator("[data-turn][data-role=agent]");
+  await expect(agentTurns.first()).toContainText("ok", { timeout: 20_000 });
   await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 20_000 });
   // The same prompt as the test above, and no card: the request was never
   // made. Nothing here auto-answered one.
   await expect(page.locator("[data-permission]")).toHaveCount(0);
   await expect(page.locator("[data-status-line]")).toHaveCount(0);
+  const before = await agentTurns.count();
   const live = page.getByPlaceholder("Do anything", { exact: true });
   await live.fill("applied");
   await live.press("Enter");
-  await expect(page.locator("[data-turn][data-role=agent]").last()).toContainText("mode:full in full");
+  await expect(agentTurns).toHaveCount(before + 1, { timeout: 20_000 });
+  await expect(agentTurns.last()).toContainText("mode:full in full");
 
   // Left as the tests after this expect the sidebar: no rows under the
   // project (the archive test before this left it that way).
@@ -612,7 +618,7 @@ test("a signed-out agent asks to sign in", async () => {
   // saved project, so it is not in the project chip's Recent list (`docs/session-workspaces.md`).
   await chooseDirectory(app, signedOutProject);
   await expect(page.getByRole("heading", { name: `What should we build in ${path.basename(signedOutProject)}?` })).toBeVisible();
-  const composer = page.getByPlaceholder("Describe a part to build…", { exact: true });
+  const composer = page.getByPlaceholder("Ask for anything…", { exact: true });
   await composer.fill("hello");
   await composer.press("Enter");
   const auth = page.locator("[data-auth-prompt]");
@@ -732,7 +738,7 @@ async function completeContextTurn(prompt: "context" | "limits") {
   }
   const turns = page.locator("[data-session-view] [data-turn][data-role=agent]");
   const previousTurns = await turns.count();
-  const composer = page.getByPlaceholder(onNewSession ? "Describe a part to build…" : "Do anything", { exact: true });
+  const composer = page.getByPlaceholder(onNewSession ? "Ask for anything…" : "Do anything", { exact: true });
   await composer.fill(prompt);
   await composer.press("Enter");
   await expect(turns).toHaveCount(previousTurns + 1);

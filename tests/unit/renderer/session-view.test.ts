@@ -152,6 +152,20 @@ describe("folding", () => {
     expect(foldSummary(rows)).toBe("Edited 3 files, ran 2 commands");
   });
 
+  it("names the MCP server an agent used, as Claude Code and Codex name its tools, whatever kind the adapter filed", () => {
+    const claude = call({ id: "m1", kind: "other", name: "mcp__cad__cad_show", title: "mcp__cad__cad_show" });
+    const codex = call({ id: "m2", kind: "execute", title: "mcp.cad.cad_open", input: { server: "cad" } });
+    const app = call({ id: "m3", kind: "other", title: "mcp__app-terminals__read_terminal", status: "in_progress" });
+    const rows = [claude, codex, app, run("c1", "ls")].map(activityRow);
+    expect(rows.map((row) => [row.label, row.server, row.glyph])).toEqual([
+      ["Used cad: cad_show", "cad", "other"],
+      ["Used cad: cad_open", "cad", "other"],
+      ["Using terminals: read_terminal", "terminals", "other"],
+      ["", null, "execute"],
+    ]);
+    expect(foldSummary(rows)).toBe("Used cad, using terminals, ran 1 command");
+  });
+
   it("names a single file and uses the progressive tense while something runs", () => {
     const rows = [read("r1", "docs/notes.md"), read("r2", "docs/notes.md"), run("c1", "make", "in_progress")].map(activityRow);
     expect(foldSummary(rows)).toBe("Read notes.md, running 1 command");

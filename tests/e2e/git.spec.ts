@@ -72,7 +72,7 @@ test.afterAll(async () => {
 test("a chosen folder is a draft: no project, no explorer, and its words kept per folder", async () => {
   const added = await chooseDirectory(app, repo);
   projectId = added.id;
-  const draft = page.getByPlaceholder("Describe a part to build…", { exact: true });
+  const draft = page.getByPlaceholder("Ask for anything…", { exact: true });
   await expect(draft).toBeVisible();
   await expect(page.getByTestId("explorer")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Toggle explorer" })).toHaveCount(0);
@@ -243,7 +243,7 @@ test("the new-session screen's New worktree makes the session in a worktree of i
   await page.locator("[data-context-strip]").getByRole("button", { name: "Local", exact: true }).click();
   await page.getByRole("menuitemradio", { name: /New worktree/ }).click();
   await expect(page.locator('[data-composer-row] [data-chip="model"]')).toBeVisible({ timeout: 30_000 });
-  const draft = page.getByPlaceholder("Describe a part to build…", { exact: true });
+  const draft = page.getByPlaceholder("Ask for anything…", { exact: true });
   await draft.fill("write a file");
   await draft.press("Enter");
   await expect(page.locator("[data-session-view]")).toBeVisible({ timeout: 30_000 });

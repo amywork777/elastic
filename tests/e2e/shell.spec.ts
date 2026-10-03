@@ -456,7 +456,7 @@ test("in the composer, Shift+Enter is a newline, Enter sends, Escape stops, and 
   await chooseDirectory(app, project);
   // Sending needs an agent, and the chip fills in once the detector has probed.
   await expect(page.locator("[data-new-session] [data-composer-row] [data-chip=model]")).toBeVisible({ timeout: 30_000 });
-  const composer = page.getByPlaceholder("Describe a part to build…", { exact: true });
+  const composer = page.getByPlaceholder("Ask for anything…", { exact: true });
   await composer.click();
   await composer.fill("first line");
   await page.keyboard.press("Shift+Enter");

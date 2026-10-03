@@ -84,7 +84,7 @@ test("the first launch: a project, two sessions, the chips a person picked, a ti
     // The mode, per provider: picked once here and never touched again. Every model switch
     // below has to leave it alone, and so does the quit.
     await pick(page, row.locator("[data-chip=mode]"), "Plan");
-    const composer = page.getByPlaceholder("Describe a part to build…", { exact: true });
+    const composer = page.getByPlaceholder("Ask for anything…", { exact: true });
     await composer.fill("hello");
     await composer.press("Enter");
     await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 30_000 });
@@ -169,7 +169,7 @@ test("the second launch comes back to all of it, and opening its sessions is che
     // `settings` with what it ended up on — the agent's word, not the app's. (Before any
     // session/load: the fake's load answers with no config options, and a load that does so
     // replaces the cached snapshot the chips are drawn from.)
-    const composer = page.getByPlaceholder("Describe a part to build…", { exact: true });
+    const composer = page.getByPlaceholder("Ask for anything…", { exact: true });
     await composer.fill("settings");
     await composer.press("Enter");
     await expect(page.locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 30_000 });

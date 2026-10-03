@@ -65,7 +65,7 @@ it("a CAD file outside the project is not attached, and the person is told to pu
   const view = renderComposer();
   await view.pick(binary("part.stl"));
   await waitFor(() => expect(errors()).toHaveLength(1));
-  expect(errors()[0]).toMatch(/^part\.stl is a CAD file that is not in this project, so it was not attached\. .*project folder/);
+  expect(errors()[0]).toMatch(/^part\.stl is a model file that is not in this project, so it was not attached\. .*project folder/);
   expect(view.attached("part.stl")).toBeNull();
   expect(useComposer.getState().drafts[draftKey] ?? "").toBe("");
 });
@@ -120,7 +120,7 @@ it("a file dropped on the box goes through the same check", async () => {
     fireEvent.drop(form, { dataTransfer: { files: [binary("part.3mf")], types: ["Files"] } });
   });
   await waitFor(() => expect(errors()).toHaveLength(1));
-  expect(errors()[0]).toMatch(/^part\.3mf is a CAD file that is not in this project/);
+  expect(errors()[0]).toMatch(/^part\.3mf is a model file that is not in this project/);
   expect(view.attached("part.3mf")).toBeNull();
 });
 

@@ -355,7 +355,7 @@ describe("the model chip", () => {
 
   it("hints at CAD in the box, on this screen only", () => {
     render(<NewSession project={PROJECT} />);
-    expect(screen.getByPlaceholderText("Describe a part to build…")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Ask for anything…")).toBeInTheDocument();
   });
 });
 

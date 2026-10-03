@@ -150,7 +150,7 @@ export const attachmentRefusal = {
   pasteTooLarge: () =>
     `The pasted text is larger than ${MAX_INLINE_TEXT_BYTES / 1024} KB, so it was not pasted. Put it in the project folder and mention its path instead.`,
   cadOutside: (name: string) =>
-    `${name} is a CAD file that is not in this project, so it was not attached. Copy it into the project folder, then refer to it by its path.`,
+    `${name} is a model file that is not in this project, so it was not attached. Copy it into the project folder, then refer to it by its path.`,
   cadAmbiguous: (name: string, paths: readonly string[]) =>
     `${name} matches ${paths.length} files in this project (${paths.join(", ")}), so it was not attached. Type the path of the one you mean.`,
   cadUnreadable: (name: string) =>

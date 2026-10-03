@@ -415,7 +415,7 @@ export function NewSession({ project }: { project: Project }) {
           What should we build in {project.name}?
         </h1>
         <p className="mt-2 text-center text-[13px] text-balance text-muted-foreground">
-          elastic runs the agent in this folder, with cadgen and the CAD skills already loaded.
+          elastic runs the agent in this folder, with the tools and skills of your plugins.
         </p>
 
         {failure?.auth ? (
@@ -474,7 +474,7 @@ export function NewSession({ project }: { project: Project }) {
             refuseSend={unavailable}
             // A CAD hint, on this screen only: the live session's box stays
             // "Do anything" — by then the person knows what it is for.
-            placeholder={busy && agent ? `Starting ${agent.name}…` : "Describe a part to build…"}
+            placeholder={busy && agent ? `Starting ${agent.name}…` : "Ask for anything…"}
             newDraftKey={draftKey}
             sessionId={null}
             status={busy ? "submitted" : "ready"}
