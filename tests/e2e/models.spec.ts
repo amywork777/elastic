@@ -74,8 +74,13 @@ test("a provider added on the page powers an agent, and its key never comes back
 test("a chat on a provider sends providers/set before session/new, with the model in the adapter's environment", async () => {
   const session = await page.evaluate((id) => window.workbench.sessions.create({ projectId: id, agentId: "claude-code", gitMode: "none", provider: { id: "openrouter", model: "openai/gpt-x" } }), projectId);
   expect(session.provider).toEqual({ id: "openrouter", model: "openai/gpt-x" });
-  const created = frames().find((frame) => frame.kind === "session/new")!;
-  const set = frames().find((frame) => frame.kind === "providers/set" && frame.pid === created.pid)!;
+  // Other adapters write here too (the model probe's session/new, say): this chat's is the one in
+  // the process that was given the provider.
+  const set = frames().find((frame) => frame.kind === "providers/set")!;
+  expect(set, "providers/set was sent").toBeTruthy();
+  const created = frames().find((frame) => frame.kind === "session/new" && frame.pid === set.pid)!;
+  expect(created, "session/new in the same adapter").toBeTruthy();
+  expect(frames().indexOf(set)).toBeLessThan(frames().findIndex((frame) => frame.kind === "session/new" && frame.pid === set.pid));
   expect(set.params).toMatchObject({ providerId: "main", apiType: "anthropic", baseUrl: "https://openrouter.ai/api", headers: ["Authorization"], authorized: true });
   expect((created.params.route as Record<string, unknown>).ANTHROPIC_MODEL).toBe("openai/gpt-x");
   expect(fs.readFileSync(record, "utf8")).not.toContain("sk-or-e2e-secret");
