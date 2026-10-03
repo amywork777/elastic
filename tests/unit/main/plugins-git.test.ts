@@ -13,7 +13,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { compatibilityOf } from "../../../src/main/plugins/catalog";
+import { buildCatalog, compatibilityOf } from "../../../src/main/plugins/catalog";
 import { keyOf, parseGitRemote } from "../../../src/main/plugins/git";
 import type { PluginHost } from "../../../src/main/plugins/host";
 import { readMarketplace } from "../../../src/main/plugins/manifest";
@@ -181,6 +181,52 @@ describe("the catalog", () => {
     expect(catalog).toHaveLength(1);
     expect(catalog[0]).toMatchObject({ displayName: "Linear", compat: { level: "signin", label: "May need sign-in" } });
     expect(catalog[0]!.sources.map((source) => [source.marketplaceName, source.codex])).toEqual([["codex-market", true], ["claude-market", false]]);
+  });
+
+  it("leads with the listing that works best and borrows the face of the others", () => {
+    // Codex's Linear carries a ChatGPT app elastic skips (Partly) but the logo, site and prompts;
+    // Claude's is the bare server (May need sign-in). Claude's leads; the card still shows Codex's face.
+    const claude = folderMarket("claude", "claude-plugins-official", [{ name: "linear", files: { ".claude-plugin/plugin.json": { name: "linear", author: { name: "Linear" } }, ".mcp.json": { linear: { type: "http", url: "https://mcp.linear.app/mcp" } } } }]);
+    write(path.join(claude, ".claude-plugin", "marketplace.json"), { name: "claude-plugins-official", plugins: [{ name: "linear", source: "./linear", homepage: "https://github.com/anthropics/claude-plugins-public/tree/main/external_plugins/linear" }] });
+    const codex = folderMarket("codex", "codex-market", [{ name: "linear", files: {
+      ".codex-plugin/plugin.json": { name: "linear", version: "5.0.1", homepage: "https://linear.app/", apps: "./.app.json", interface: { displayName: "Linear", developerName: "Linear Orbit, Inc", websiteURL: "https://linear.app/", logo: "./assets/logo.png", defaultPrompt: ["Triage the issues for this task"] } },
+      ".mcp.json": { mcpServers: { linear: { url: "https://mcp.linear.app/mcp" } } },
+      ".app.json": { apps: { linear: { id: "connector_1" } } },
+      "assets/logo.png": "\x89PNG",
+    } }]);
+    const markets = [claude, codex].map((root) => ({ ...readMarketplace(root), kind: "local" as const, url: null }));
+    const [entry] = buildCatalog(markets, { bySource: new Map(), ids: new Set() });
+    expect(entry!.sources.map((source) => source.marketplaceName)).toEqual(["claude-plugins-official", "codex-market"]);
+    expect(entry).toMatchObject({
+      displayName: "Linear", compat: { level: "signin" }, version: "5.0.1", homepage: "https://linear.app/",
+      publisher: "Linear", needs: ["sign-in"], adds: { servers: ["linear (mcp.linear.app)"], skills: [] },
+      prompts: ["Triage the issues for this task"], verified: false, example: false,
+    });
+    expect(entry!.logo).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("says a single working part in the singular", () => {
+    const root = path.join(dir, "one");
+    write(path.join(root, ".codex-plugin", "plugin.json"), { name: "one" });
+    write(path.join(root, ".mcp.json"), { mcpServers: { one: { url: "https://mcp.example.com/mcp" } } });
+    write(path.join(root, ".app.json"), { apps: { one: { id: "connector_1" } } });
+    expect(compatibilityOf({ path: root, remote: null, inline: null, unsupported: null }).detail).toBe("a server at mcp.example.com works here; elastic does not run its ChatGPT apps");
+  });
+
+  it("leaves out catalogs' test fixtures, marks elastic's examples, and names and trusts the official catalogs", () => {
+    const official = folderMarket("official", "claude-plugins-official", [
+      { name: "fakechat", files: { ".claude-plugin/plugin.json": { name: "fakechat" }, "skills/s/SKILL.md": "---\nname: s\n---\n" } },
+      { name: "keys", files: { ".claude-plugin/plugin.json": { name: "keys" }, ".mcp.json": { keys: { command: "npx", args: ["-y", "keys-mcp"], env: { KEYS_API_KEY: "" } } } } },
+    ]);
+    const examples = folderMarket("examples", "examples", [{ name: "tables", files: { ".codex-plugin/plugin.json": { name: "tables" }, "skills/t/SKILL.md": "---\nname: t\n---\n" } }]);
+    const catalog = buildCatalog([
+      { ...readMarketplace(official), kind: "git", url: "https://github.com/anthropics/claude-plugins-official.git" },
+      { ...readMarketplace(examples), kind: "builtin", url: null },
+    ], { bySource: new Map(), ids: new Set() });
+    expect(catalog.map((entry) => entry.name).sort()).toEqual(["keys", "tables"]);
+    const keys = catalog.find((entry) => entry.name === "keys")!;
+    expect(keys).toMatchObject({ verified: true, needs: ["api-key", "download"], example: false, sources: [{ marketplaceName: "Claude official" }] });
+    expect(catalog.find((entry) => entry.name === "tables")).toMatchObject({ example: true, verified: true, adds: { servers: [], skills: ["t"] } });
   });
 
   it("labels what elastic cannot run", () => {

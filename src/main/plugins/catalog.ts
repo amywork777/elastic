@@ -6,19 +6,26 @@
  * folder (a git URL plus a subfolder, or the same folder on disk), and then
  * when they have the same name: Linear in Claude's marketplace and in Codex's
  * is one card. The card keeps every source; the first is the one Install uses:
- * a folder on disk with a Codex manifest (`.codex-plugin`, where MCP App views
- * are declared) first, then any folder on disk, then a remote repository.
+ * the one that works best here (`LEVEL_ORDER`), and among equals a folder on
+ * disk with a Codex manifest (`.codex-plugin`, where MCP App views are
+ * declared) first, then any folder on disk, then a remote repository. What the
+ * card shows (name, logo, website, version, publisher, prompts) is gathered
+ * from every source, the primary's first, so a Claude listing that works best
+ * still shows the logo a Codex listing of the same plugin carries.
  *
  * Each card also says whether it will work here, from what is on disk and
  * without installing anything (`compatibilityOf`). A remote entry is read
  * when it is installed, and says so.
+ *
+ * Testing fixtures some catalogs list (`HIDDEN`) are left out, and elastic's
+ * examples are marked `example` for the page to hide unless asked.
  *
  * Plain `node:fs`, no Electron.
  */
 import fs from "node:fs";
 import path from "node:path";
 
-import type { CatalogEntry, CatalogSource, Compatibility } from "../../shared/plugins";
+import { OFFICIAL_CATALOGS, type CatalogEntry, type CatalogNeed, type CatalogSource, type Compatibility } from "../../shared/plugins";
 import { keyOf } from "./git";
 import { expandPluginRoot, findManifest, readLogo, type MarketplaceEntryFile, type MarketplaceFile } from "./manifest";
 
@@ -104,6 +111,8 @@ export function compatibilityOf(entry: Pick<MarketplaceEntryFile, "path" | "remo
   if (apps.length > 0) ignored.push("ChatGPT apps");
 
   const usable = local + remote.length + skills;
+  // "a server at mcp.linear.app works here", "2 MCP servers, 1 skill work here".
+  const verb = usable === 1 ? "works" : "work";
   const parts = [
     local > 0 ? plural(local, "MCP server") : null,
     remote.length > 0 ? `a server at ${[...new Set(remote)].join(", ")}` : null,
@@ -116,7 +125,7 @@ export function compatibilityOf(entry: Pick<MarketplaceEntryFile, "path" | "remo
     const skipped = [...ignored, ...(codex.length > 0 ? [`the ${codex.join(", ")} server (Codex only)`] : [])];
     return usable === 0
       ? { level: apps.length > 0 && ignored.length === 1 ? "codex" : "partly", label: apps.length > 0 && ignored.length === 1 ? "Needs ChatGPT" : "Partly", detail: `elastic does not run its ${skipped.join(", ")}` }
-      : { level: "partly", label: "Partly", detail: `${parts} work here; elastic does not run its ${skipped.join(", ")}` };
+      : { level: "partly", label: "Partly", detail: `${parts} ${verb} here; elastic does not run its ${skipped.join(", ")}` };
   }
   if (remote.length > 0) return { level: "signin", label: "May need sign-in", detail: `${parts}; you sign in to ${[...new Set(remote)].join(", ")} if it asks` };
   if (usable === 0) return { level: "partly", label: "Partly", detail: "it has no MCP servers or skills elastic can use" };
@@ -134,29 +143,115 @@ function rank(source: CatalogSource): number {
   return source.kind === "bundled" ? 0 : source.codex ? 1 : source.onDisk ? 2 : 3;
 }
 
-/** What the plugin's own manifest says about it, when its folder is on disk: name, sentence, logo. */
-function presentationOf(entry: MarketplaceEntryFile): { displayName: string | null; description: string | null; logo: string | null } {
-  const none = { displayName: null, description: null, logo: null };
-  if (!entry.path || !isDir(entry.path)) return none;
-  const file = findManifest(entry.path);
-  const manifest = file ? readJson(file) as Json | null : null;
-  if (!manifest) return none;
+/**
+ * Plugins a catalog lists for its own testing, never meant for people, with why.
+ * Matched by name, in catalogs elastic does not ship.
+ */
+export const HIDDEN: ReadonlyMap<string, string> = new Map([
+  ["fakechat", "Claude Code's fixture for testing its channel notification flow"],
+]);
+
+/** The name elastic shows for a catalog: the official ones by their own name, others as they call themselves. */
+export function catalogName(market: { url: string | null; displayName: string }): string {
+  return (market.url ? OFFICIAL_CATALOGS[keyOf(market.url)] : undefined) ?? market.displayName;
+}
+
+/** A catalog elastic ships, or one of the official ones. */
+export function isOfficial(kind: CatalogSource["kind"], marketUrl: string | null): boolean {
+  if (kind === "bundled" || kind === "builtin") return true;
+  return marketUrl !== null && keyOf(marketUrl) in OFFICIAL_CATALOGS;
+}
+
+type Face = {
+  displayName: string | null;
+  description: string | null;
+  logo: string | null;
+  version: string | null;
+  website: string | null;
+  publisher: string | null;
+  prompts: string[];
+  needs: CatalogNeed[];
+  servers: string[];
+  skills: string[];
+};
+
+const NO_FACE: Face = { displayName: null, description: null, logo: null, version: null, website: null, publisher: null, prompts: [], needs: [], servers: [], skills: [] };
+
+/** An environment variable or header that carries a credential. */
+const KEY_LIKE = /(^|_)(API_?KEY|TOKEN|SECRET|ACCESS_KEY|PAT)$/i;
+/** Launchers that fetch the server the first time it runs. */
+const DOWNLOADERS = new Set(["npx", "uvx", "bunx", "pipx", "docker", "dnx"]);
+
+/** A repository page, not a product's site: `github.com/owner/repo…`. */
+export const isRepoPage = (url: string) => /^https?:\/\/(www\.)?(github|gitlab)\.com\/[^/]+\/[^/]+/i.test(url);
+
+/** What the plugin's own manifest says about it, when its folder (or inline entry) is readable. */
+function presentationOf(entry: MarketplaceEntryFile): Face {
+  const dir = entry.path && isDir(entry.path) ? entry.path : null;
+  if (!dir && !entry.inline) return NO_FACE;
+  const file = dir ? findManifest(dir) : null;
+  const manifest = ((file ? readJson(file) : null) ?? entry.inline ?? null) as Json | null;
+  if (!manifest) return NO_FACE;
   const face = (manifest.interface && typeof manifest.interface === "object" ? manifest.interface : {}) as Json;
-  const text = (value: unknown) => (typeof value === "string" && value ? value : null);
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
   let logo: string | null = null;
-  try { logo = readLogo(entry.path, { interface: face as never }, CATALOG_LOGO_BYTES); } catch { /* none */ }
-  return { displayName: text(face.displayName), description: text(face.shortDescription) ?? text(manifest.description), logo };
+  if (dir) { try { logo = readLogo(dir, { interface: face as never }, CATALOG_LOGO_BYTES); } catch { /* none */ } }
+  const author = manifest.author;
+  const authorName = typeof author === "string" ? text(author) : author && typeof author === "object" ? text((author as Json).name) : null;
+  const sites = [text(face.websiteURL), text(manifest.homepage)].filter((url): url is string => url !== null && !isRepoPage(url));
+  const servers = dir ? serversOf(dir, manifest) : (manifest.mcpServers && typeof manifest.mcpServers === "object" ? manifest.mcpServers as Record<string, Json> : {});
+  const needs = new Set<CatalogNeed>();
+  const serverNames: string[] = [];
+  for (const [name, server] of Object.entries(servers)) {
+    if (!server || typeof server !== "object") continue;
+    const env = server.env && typeof server.env === "object" ? Object.keys(server.env as Json) : [];
+    const envVars = Array.isArray(server.env_vars) ? server.env_vars.filter((item): item is string => typeof item === "string") : [];
+    const headers = server.headers && typeof server.headers === "object" ? Object.values(server.headers as Json).filter((item): item is string => typeof item === "string") : [];
+    if ([...env, ...envVars].some((key) => KEY_LIKE.test(key)) || headers.some((value) => /\$\{[^}]+\}/.test(value))) needs.add("api-key");
+    if (typeof server.url === "string") {
+      let host = name;
+      try { host = new URL(server.url).host; } catch { /* the name */ }
+      serverNames.push(host === name ? name : `${name} (${host})`);
+      if (!needs.has("api-key")) needs.add("sign-in");
+    } else {
+      serverNames.push(name);
+      if (typeof server.command === "string" && DOWNLOADERS.has(path.basename(server.command))) needs.add("download");
+    }
+  }
+  const skillsDir = dir ? path.join(dir, typeof manifest.skills === "string" ? manifest.skills : "skills") : null;
+  const skills = skillsDir && isDir(skillsDir)
+    ? fs.readdirSync(skillsDir).filter((name) => isFile(path.join(skillsDir, name, "SKILL.md"))).sort()
+    : [];
+  return {
+    displayName: text(face.displayName),
+    description: text(face.shortDescription) ?? text(manifest.description),
+    logo,
+    version: text(manifest.version),
+    website: sites[0] ?? null,
+    publisher: text(face.developerName) ?? authorName,
+    prompts: Array.isArray(face.defaultPrompt) ? face.defaultPrompt.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [],
+    needs: [...needs],
+    servers: serverNames,
+    skills,
+  };
 }
 
 /** Works first, then what works with a sign-in or in part, then what cannot be told before installing, then what will not run. */
 const LEVEL_ORDER: Record<Compatibility["level"], number> = { works: 0, signin: 1, partly: 2, unknown: 3, codex: 4, unavailable: 5 };
+
+/** The first value that is there. */
+function pick<T>(values: ReadonlyArray<T | null | undefined>): T | null {
+  return values.find((value): value is T => value !== null && value !== undefined && value !== "") ?? null;
+}
 
 /** The merged list. `installed` maps `<marketplace file>#<entry name>` and plugin ids to installed plugin ids. */
 export function buildCatalog(markets: CatalogMarket[], installed: { bySource: Map<string, string>; ids: Set<string> }): CatalogEntry[] {
   type Group = { key: string; names: Set<string>; items: Array<{ market: CatalogMarket; entry: MarketplaceEntryFile; source: CatalogSource; compat: Compatibility }> };
   const byKey = new Map<string, Group>();
   for (const market of markets) {
+    const shipped = market.kind === "bundled" || market.kind === "builtin";
     for (const entry of market.plugins) {
+      if (!shipped && HIDDEN.has(entry.name.toLowerCase())) continue;
       const key = sourceKey(market, entry);
       const group = byKey.get(key) ?? { key, names: new Set(), items: [] };
       const onDisk = entry.path !== null && isDir(entry.path);
@@ -165,7 +260,7 @@ export function buildCatalog(markets: CatalogMarket[], installed: { bySource: Ma
         entry,
         source: {
           marketplace: market.file,
-          marketplaceName: market.displayName,
+          marketplaceName: catalogName(market),
           name: entry.name,
           kind: market.kind,
           onDisk,
@@ -192,23 +287,35 @@ export function buildCatalog(markets: CatalogMarket[], installed: { bySource: Ma
     }
   }
   return merged.map((group) => {
-    const items = [...group.items].sort((a, b) => rank(a.source) - rank(b.source));
+    // The listing that works best here leads; among equals, the richer manifest.
+    const items = [...group.items].sort((a, b) => LEVEL_ORDER[a.compat.level] - LEVEL_ORDER[b.compat.level] || rank(a.source) - rank(b.source));
     const first = items[0]!;
-    const face = presentationOf(first.entry);
+    const faces = items.map((item) => presentationOf(item.entry));
+    const primary = faces[0]!;
+    const homepages = items.map((item) => item.entry.homepage);
     const installedId = items.map((item) => installed.bySource.get(`${item.source.marketplace}#${item.source.name}`)).find(Boolean)
       ?? (installed.ids.has(first.entry.name) ? first.entry.name : null);
     return {
       key: group.key,
       name: first.entry.name,
-      displayName: face.displayName ?? first.entry.name,
-      description: items.map((item) => item.entry.description).find(Boolean) ?? face.description ?? "",
-      logo: face.logo,
+      displayName: pick(faces.map((face) => face.displayName)) ?? first.entry.name,
+      description: pick([first.entry.description, primary.description, ...items.map((item) => item.entry.description), ...faces.map((face) => face.description)]) ?? "",
+      logo: pick(faces.map((face) => face.logo)),
       category: items.map((item) => item.entry.category).find(Boolean) ?? null,
-      version: first.entry.version,
-      homepage: items.map((item) => item.entry.homepage).find(Boolean) ?? null,
+      version: pick([first.entry.version, primary.version, ...items.map((item) => item.entry.version), ...faces.map((face) => face.version)]),
+      // The product's own site first; a catalog's repository page only when there is nothing else.
+      homepage: pick([...faces.map((face) => face.website), ...homepages.filter((url) => url !== null && !isRepoPage(url)), ...homepages]),
       compat: first.compat,
       sources: items.map((item) => item.source),
       installedId,
+      publisher: pick(faces.map((face) => face.publisher)),
+      verified: items.some((item) => isOfficial(item.market.kind, item.market.url)),
+      // What the source Install uses needs; a remote one is read on install, so a sibling's tells instead.
+      needs: first.source.onDisk || primary.needs.length > 0 ? primary.needs : pick(faces.map((face) => (face.needs.length > 0 ? face.needs : null))) ?? [],
+      adds: first.source.onDisk ? { servers: primary.servers, skills: primary.skills }
+        : { servers: pick(faces.map((face) => (face.servers.length > 0 ? face.servers : null))) ?? [], skills: pick(faces.map((face) => (face.skills.length > 0 ? face.skills : null))) ?? [] },
+      prompts: pick(faces.map((face) => (face.prompts.length > 0 ? face.prompts : null))) ?? [],
+      example: items.every((item) => item.market.kind === "builtin"),
     };
   }).sort((a, b) => LEVEL_ORDER[a.compat.level] - LEVEL_ORDER[b.compat.level] || a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" }));
 }

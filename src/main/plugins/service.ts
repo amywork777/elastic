@@ -29,7 +29,8 @@ import {
   type PluginTool,
 } from "../../shared/plugins";
 import { APP_SCOPE, type ForwardedMethod, type HostedServer, type PluginHost } from "./host";
-import { buildCatalog, type CatalogMarket } from "./catalog";
+import { buildCatalog, catalogName, type CatalogMarket } from "./catalog";
+import type { LogoCache } from "./logos";
 import { copyPluginFolder, fetchLatest, keyOf, parseGitRemote, shallowClone } from "./git";
 import { insidePlugin, readMarketplace, readPlugin, type MarketplaceEntryFile, type MarketplaceFile, type ReadPlugin } from "./manifest";
 import type { PluginRegistry, RemoteMarketplace } from "./registry";
@@ -64,6 +65,8 @@ export type PluginServiceDeps = {
   staleAfterMs?: number;
   /** Called after anything a snapshot shows has changed. */
   changed?: (snapshot: PluginsSnapshot) => void;
+  /** Logos for cards whose plugin carries none, fetched in the background (`logos.ts`). Absent: no fetching. */
+  logos?: LogoCache;
 };
 
 type Loaded = {
@@ -326,7 +329,7 @@ export class PluginService {
       return {
         file: market?.file ?? file,
         name: market?.name ?? (remote ? parseGitRemote(remote.url).slug : path.basename(file)),
-        displayName: market?.displayName ?? (remote ? keyOf(remote.url).replace(/^https:\/\/(github\.com\/)?/, "") : path.basename(file)),
+        displayName: catalogName({ url: remote?.url ?? null, displayName: market?.displayName ?? (remote ? keyOf(remote.url).replace(/^https:\/\/(github\.com\/)?/, "") : path.basename(file)) }),
         kind,
         url: remote?.url ?? null,
         commit: remote?.commit ?? null,
@@ -357,11 +360,21 @@ export class PluginService {
       [...bySource.entries()], this.loaded.map((plugin) => plugin.id),
     ]);
     if (this.catalogCache?.signature === signature) return this.catalogCache.catalog;
-    const catalog = buildCatalog(
+    const built = buildCatalog(
       markets.map((item): CatalogMarket => ({ ...item.market!, kind: item.kind, url: item.remote?.url ?? null })),
       { bySource, ids: new Set(this.loaded.map((plugin) => plugin.id)) },
     );
+    const logos = this.deps.logos;
+    const { catalog, missing } = logos ? logos.fill(built) : { catalog: built, missing: [] };
     this.catalogCache = { signature, catalog };
+    if (logos && missing.length > 0) {
+      // A logo that arrives later is a changed snapshot: rebuilt from the cache and pushed.
+      void logos.fetchAll(missing).then((found) => {
+        if (!found) return;
+        this.catalogCache = null;
+        this.emit();
+      });
+    }
     return catalog;
   }
 

@@ -245,11 +245,34 @@ export const CatalogEntrySchema = z.object({
   /** The plugin's own logo (a small data URL), when its folder is on disk; else null. */
   logo: z.string().nullable().default(null),
   compat: CompatibilitySchema,
-  /** The first is what Install uses; the rest are alternates. */
+  /** The first is what Install uses (the one that works best here); the rest are alternates. */
   sources: z.array(CatalogSourceSchema).min(1),
   installedId: z.string().nullable(),
+  /** Who makes it: the manifest's developer or author. */
+  publisher: z.string().nullable().default(null),
+  /** Listed by an official catalog (Claude's, Codex's, text-to-cad's) or shipped with elastic. */
+  verified: z.boolean().default(false),
+  /** What using it takes beyond installing: signing in, an API key, a download on first run. */
+  needs: z.array(z.enum(["sign-in", "api-key", "download"])).default([]),
+  /** What it adds, read from its folder: its MCP servers (name, and the host of a remote one) and skills. */
+  adds: z.object({ servers: z.array(z.string()), skills: z.array(z.string()) }).default({ servers: [], skills: [] }),
+  /** Prompts to try, from a Codex manifest's `interface.defaultPrompt`. */
+  prompts: z.array(z.string()).default([]),
+  /** One of the examples that ship with elastic (for plugin authors): hidden unless "Show examples". */
+  example: z.boolean().default(false),
 });
 export type CatalogEntry = z.infer<typeof CatalogEntrySchema>;
+export type CatalogNeed = CatalogEntry["needs"][number];
+
+/**
+ * The catalogs elastic trusts and the names it shows for them. Claude's official marketplace
+ * names itself `claude-plugins-official`, which reads as an id, not a name.
+ */
+export const OFFICIAL_CATALOGS: Readonly<Record<string, string>> = {
+  "https://github.com/anthropics/claude-plugins-official": "Claude official",
+  "https://github.com/openai/plugins": "Codex official",
+  "https://github.com/earthtojake/text-to-cad": "text-to-cad",
+};
 
 /** Where a tool call comes from: a session's explorer (its own server processes) or the app (a global page). */
 export const PluginScopeSchema = z.object({

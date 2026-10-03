@@ -23,6 +23,7 @@ import { loginEnv } from "../agents/shell-env";
 import { FORWARDED_METHODS, PluginHost, type ForwardedMethod } from "../plugins/host";
 import { readPlugin } from "../plugins/manifest";
 import { AuthStore, PLAIN_CODEC, type Codec } from "../plugins/oauth";
+import { LogoCache } from "../plugins/logos";
 import { PluginRegistry } from "../plugins/registry";
 import { PluginService, type PluginsSnapshot } from "../plugins/service";
 let bridgeInstance: McpBridge | null = null;
@@ -137,6 +138,8 @@ export async function initIntegrations(deps: { sendCommand: (command: Integratio
     bundled: { marketplace: bundledMarketplace(), appServers: appServerTools() },
     dataDir: path.join(userData, "plugins"),
     defaultMarketplaces: DEFAULT_MARKETPLACES,
+    // Off where the default marketplaces are: a test run reaches no network for logos either.
+    logos: process.env.WORKBENCH_NO_DEFAULT_MARKETPLACES === "1" ? undefined : new LogoCache(path.join(userData, "plugins", "logos.json")),
     changed: (snapshot) => {
       refreshSkills(userData);
       deps.pluginsChanged?.(snapshot);
