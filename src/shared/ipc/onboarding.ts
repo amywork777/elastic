@@ -1,9 +1,8 @@
 /**
  * `onboarding.*`: what the first-run flow needs from main.
  *
- * Whether the person has finished the welcome, dismissed the checklist or
- * opened the viewer is ordinary settings (`onboarding*` fields in
- * `SettingsSchema`). This is the part that is not a setting: whether
+ * Whether the person has finished the welcome is an ordinary setting
+ * (`onboardingCompleted` in `SettingsSchema`). This is the part that is not a setting: whether
  * this run shows onboarding at all.
  */
 import { z } from "zod";

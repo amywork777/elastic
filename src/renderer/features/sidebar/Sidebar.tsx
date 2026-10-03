@@ -11,7 +11,6 @@ import { useProjects } from "@renderer/state/projects";
 import { useSessions, useSidebarSections } from "@renderer/state/sessions";
 import { useSettings, useSidebarSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";
-import { GettingStarted } from "@renderer/features/onboarding/GettingStarted";
 
 /**
  * Projects and their threads, as Claude Code's sidebar: a short nav list, then
@@ -128,8 +127,6 @@ export function Sidebar() {
           ) : null}
         </div>
       </ScrollArea>
-
-      <GettingStarted />
 
       <footer className="flex shrink-0 items-center gap-2 border-t border-sidebar-border px-3 py-2">
         <Button

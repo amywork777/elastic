@@ -14,8 +14,7 @@ import { errorMessage } from "@shared/ipc/errors";
 
 /**
  * The first-run welcome: three short steps over the whole window, shown once.
- * Finishing or skipping it sets `onboardingCompleted`, and the sidebar's
- * Getting started checklist picks up from there.
+ * Finishing or skipping it sets `onboardingCompleted`.
  */
 export function Welcome() {
   const step = useOnboarding((state) => state.step);

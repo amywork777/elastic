@@ -103,13 +103,10 @@ Finishing or skipping sets `onboardingCompleted`. The welcome's current step is
 `step` in `state/onboarding.ts`, not component state, because Settings replaces
 the welcome the way it replaces the shell: "Use a different agent in Settings ›
 Agents", Cmd+, or Back to app returns to the step the person left (it is held
-for the window, not saved). After it, the sidebar shows a
-**Getting started** checklist (`features/onboarding/GettingStarted.tsx`) whose
-items tick themselves from what the person has done. Closing it, or
-pressing Done when it is complete, sets `onboardingChecklistDismissed`.
+for the window, not saved). There is no checklist after it, as in Codex.
 
-What the person has done is ordinary settings (`onboardingCompleted`,
-`onboardingChecklistDismissed` in `SettingsSchema`, `src/shared/types.ts`); the
+What the person has done is an ordinary setting (`onboardingCompleted` in
+`SettingsSchema`, `src/shared/types.ts`); the
 renderer's derivations are `state/onboarding.ts`. Main answers the one thing
 that is not a setting, over `onboarding.status`
 (`src/{shared,main}/ipc/onboarding.ts`, `src/main/onboarding.ts`): whether this
@@ -1619,8 +1616,7 @@ src/renderer/
                           lists, images, a raw-markdown atom and the source attributes
       image/, pdf/        image fit and zoom; PDF.js pages, text layer and live binding
       unsupported/        the fallback: “Not supported”, and Open externally
-  features/onboarding     Welcome.tsx (the first-run welcome over the window) and
-                          GettingStarted.tsx (the sidebar checklist after it) — see Onboarding
+  features/onboarding     Welcome.tsx (the first-run welcome over the window) — see Onboarding
   plugins/                the renderer side of plugins: the store, MCP App frames, file
                           renderers, the Open with… menu
   features/plugins        the Plugins page
