@@ -139,10 +139,14 @@ test("text-to-cad from GitHub, and a real turn that shows a STEP file", async ()
   const record = await page.evaluate(({ marketplace, name }) => window.workbench.plugins.installFromMarketplace({ marketplace, name }), { marketplace: source.marketplace, name: source.name });
   await expect.poll(async () => (await snapshot()).plugins.find((plugin) => plugin.id === record.id)?.servers[0]?.status, { timeout: 900_000, intervals: [3000] }).toBe("ready");
   await turn("Show bracket.step in the CAD viewer with the CAD tools (cad_show, or cad_open if no viewer is open). Don't edit files or run shell commands. Reply in one short sentence once it is open.");
-  await page.waitForTimeout(20_000);
   // cadgen's own first-run analytics question, answered the way a person who is just looking would.
   const cad = page.locator('[data-plugin-frame^="text-to-cad/"] iframe').first().contentFrame();
-  await cad.getByRole("button", { name: "No thanks" }).click({ timeout: 5_000 }).catch(() => {});
+  await cad.getByRole("button", { name: "No thanks" }).click({ timeout: 20_000 }).catch(() => {});
+  // The model has rendered: the view's progress is gone and its canvas is up (a first STEP is
+  // converted before it shows, which takes a while on a cold cadgen cache).
+  await expect(cad.getByText("Reading model")).toHaveCount(0, { timeout: 300_000 });
+  await expect(cad.locator("canvas").first()).toBeVisible({ timeout: 60_000 });
+  await page.waitForTimeout(3_000);
   await shootBoth("cad");
 });
 
