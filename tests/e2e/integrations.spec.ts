@@ -104,7 +104,8 @@ test("a real ACP session starts isolated domain MCPs and operates the live app's
   await expect(page.locator("[data-explorer-ready=true]")).toBeVisible();
 
   const catalog = await proof({ operation: "catalog" }) as { catalog: Array<{ name: string; tools: string[] }> };
-  expect(catalog.catalog.map((entry) => entry.name).sort()).toEqual(["browser", "documents", "pdf", "terminals", "workspace"].map((name) => `app-${name}`).sort());
+  // The app's own servers; bundled plugins with servers of their own (Code Review) are proxies beside them.
+  expect(catalog.catalog.map((entry) => entry.name).filter((name) => name.startsWith("app-")).sort()).toEqual(["browser", "documents", "pdf", "terminals", "workspace"].map((name) => `app-${name}`).sort());
   const tools = (name: string) => catalog.catalog.find((entry) => entry.name === `app-${name}`)?.tools ?? [];
   expect(tools("documents")).toContain("edit_document");
   expect(tools("pdf")).not.toContain("edit_document");

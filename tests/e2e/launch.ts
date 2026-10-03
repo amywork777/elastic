@@ -163,7 +163,9 @@ export async function settleTerminal(page: Page) {
 /** `+` is a menu of the tab kinds; a closing Radix menu can swallow the next click, so wait it out. */
 export async function newTab(page: Page, label: string) {
   await page.getByRole("button", { name: "New tab", exact: true }).click();
-  await page.getByRole("menuitem", { name: label }).click();
+  // By its leading label: a plugin's item reads "<tool title> <plugin name>", so
+  // "Review" must not also match "Pull request Code Review".
+  await page.getByRole("menuitem", { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$)`) }).click();
   await expect(page.getByRole("menu")).toHaveCount(0);
 }
 
