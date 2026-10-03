@@ -365,7 +365,7 @@ const VERBS: Record<Glyph, [done: string, doing: string, failed: string]> = {
   switch_mode: ["Switched mode", "Switching mode", "Could not switch mode"],
   image: ["Viewed", "Viewing", "Could not view"],
   subagent: ["Delegated", "Delegating", "Subagent failed"],
-  other: ["Used", "Using", "Failed"],
+  other: ["Called", "Calling", "Failed"],
 };
 
 function verb(glyph: Glyph, status: ToolCallStatus): string {
@@ -466,7 +466,7 @@ const NOUNS: Record<Glyph, [singular: string, plural: string]> = {
   fetch: ["page", "pages"],
   think: ["thought", "thoughts"],
   switch_mode: ["mode change", "mode changes"],
-  other: ["tool", "tools"],
+  other: ["tool call", "tool calls"],
 };
 
 function segment(bucket: Bucket): string {

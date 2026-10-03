@@ -1,4 +1,3 @@
-import LoadingIcon from "@workbench/ui/loading-icon";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AlertCircle, Settings2 } from "lucide-react";
@@ -412,7 +411,6 @@ export function NewSession({ project }: { project: Project }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 pb-10" data-new-session>
       <div className="w-full max-w-[720px]">
-        <LoadingIcon active={false} className="mx-auto mb-4 text-foreground/70" size={44} />
         <h1 className="text-center text-[22px] leading-tight font-medium tracking-tight text-balance">
           What should we build in {project.name}?
         </h1>

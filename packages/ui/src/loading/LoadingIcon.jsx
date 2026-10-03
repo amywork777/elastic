@@ -1,7 +1,7 @@
 import { createElement, useEffect, useState } from "react";
 
 /*
- * elastic's mark as a loading glyph: a pink band around three pegs, and while
+ * elastic's mark as a loading glyph: a band around three pegs, in the text colour; while
  * something loads the pegs drift apart and back so the band stretches and
  * settles. Pure SVG (SMIL), no raster and no animation loop in JS. The band's
  * geometry is the app icon's (scripts/brand-mark.mjs) at a small scale.
@@ -96,7 +96,7 @@ export default function LoadingIcon({ active = true, size = 96, className = "", 
   const pegs = rest.map((peg, i) =>
     createElement(
       "circle",
-      { key: i, cx: peg[0], cy: peg[1], r: PEG_R - 1, fill: "currentColor", opacity: 0.85 },
+      { key: i, cx: peg[0], cy: peg[1], r: PEG_R - 1, fill: "currentColor", opacity: 0.45 },
       moving ? animate("cx", POSES.map((pose) => pose[i][0])) : null,
       moving ? animate("cy", POSES.map((pose) => pose[i][1])) : null,
     ),
@@ -115,7 +115,7 @@ export default function LoadingIcon({ active = true, size = 96, className = "", 
       className: `shrink-0 select-none ${className}`,
     },
     pegs,
-    band(center, { stroke: "var(--brand, #ff6fa3)", strokeWidth: BAND_W }),
-    band(PEG_R + 1.5, { stroke: "var(--brand-ink, #d6447e)", strokeWidth: 2.2 }),
+    band(center, { stroke: "currentColor", strokeWidth: BAND_W }),
+    
   );
 }

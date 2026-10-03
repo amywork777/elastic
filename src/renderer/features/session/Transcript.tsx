@@ -1,9 +1,8 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
-import { ArrowDown, ChevronRight, Paperclip } from "lucide-react";
+import { ArrowDown, Paperclip } from "lucide-react";
 import { memo, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { useStickToBottomContext } from "use-stick-to-bottom";
 
-import { cn } from "@renderer/lib/utils";
 import { Conversation, ConversationContent } from "@renderer/components/ai-elements/conversation";
 import type { Part, SessionState, Turn } from "@shared/acp/types";
 
@@ -64,7 +63,6 @@ export function Transcript({
     const last = index === state.turns.length - 1;
     return (
       <TurnView
-        foldWork={!last}
         key={item.id}
         onReconnect={last && state.status === "error" ? onReconnect : undefined}
         onRetry={last ? onRetry : undefined}
@@ -240,11 +238,8 @@ const TurnView = memo(function TurnView({
   sessionId,
   onRetry,
   onReconnect,
-  foldWork = false,
 }: {
   turn: Turn;
-  /** A finished turn that is not the latest folds its work under "Worked for …", as Codex does. */
-  foldWork?: boolean;
   sessionId: string;
   /** Given to the last turn only: its error row's Retry. */
   onRetry?: () => void;
@@ -257,18 +252,14 @@ const TurnView = memo(function TurnView({
   const open = turn.endedAt === null;
   return (
     <div className="flex min-w-0 w-full flex-col" data-turn={turn.id} data-role="agent" data-stop-reason={turn.stopReason ?? undefined}>
-      <WorkFold fold={foldWork && !open} turn={turn}>
-        {(parts) => (
-          <PartsList
-            onReconnect={onReconnect}
-            onRetry={onRetry}
-            open={open}
-            parts={parts}
-            prefix={turn.id}
-            sessionId={sessionId}
-          />
-        )}
-      </WorkFold>
+      <PartsList
+        onReconnect={onReconnect}
+        onRetry={onRetry}
+        open={open}
+        parts={turn.parts}
+        prefix={turn.id}
+        sessionId={sessionId}
+      />
       {turn.stopReason === "cancelled" ? (
         <p className="not-prose mt-1 px-1.5 text-[13px] leading-5 text-muted-foreground italic" data-stopped>
           Stopped
@@ -283,44 +274,6 @@ const TurnView = memo(function TurnView({
     </div>
   );
 });
-
-/** "37s", "2m 37s", "1h 4m". */
-export function workedFor(ms: number): string {
-  const seconds = Math.max(1, Math.round(ms / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-}
-
-/**
- * Codex's "Worked for 2m 37s ›": everything a finished turn did before its answer, folded to one
- * row, the answer (the trailing text, and any error) left open under it. A turn with no work, or
- * whose last part is not an answer, is drawn whole.
- */
-function WorkFold({ turn, fold, children }: { turn: Turn; fold: boolean; children: (parts: Part[]) => React.ReactNode }) {
-  const [expanded, setExpanded] = useState(false);
-  let answer = turn.parts.length;
-  while (answer > 0 && (turn.parts[answer - 1]!.type === "text" || turn.parts[answer - 1]!.type === "error")) answer -= 1;
-  const work = turn.parts.slice(0, answer);
-  const hasWork = work.some((part) => part.type === "tool_call" || part.type === "subagent" || part.type === "thought" || part.type === "plan");
-  if (!fold || !hasWork || answer === turn.parts.length || turn.endedAt === null) return <>{children(turn.parts)}</>;
-  return (
-    <>
-      <button
-        aria-expanded={expanded}
-        className="not-prose mb-2 flex w-fit items-center gap-1 rounded-md px-1.5 py-0.5 text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        data-worked-for
-        onClick={() => setExpanded((value) => !value)}
-        type="button"
-      >
-        Worked for {workedFor(turn.endedAt - turn.startedAt)}
-        <ChevronRight className={cn("size-3.5 transition-transform", expanded && "rotate-90")} />
-      </button>
-      {children(expanded ? turn.parts : turn.parts.slice(answer))}
-    </>
-  );
-}
 
 /** A compact bubble on the right, with the prompt's images and attachments under it. */
 function UserTurn({ turn }: { turn: Turn }) {
