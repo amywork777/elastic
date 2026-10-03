@@ -4,7 +4,10 @@
  * marketplace, and two real Claude turns: one that shows a STEP file with the
  * CAD plugin, one that reads a public GitHub page with the bundled Browser
  * plugin. Nothing is staged: the transcript, the model and the page are what
- * the turns produced.
+ * the turns produced. The Code Review shot reads a public repository's pull
+ * requests through the person's own `gh` (a scratch project whose origin is
+ * earthtojake/text-to-cad; nothing is written), and the themes shot is the
+ * same session in four colour themes.
  *
  * Opt-in (network, two real agent turns, a cadgen download): ELASTIC_README_SHOTS=1,
  * with ELASTIC_README_STEP pointing at a STEP file to show. Shots land in
@@ -16,7 +19,9 @@ import path from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 
 import type { WorkbenchApi } from "../../src/shared/ipc";
-import { chooseDirectory, launch, scratch } from "./launch";
+import { execFileSync } from "node:child_process";
+
+import { chooseDirectory, launch, newTab, scratch } from "./launch";
 
 declare global { interface Window { workbench: WorkbenchApi } }
 
@@ -106,6 +111,9 @@ test.beforeAll(async () => {
   userData = scratch("readme");
   project = scratch("readme-project");
   fs.copyFileSync(step, path.join(project, "bracket.step"));
+  // A public origin for Code Review to read; nothing is fetched or pushed.
+  execFileSync("git", ["init", "-q"], { cwd: project });
+  execFileSync("git", ["remote", "add", "origin", "https://github.com/earthtojake/text-to-cad.git"], { cwd: project });
   ({ app, page } = await launch({ userData, env: { WORKBENCH_FAKE_AGENT: undefined, WORKBENCH_NO_DEFAULT_MARKETPLACES: undefined } }));
 });
 
@@ -147,4 +155,64 @@ test("a real turn that reads GitHub through the bundled Browser plugin", async (
 test("a new session", async () => {
   await page.getByRole("button", { name: "New", exact: true }).click();
   await shootBoth("home");
+});
+
+test("Code Review: a public pull request in a session's tab, through the person's gh", async () => {
+  test.setTimeout(180_000);
+  const chosen = await chooseDirectory(app, project);
+  const session = await page.evaluate(({ projectId }) => (window.workbench.sessions as unknown as Sessions).create({ projectId, agentId: "claude-code", gitMode: "none" }), { projectId: chosen.id });
+  await rail().getByRole("button", { name: "Sessions" }).click();
+  await page.locator(`[data-session-row="${session.id}"] [data-session-row-title]`).first().click();
+  if (!(await page.getByTestId("explorer").isVisible())) await page.getByRole("button", { name: "Toggle explorer" }).click();
+  await newTab(page, "Pull request");
+  const frame = page.frameLocator('[data-plugin-frame^="elastic-code-review/code-review/"] iframe');
+  await expect(frame.getByRole("heading", { name: "earthtojake/text-to-cad" })).toBeVisible({ timeout: 60_000 });
+  await theme("light");
+  await shootReadme("code-review-list");
+  await frame.getByText(/present tabs to any host that declares/).first().click();
+  await expect(frame.getByRole("heading", { name: /present tabs to any host that declares/ })).toBeVisible({ timeout: 60_000 });
+  await shootBoth("code-review");
+});
+
+test("one session in four colour themes", async () => {
+  test.setTimeout(120_000);
+  const colorTheme = (value: string) => page.evaluate((next) => window.workbench.settings.set({ colorTheme: next as never }), value);
+  const looks: Array<{ id: string; mode: "light" | "dark"; label: string }> = [
+    { id: "graphite", mode: "dark", label: "Graphite, dark" },
+    { id: "paper", mode: "light", label: "Paper, light" },
+    { id: "nord", mode: "dark", label: "Nord, dark" },
+    { id: "solarized", mode: "light", label: "Solarized, light" },
+  ];
+  const frames: Array<{ label: string; url: string }> = [];
+  for (const look of looks) {
+    await colorTheme(look.id);
+    await theme(look.mode);
+    await page.waitForTimeout(800);
+    await overlayNativeViews();
+    const shot = await page.screenshot({ animations: "disabled" });
+    await page.evaluate(() => document.querySelectorAll("[data-readme-overlay]").forEach((node) => node.remove()));
+    frames.push({ label: look.label, url: `data:image/png;base64,${shot.toString("base64")}` });
+  }
+  await colorTheme("default");
+  await theme("light");
+  await page.evaluate((list) => {
+    const sheet = document.createElement("div");
+    sheet.dataset.readmeOverlay = "";
+    Object.assign(sheet.style, { position: "fixed", inset: "0", zIndex: "100000", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", padding: "16px", background: "#ffffff", font: "500 14px system-ui, sans-serif", color: "#171717" });
+    for (const frame of list) {
+      const cell = document.createElement("figure");
+      Object.assign(cell.style, { margin: "0", display: "flex", flexDirection: "column", gap: "6px", minHeight: "0" });
+      const image = document.createElement("img");
+      image.src = frame.url;
+      Object.assign(image.style, { width: "100%", minHeight: "0", objectFit: "contain", borderRadius: "8px", boxShadow: "0 0 0 1px rgba(0,0,0,0.12)" });
+      const caption = document.createElement("figcaption");
+      caption.textContent = frame.label;
+      cell.append(image, caption);
+      sheet.append(cell);
+    }
+    document.body.append(sheet);
+  }, frames);
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: path.join(out, "themes.png"), animations: "disabled" });
+  await page.evaluate(() => document.querySelectorAll("[data-readme-overlay]").forEach((node) => node.remove()));
 });
