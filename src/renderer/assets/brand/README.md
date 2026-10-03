@@ -1,8 +1,11 @@
-# Sidebar mark
+# Brand
 
-`elastic-mark.svg` is the sidebar mark. It is an embedded raster with SVG
-presentation, not a path-only vector logo: an exterior clip removes the
-surrounding app-icon tile and the image is not regenerated or redrawn.
+`elastic-mark.svg` is the app's mark: a pink band stretched around three
+plugin pegs on a graphite tile. It is generated, not drawn by hand:
+`scripts/brand-mark.mjs` holds the geometry and palette, `npm run icons`
+writes this file and `build/icon.png`, and `npm run brand` writes the
+wordmark PNGs in `resources/brand/`. `docs/brand/variants.png` shows the
+variants that were considered.
 
-It sits beside elastic in the application’s regular system sans-serif type.
-`scripts/make-icons.mjs` renders it onto a dark tile as `build/icon.png`.
+The sidebar sets it beside the word "elastic" in the app's system sans
+(`features/sidebar/Wordmark.tsx`).

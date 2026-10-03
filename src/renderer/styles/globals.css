@@ -121,28 +121,6 @@
   padding-left: max(0px, var(--titlebar-inset) - var(--rail-width));
 }
 
-/* The wordmark: JetBrains Mono ExtraBold Italic (resources/brand/fonts, OFL),
- * the ink alone. The offset blue copy and the PNGs live on in
- * `scripts/make-brand.mjs` and the app icon; the title in the sidebar is
- * just the word. */
-@font-face {
-  font-family: "JetBrains Mono Brand";
-  font-style: italic;
-  font-weight: 800;
-  font-display: block;
-  src: url("../../../resources/brand/fonts/JetBrainsMono-ExtraBoldItalic.woff2") format("woff2");
-}
-
-.brand-wordmark {
-  display: inline-block;
-  font: italic 800 28px/1 "JetBrains Mono Brand", ui-monospace, monospace;
-  letter-spacing: -0.02em;
-  color: var(--foreground);
-  user-select: none;
-  cursor: default;
-  white-space: nowrap;
-}
-
 /* Scrollbars, thin and quiet. The transcript, the file tree and the settings
  * pages all scroll; a 15px grey gutter on each is the one thing that makes
  * an Electron app look like a web page. Monaco and xterm draw their own. */
