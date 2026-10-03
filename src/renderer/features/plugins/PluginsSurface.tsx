@@ -137,10 +137,10 @@ function PluginsSidebar() {
 
 function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-4 pb-6">
+    <div className="flex items-start gap-4 px-2 pb-4">
       <div className="min-w-0 flex-1">
-        <h1 className="font-semibold text-xl">{title}</h1>
-        {description ? <p className="mt-1 text-muted-foreground text-sm">{description}</p> : null}
+        <h1 className="font-medium text-[22px] tracking-tight">{title}</h1>
+        {description ? <p className="mt-1 max-w-xl text-muted-foreground">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
@@ -185,26 +185,101 @@ function InstallButton({ entry, source }: { entry: CatalogEntry; source?: Catalo
       toast.error(message(error));
     } finally { setBusy(false); }
   };
-  if (entry.installedId && !source) return <span className="text-muted-foreground text-xs">Installed</span>;
+  if (entry.installedId && !source) return <span className="shrink-0 px-2 text-muted-foreground text-xs">Installed</span>;
   if (entry.compat.level === "unavailable" && !source) return null;
   return (
-    <Button aria-label={`Install ${entry.name}${source ? ` from ${source.marketplaceName}` : ""}`} className="h-7 gap-1 text-xs" disabled={busy} onClick={() => void install()} size="sm" variant="secondary">
-      {busy ? <><Spinner className="size-3.5" /> Installing</> : <><Plus className="size-3.5" /> Install</>}
-    </Button>
+    source ? (
+      <Button aria-label={`Install ${entry.name} from ${source.marketplaceName}`} className="h-7 gap-1 text-xs" disabled={busy} onClick={() => void install()} size="sm" variant="secondary">
+        {busy ? <><Spinner className="size-3.5" /> Installing</> : <><Plus className="size-3.5" /> Install</>}
+      </Button>
+    ) : (
+      <Button aria-label={`Install ${entry.name}`} className="size-8 shrink-0 rounded-full" disabled={busy} onClick={() => void install()} size="icon" variant="ghost">
+        {busy ? <Spinner className="size-4" /> : <Plus className="size-4" />}
+      </Button>
+    )
   );
 }
 
-/** Browse: one list of every marketplace's plugins, the same plugin once, searchable. */
+/** Plugins most people reach for first, shown on top when the catalog lists them (Codex's "Popular"). */
+const FEATURED = ["cad", "playwright", "chrome-devtools-mcp", "desktop-commander", "linear", "notion", "github", "figma", "canva", "supabase", "vercel", "sentry", "context7", "miro"];
+
+/** How many rows a section shows before "Show all". */
+const SECTION_PREVIEW = 8;
+
+const titleCase = (value: string) => value.replace(/[-_]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+
+type Section = { id: string; title: string; entries: CatalogEntry[] };
+
+/** Featured first, then one section per category, the plugins that work here first in each. */
+function sectionsOf(catalog: CatalogEntry[]): Section[] {
+  const rank = (entry: CatalogEntry) => ["works", "signin", "partly", "unknown", "codex", "unavailable"].indexOf(entry.compat.level);
+  const byRank = (a: CatalogEntry, b: CatalogEntry) => rank(a) - rank(b) || a.displayName.localeCompare(b.displayName);
+  const featured = FEATURED.map((name) => catalog.find((entry) => entry.name === name)).filter((entry): entry is CatalogEntry => Boolean(entry));
+  const taken = new Set(featured.map((entry) => entry.key));
+  const groups = new Map<string, CatalogEntry[]>();
+  for (const entry of catalog) {
+    if (taken.has(entry.key)) continue;
+    const category = entry.category?.trim() ? titleCase(entry.category.trim()) : "More plugins";
+    groups.set(category, [...(groups.get(category) ?? []), entry]);
+  }
+  const rest = [...groups.entries()]
+    .sort(([a, x], [b, y]) => (a === "More plugins" ? 1 : b === "More plugins" ? -1 : y.length - x.length || a.localeCompare(b)))
+    .map(([title, entries]) => ({ id: title, title, entries: entries.sort(byRank) }));
+  return [...(featured.length > 0 ? [{ id: "featured", title: "Popular", entries: featured }] : []), ...rest];
+}
+
+function CatalogRow({ entry }: { entry: CatalogEntry }) {
+  const installed = usePlugins((state) => state.plugins);
+  const [, show] = usePluginsView();
+  const record = entry.installedId ? installed.find((plugin) => plugin.id === entry.installedId) ?? null : null;
+  return (
+    <div className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/60" data-catalog-entry={entry.name}>
+      <PluginLogo className="size-9 rounded-[10px]" plugin={record ?? { logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
+      <button className="min-w-0 flex-1 rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={() => show(record ? { plugin: record.id } : { entry: entry.key })} type="button">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-medium">{record?.displayName ?? entry.displayName}</span>
+          <CompatLabel compat={entry.compat} />
+        </div>
+        <div className="truncate text-muted-foreground text-xs">{entry.description || record?.description || "No description"}</div>
+      </button>
+      {record?.updateAvailable ? <UpdateButton plugin={record} /> : <InstallButton entry={entry} />}
+    </div>
+  );
+}
+
+function CatalogSection({ section, expanded, onExpand }: { section: Section; expanded: boolean; onExpand: () => void }) {
+  const rows = expanded ? section.entries : section.entries.slice(0, SECTION_PREVIEW);
+  return (
+    <section aria-label={section.title} className="mt-8 first:mt-2">
+      <div className="mb-2 flex items-baseline gap-2 px-2">
+        <h2 className="font-medium text-[15px]">{section.title}</h2>
+        <span className="text-muted-foreground text-xs">{section.entries.length}</span>
+        {section.entries.length > SECTION_PREVIEW ? (
+          <button className="ml-auto rounded-sm text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={onExpand} type="button">
+            {expanded ? "Show fewer" : `Show all ${section.entries.length}`}
+          </button>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 @2xl:grid-cols-2">
+        {rows.map((entry) => <CatalogRow entry={entry} key={entry.key} />)}
+      </div>
+    </section>
+  );
+}
+
+/** Browse: one store over every marketplace, the same plugin once, in Codex's sections. */
 function BrowsePage() {
   const catalog = usePlugins((state) => state.catalog);
   const marketplaces = usePlugins((state) => state.marketplaces);
-  const installed = usePlugins((state) => state.plugins);
   const [query, setQuery] = useState("");
-  const [, show] = usePluginsView();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
   const needle = query.trim().toLowerCase();
-  const visible = useMemo(() => catalog.filter((entry) => !needle
-    || `${entry.name} ${entry.displayName} ${entry.description} ${entry.category ?? ""}`.toLowerCase().includes(needle)), [catalog, needle]);
+  const sections = useMemo(() => {
+    if (!needle) return sectionsOf(catalog);
+    const hits = catalog.filter((entry) => `${entry.name} ${entry.displayName} ${entry.description} ${entry.category ?? ""}`.toLowerCase().includes(needle));
+    return hits.length > 0 ? [{ id: "results", title: "Results", entries: hits }] : [];
+  }, [catalog, needle]);
   const fetching = marketplaces.filter((market) => market.status === "fetching");
   const refresh = async () => {
     setRefreshing(true);
@@ -214,42 +289,34 @@ function BrowsePage() {
     } catch (error) { toast.error(message(error)); } finally { setRefreshing(false); }
   };
   return (
-    <div className="mx-auto w-full max-w-3xl px-8 py-8">
+    <div className="@container mx-auto w-full max-w-4xl px-8 py-8">
       <PageHeader
         actions={<>
-          <Button aria-label="Refresh" className="size-7" disabled={refreshing} onClick={() => void refresh()} size="icon" variant="ghost"><RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} /></Button>
+          <div className="relative w-56">
+            <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
+            <Input aria-label="Search plugins" className="h-8 rounded-full text-sm" style={{ paddingLeft: "2rem" }} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${catalog.length} plugins`} value={query} />
+          </div>
+          <Button aria-label="Refresh" className="size-8" disabled={refreshing} onClick={() => void refresh()} size="icon" variant="ghost"><RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} /></Button>
           <AddMenu />
         </>}
-        description="Plugins give agents new tools (MCP servers) and skills, and can add their own views: a tab, a page on the rail, or how a file type opens. Plugins made for Codex and Claude Code work here."
+        description="Connect plugins so any agent, Claude or Codex, can work across your tools. Plugins made for Codex and Claude Code work here."
         title="Plugins"
       />
-      <div className="relative mb-2">
-        <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
-        <Input aria-label="Search plugins" className="h-8 text-sm" style={{ paddingLeft: "2rem" }} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${catalog.length} plugins`} value={query} />
-      </div>
-      <p aria-live="polite" className="mb-4 h-4 text-muted-foreground text-xs" role="status">
+      <p aria-live="polite" className="mb-2 h-4 px-2 text-muted-foreground text-xs" role="status">
         {fetching.length > 0 ? <><Spinner className="mr-1 inline size-3" /> Fetching {fetching.map((market) => market.displayName).join(", ")}…</> : null}
       </p>
-      {catalog.length === 0 ? <p className="text-muted-foreground text-sm">No plugins listed yet. Add a marketplace, or install a plugin folder, from Add.</p> : null}
-      {catalog.length > 0 && visible.length === 0 ? <p className="text-muted-foreground text-sm">No plugin matches "{query}".</p> : null}
-      {visible.length > 0 ? (
-        <div className="divide-y divide-border rounded-lg border" data-testid="plugin-catalog">
-          {visible.map((entry) => {
-            const record = entry.installedId ? installed.find((plugin) => plugin.id === entry.installedId) ?? null : null;
-            return (
-              <div className="flex items-center gap-3 px-3 py-2.5" data-catalog-entry={entry.name} key={entry.key}>
-                <PluginLogo className="size-8" plugin={record ?? { logo: entry.logo, brandColor: null, displayName: entry.displayName }} />
-                <button className="min-w-0 flex-1 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" onClick={() => show(record ? { plugin: record.id } : { entry: entry.key })} type="button">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate font-medium text-sm">{record?.displayName ?? entry.displayName}</span>
-                    <CompatLabel compat={entry.compat} />
-                  </div>
-                  <div className="truncate text-muted-foreground text-xs">{entry.description || record?.description || "No description"}</div>
-                </button>
-                {record?.updateAvailable ? <UpdateButton plugin={record} /> : <InstallButton entry={entry} />}
-              </div>
-            );
-          })}
+      {catalog.length === 0 ? <p className="px-2 text-muted-foreground">No plugins listed yet. Add a marketplace, or install a plugin folder, from Add.</p> : null}
+      {catalog.length > 0 && sections.length === 0 ? <p className="px-2 text-muted-foreground">No plugin matches "{query}".</p> : null}
+      {sections.length > 0 ? (
+        <div data-testid="plugin-catalog">
+          {sections.map((section) => (
+            <CatalogSection
+              expanded={Boolean(needle) || Boolean(expanded[section.id])}
+              key={section.id}
+              onExpand={() => setExpanded((state) => ({ ...state, [section.id]: !state[section.id] }))}
+              section={section}
+            />
+          ))}
         </div>
       ) : null}
       <SourcesSection marketplaces={marketplaces} />

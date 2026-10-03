@@ -1,4 +1,4 @@
-import { CirclePlus, FolderOpen, Search, Settings } from "lucide-react";
+import { FolderOpen, Search, Settings, SquarePen } from "lucide-react";
 import { cn } from "cn";
 
 import { HistoryNav, SidebarToggle } from "@renderer/app/PaneToggles";
@@ -83,7 +83,7 @@ export function Sidebar() {
       <nav className="flex shrink-0 items-center gap-0.5 px-2 pb-1">
         <div className="min-w-0 flex-1">
           <SidebarLink
-            icon={<CirclePlus className="size-4 text-primary" />}
+            icon={<SquarePen className="size-4" strokeWidth={1.75} />}
             label="New"
             onClick={() => setActiveSession(null)}
           />

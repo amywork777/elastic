@@ -2,17 +2,19 @@
 
 ## The rule
 
-elastic keeps the look of the desktop app it was extracted from (the
-text-to-cad desktop app): neutral shadcn tokens (`packages/ui/src/styles/tokens.css`),
-its rail, sidebar, transcript and explorer as they were. Do not restyle the
-existing chrome. Anything new (the plugin store, plugin detail pages, plugin
-views such as Code Review, sign-in states) is built from the same tokens and
-components so it looks like it was always there. No new accent colours in the
-window chrome.
+Codex's structure, the original app's neutral colours. elastic follows Codex
+where Codex has a good pattern: the left rail as an app switcher, the plugin
+store laid out by section (popular first, then categories, search in the
+header, a round `+` to install), projects as folder rows, a finished turn's
+tool work folded under "Worked for 2m 37s ›" with "Used 2 tools" summaries,
+and a cool graphite dark theme. Colour stays the neutral shadcn tokens of the
+desktop app it came from (`packages/ui/src/styles/tokens.css`).
 
-Amy's call (2026-10-02): a Codex-style restyle (pink rail marker, sectioned
-store, pastel plugin tiles, "Worked for" folds, graphite dark) was tried and
-reverted. Behaviour can follow Codex; the look stays the app's own.
+No brand colour in the chrome (Amy, 2026-10-02: "generic enough so that when
+we add other apps, it looks okay"). Plugins bring their own logos and brand
+colours; the window around them stays neutral so any of them sits well in it.
+A plugin with no logo gets its initial on a neutral `muted` tile. The
+selected rail item is marked by the `sidebar-accent` fill alone.
 
 ## Plugin views
 
@@ -30,4 +32,5 @@ band is the app stretching to fit them. The pink lives in the icon only.
 
 The loading glyph (`@workbench/ui/loading-icon`) is the band itself, drawn in
 the text colour: while something loads, the pegs drift apart and back so the
-band stretches and settles. It holds still under reduced motion.
+band stretches and settles. It holds still under reduced motion. It also sits
+above the new-session prompt, the way Codex shows its mark there.
