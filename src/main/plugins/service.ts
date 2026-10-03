@@ -23,13 +23,14 @@ import {
   readToolUi,
   type CatalogEntry,
   type Marketplace,
+  type MarketplacePreview,
   type PluginRecord,
   type PluginServerState,
   type PluginSource,
   type PluginTool,
 } from "../../shared/plugins";
 import { APP_SCOPE, type ForwardedMethod, type HostedServer, type PluginHost } from "./host";
-import { buildCatalog, catalogName, type CatalogMarket } from "./catalog";
+import { buildCatalog, catalogName, isOfficial, type CatalogMarket } from "./catalog";
 import type { LogoCache } from "./logos";
 import { copyPluginFolder, fetchLatest, keyOf, parseGitRemote, shallowClone } from "./git";
 import { insidePlugin, readMarketplace, readPlugin, type MarketplaceEntryFile, type MarketplaceFile, type ReadPlugin } from "./manifest";
@@ -73,6 +74,7 @@ type Loaded = {
   id: string;
   source: PluginSource;
   enabled: boolean;
+  disabledSkills: string[];
   read: ReadPlugin | null;
   error: string | null;
 };
@@ -146,9 +148,9 @@ export class PluginService {
     this.generation += 1;
     this.loaded = this.registry.list().map((entry) => {
       try {
-        return { id: entry.id, source: entry.source, enabled: entry.enabled, read: readPlugin(entry.source.path), error: null };
+        return { id: entry.id, source: entry.source, enabled: entry.enabled, disabledSkills: entry.disabledSkills, read: readPlugin(entry.source.path), error: null };
       } catch (error) {
-        return { id: entry.id, source: entry.source, enabled: entry.enabled, read: null, error: error instanceof Error ? error.message : String(error) };
+        return { id: entry.id, source: entry.source, enabled: entry.enabled, disabledSkills: entry.disabledSkills, read: null, error: error instanceof Error ? error.message : String(error) };
       }
     });
     this.host.setServers(this.hostedServers());
@@ -257,6 +259,7 @@ export class PluginService {
       error: plugin.error,
       servers,
       skills: read?.skills ?? [],
+      disabledSkills: plugin.disabledSkills.filter((skill) => read?.skills.includes(skill)),
       tools,
       defaultPrompts: manifest?.interface?.defaultPrompt ?? [],
       bundled: this.isBundled(read?.root ?? plugin.source.path),
@@ -503,6 +506,17 @@ export class PluginService {
     this.emit();
   }
 
+  /** Turn one skill of an installed plugin off or on; sessions started after it get the change. */
+  setSkillEnabled(id: string, skill: string, enabled: boolean): PluginRecord {
+    const plugin = this.plugin(id);
+    if (!plugin) throw new Error(`no plugin "${id}" is installed`);
+    if (!plugin.skills.includes(skill)) throw new Error(`${plugin.displayName} has no skill "${skill}"`);
+    this.registry.setSkillEnabled(id, skill, enabled);
+    this.reload();
+    this.emit();
+    return this.plugin(id)!;
+  }
+
   async setEnabled(id: string, enabled: boolean): Promise<PluginRecord> {
     if (!enabled) await this.host.closePlugin(id);
     this.registry.setEnabled(id, enabled);
@@ -527,6 +541,31 @@ export class PluginService {
     this.emit();
     void this.fetchRemote(remote.dir);
     return this.marketplaces().find((entry) => entry.file === remote.dir)!;
+  }
+
+  /**
+   * What adding a repository would add, before it is added: a shallow clone into a throwaway
+   * folder under `<dataDir>/previews`, read, and removed. Nothing is installed or remembered.
+   */
+  async previewMarketplace(input: string): Promise<MarketplacePreview> {
+    if (!this.deps.dataDir) throw new Error("this app cannot fetch marketplaces; add a folder instead");
+    const [repository, ref] = input.trim().split("#");
+    const parsed = parseGitRemote(repository!);
+    const dir = path.join(this.deps.dataDir, "previews", `${parsed.slug}-${process.pid}-${Date.now()}`);
+    try {
+      const commit = await shallowClone(parsed.url, dir, { ref: ref || null });
+      const market = readMarketplace(dir);
+      return {
+        url: parsed.url,
+        displayName: catalogName({ url: parsed.url, displayName: market.displayName }),
+        commit,
+        official: isOfficial("git", parsed.url),
+        added: this.registry.remoteMarketplaces().some((item) => keyOf(item.url) === parsed.key),
+        plugins: market.plugins.map((entry) => ({ name: entry.name, description: entry.description })),
+      };
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   }
 
   private addRemote(input: string): RemoteMarketplace {

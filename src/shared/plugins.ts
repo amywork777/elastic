@@ -171,6 +171,8 @@ export const PluginRecordSchema = z.object({
   error: z.string().nullable(),
   servers: z.array(PluginServerStateSchema),
   skills: z.array(z.string()),
+  /** Of `skills`, the ones turned off: new sessions do not get them. */
+  disabledSkills: z.array(z.string()).default([]),
   tools: z.array(PluginToolSchema),
   defaultPrompts: z.array(z.string()).default([]),
   /** Ships with the app (`resources/bundled`): it can be turned off, not uninstalled. */
@@ -207,6 +209,21 @@ export const MarketplaceSchema = z.object({
   plugins: z.array(MarketplaceEntrySchema),
 });
 export type Marketplace = z.infer<typeof MarketplaceSchema>;
+
+/** What a repository would add as a marketplace, read before it is added. */
+export const MarketplacePreviewSchema = z.object({
+  /** The repository as it would be fetched. */
+  url: z.string(),
+  displayName: z.string(),
+  /** The commit it was read at. */
+  commit: z.string().nullable(),
+  /** One of the official catalogs (Claude's, Codex's, text-to-cad's). */
+  official: z.boolean(),
+  /** Already in the list. */
+  added: z.boolean(),
+  plugins: z.array(z.object({ name: z.string(), description: z.string() })),
+});
+export type MarketplacePreview = z.infer<typeof MarketplacePreviewSchema>;
 
 /** Whether a plugin will work here, read from its manifest without installing it. */
 export const CompatibilitySchema = z.object({

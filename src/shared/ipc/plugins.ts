@@ -10,7 +10,7 @@
  */
 import { z } from "zod";
 
-import { CatalogEntrySchema, MarketplaceSchema, PluginRecordSchema } from "../plugins";
+import { CatalogEntrySchema, MarketplacePreviewSchema, MarketplaceSchema, PluginRecordSchema } from "../plugins";
 import { invoke } from "./define";
 
 export const PluginsSnapshotSchema = z.object({
@@ -50,6 +50,13 @@ export const pluginsContract = {
     installFromMarketplace: invoke(z.object({ marketplace: z.string().min(1), name: z.string().min(1) }), PluginRecordSchema),
     uninstall: invoke(Id, z.void()),
     setEnabled: invoke(z.object({ id: z.string().min(1), enabled: z.boolean() }), PluginRecordSchema),
+    /** Turn one of a plugin's skills off or on; sessions started after it get the change. */
+    setSkillEnabled: invoke(z.object({ id: z.string().min(1), skill: z.string().min(1), enabled: z.boolean() }), PluginRecordSchema),
+    /**
+     * What adding a repository as a marketplace would add, before it is added: fetched into a
+     * throwaway folder with the person's git, read, and dropped. Nothing is installed or kept.
+     */
+    previewMarketplace: invoke(z.object({ source: z.string().min(1).max(500) }), MarketplacePreviewSchema),
     /** Sign in to one of a plugin's remote servers, in the system browser. Resolves when it is done. */
     signIn: invoke(z.object({ id: z.string().min(1), server: z.string().min(1) }), PluginRecordSchema),
     signOut: invoke(z.object({ id: z.string().min(1), server: z.string().min(1) }), PluginRecordSchema),

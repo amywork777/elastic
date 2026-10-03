@@ -54,6 +54,12 @@ export const pluginsHandlers = {
     setEnabled: async ({ id, enabled }) => {
       try { return await plugins().setEnabled(id, enabled); } catch (error) { throw sentence(error); }
     },
+    setSkillEnabled: ({ id, skill, enabled }) => {
+      try { return plugins().setSkillEnabled(id, skill, enabled); } catch (error) { throw sentence(error); }
+    },
+    previewMarketplace: async ({ source }) => {
+      try { return await plugins().previewMarketplace(source); } catch (error) { throw sentence(error); }
+    },
     signIn: async ({ id, server }) => {
       try { return await plugins().signIn(id, server); } catch (error) { throw sentence(error); }
     },

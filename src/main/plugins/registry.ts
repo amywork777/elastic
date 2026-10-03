@@ -22,6 +22,8 @@ const InstalledSchema = z.object({
   source: PluginSourceSchema,
   enabled: z.boolean().default(true),
   installedAt: z.number().default(0),
+  /** Skills of this plugin the person turned off; a new session does not get them. */
+  disabledSkills: z.array(z.string()).default([]),
 });
 export type InstalledPlugin = z.infer<typeof InstalledSchema>;
 
@@ -91,7 +93,7 @@ export class PluginRegistry {
   /** Add or replace a plugin by id; a reinstall keeps its enabled state off only if it was off. */
   install(id: string, source: PluginSource, now = Date.now()): InstalledPlugin {
     const previous = this.get(id);
-    const entry = { id, source, enabled: previous?.enabled ?? true, installedAt: previous?.installedAt ?? now };
+    const entry = { id, source, enabled: previous?.enabled ?? true, installedAt: previous?.installedAt ?? now, disabledSkills: previous?.disabledSkills ?? [] };
     this.data.plugins = [...this.data.plugins.filter((plugin) => plugin.id !== id), entry];
     this.write();
     return entry;
@@ -109,6 +111,18 @@ export class PluginRegistry {
     }
     this.write();
     return this.data.plugins.length !== before;
+  }
+
+  /** Turn one of a plugin's skills off (or back on); the plugin stays on. */
+  setSkillEnabled(id: string, skill: string, enabled: boolean): InstalledPlugin {
+    const entry = this.get(id);
+    if (!entry) throw new Error(`no plugin "${id}" is installed`);
+    const off = new Set(entry.disabledSkills);
+    if (enabled) off.delete(skill); else off.add(skill);
+    const next = { ...entry, disabledSkills: [...off].sort() };
+    this.data.plugins = this.data.plugins.map((plugin) => plugin.id === id ? next : plugin);
+    this.write();
+    return next;
   }
 
   setEnabled(id: string, enabled: boolean): InstalledPlugin {

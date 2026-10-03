@@ -202,7 +202,9 @@ function skillSources(): Array<{ owner: string; dir: string; names: string[] }> 
     if (!plugin.enabled || plugin.error || plugin.skills.length === 0) continue;
     try {
       const read = readPlugin(plugin.root);
-      if (read.skillsDir) sources.push({ owner: plugin.bundled ? APP_NAME : `the ${plugin.displayName} plugin`, dir: read.skillsDir, names: read.skills });
+      // A skill the person turned off is left out of the root new sessions get.
+      const names = read.skills.filter((skill) => !plugin.disabledSkills.includes(skill));
+      if (read.skillsDir && names.length > 0) sources.push({ owner: plugin.bundled ? APP_NAME : `the ${plugin.displayName} plugin`, dir: read.skillsDir, names });
     } catch { /* listed with its error; it has no skills to give */ }
   }
   return sources;

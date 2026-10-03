@@ -163,6 +163,38 @@ describe("a git marketplace", () => {
   });
 });
 
+describe("before and after adding", () => {
+  it("previews what a repository would add without adding or keeping anything", async () => {
+    const market = repo("preview-market", {
+      ".claude-plugin/marketplace.json": { name: "preview-market", plugins: [{ name: "one", description: "The first", source: "./one" }, { name: "two", source: "./two" }] },
+      "one/.claude-plugin/plugin.json": { name: "one" },
+      "two/.claude-plugin/plugin.json": { name: "two" },
+    });
+    const data = path.join(dir, "userData", "plugins");
+    const service = new PluginService({ registry: new PluginRegistry(path.join(data, "installed.json")), host: host(), dataDir: data });
+    const preview = await service.previewMarketplace(market.url);
+    expect(preview).toMatchObject({ displayName: "preview-market", official: false, added: false, commit: market.head(), plugins: [{ name: "one", description: "The first" }, { name: "two", description: "" }] });
+    expect(service.marketplaces()).toEqual([]);
+    expect(fs.readdirSync(path.join(data, "previews"))).toEqual([]);
+  });
+
+  it("turns one skill off and keeps the rest", () => {
+    const plugin = path.join(dir, "skilled");
+    write(path.join(plugin, ".codex-plugin", "plugin.json"), { name: "skilled" });
+    write(path.join(plugin, "skills", "a", "SKILL.md"), "---\nname: a\n---\n");
+    write(path.join(plugin, "skills", "b", "SKILL.md"), "---\nname: b\n---\n");
+    const data = path.join(dir, "userData", "plugins");
+    const file = path.join(data, "installed.json");
+    const registry = new PluginRegistry(file);
+    registry.install("skilled", { kind: "local", path: plugin });
+    const service = new PluginService({ registry, host: host(), dataDir: data });
+    expect(service.setSkillEnabled("skilled", "a", false)).toMatchObject({ skills: ["a", "b"], disabledSkills: ["a"], enabled: true });
+    expect(new PluginRegistry(file).get("skilled")?.disabledSkills).toEqual(["a"]);
+    expect(() => service.setSkillEnabled("skilled", "nope", false)).toThrow(/no skill "nope"/);
+    expect(service.setSkillEnabled("skilled", "a", true).disabledSkills).toEqual([]);
+  });
+});
+
 describe("the catalog", () => {
   function folderMarket(root: string, name: string, plugins: Array<{ name: string; files: Record<string, string | object> }>) {
     write(path.join(dir, root, ".claude-plugin", "marketplace.json"), { name, plugins: plugins.map((plugin) => ({ name: plugin.name, source: `./${plugin.name}` })) });
