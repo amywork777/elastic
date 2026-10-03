@@ -18,6 +18,11 @@ terminal), git worktrees. Plugins add the rest as MCP servers, skills and MCP
 App views, in the same format Codex and Claude Code use, so any model and any
 plugin can plug in.
 
+Any model: sign in to Claude Code or Codex as usual, or bring a key or a
+local model in Settings › Models & keys (Anthropic, OpenAI, OpenRouter,
+Ollama, any gateway). Each runs through the agent that speaks its protocol, so
+there is no agent loop of elastic's own: [docs/models.md](docs/models.md).
+
 It started as the text-to-cad desktop app with the hardware parts taken out.
 CAD is back as a plugin: text-to-cad installs from its own marketplace,
 unchanged, the same plugin Codex runs.

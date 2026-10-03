@@ -23,6 +23,7 @@ import { StatusDot, type Tone } from "@renderer/features/settings/StatusDot";
 import { matchesQuery, useSettingsQuery } from "@renderer/features/settings/search";
 import { useAppInfo } from "@renderer/features/settings/use-app-info";
 import { useAgents } from "@renderer/state/agents";
+import { useUi } from "@renderer/state/ui";
 import type { AgentStatus, Platform } from "@shared/agents";
 
 /**
@@ -90,6 +91,14 @@ export function AgentsPage() {
 
   return (
     <>
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-xs" data-models-hint>
+        <span className="text-muted-foreground">
+          Bring your own key or a local model (Anthropic, OpenAI, OpenRouter, Ollama, any gateway): Claude Code, Codex and OpenCode run it.
+        </span>
+        <Button className="h-7 shrink-0" onClick={() => useUi.getState().setSettingsSection("models")} size="sm" variant="secondary">
+          Models &amp; keys
+        </Button>
+      </div>
       <div className="mb-5 flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -187,6 +196,9 @@ function AgentGroup({
  * A pointer anywhere on the line opens the drawer as before; the trailing
  * buttons stop their own clicks.
  */
+/** Agents a key from Settings › Models & keys can drive. */
+const KEYED_AGENTS = new Set(["claude-code", "codex", "opencode"]);
+
 function AgentRow({ agent, onOpen }: { agent: AgentStatus; onOpen: () => void }) {
   const matched = useRowMatch(...agentRowText(agent));
   const detailId = useId();
@@ -207,7 +219,7 @@ function AgentRow({ agent, onOpen }: { agent: AgentStatus; onOpen: () => void })
         agent.version ? `v${agent.version}` : null,
         // The CLI's version is the person's; the adapter's is the app's pin.
         agent.adapter ? `adapter ${agent.adapter.version}` : null,
-        agent.auth === "unauthenticated" ? (agent.probing ? "checking sign-in…" : "not signed in") : null,
+        agent.auth === "unauthenticated" ? (agent.probing ? "checking sign-in…" : KEYED_AGENTS.has(agent.id) ? "not signed in, or use an API key" : "not signed in") : null,
       ]
         .filter(Boolean)
         .join(" · ") || "installed"

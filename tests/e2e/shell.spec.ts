@@ -349,6 +349,9 @@ test("Settings: every page renders, and what it shows comes from main", async ()
     await expect(drawer.getByText(/plugin/i)).toHaveCount(0);
     await expect(drawer.getByRole("button", { name: /reinstall/i })).toHaveCount(0);
     // The launch line is the registry's pin (`npm exec … --package=<pkg>@<version>`), not a bare npx.
+    // It is folded under Advanced: most people never need it.
+    await expect(drawer.getByText("npm", { exact: true })).toBeHidden();
+    await drawer.getByText("Command, arguments and environment").click();
     await expect(drawer.getByText("npm", { exact: true })).toBeVisible();
     await expect(drawer.getByText(/--package=@agentclientprotocol\/(claude-agent-acp|codex-acp)@\d+\.\d+\.\d+/)).toBeVisible();
     await shoot(`settings-agent-${slug}.png`);

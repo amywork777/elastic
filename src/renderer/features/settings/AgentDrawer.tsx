@@ -42,6 +42,7 @@ import {
 import { useDraft } from "@renderer/features/settings/SettingCard";
 import { useSkills } from "@renderer/features/settings/use-skills";
 import { useAgents } from "@renderer/state/agents";
+import { useUi } from "@renderer/state/ui";
 import type { AgentJobOutput, AgentStatus, AuthState, Platform } from "@shared/agents";
 
 const AUTH_TONE: Record<AuthState, Tone> = {
@@ -157,6 +158,9 @@ function DrawerBody({ agent, platform }: { agent: AgentStatus; platform: Platfor
 }
 
 /* -------------------------------------------------------------------------- */
+
+/** Agents a key from Settings › Models & keys can drive (`src/shared/providers.ts`). */
+const KEYED_AGENTS = new Set(["claude-code", "codex", "opencode"]);
 
 function Section({
   title,
@@ -321,9 +325,16 @@ function AuthenticationSection({ agent }: { agent: AgentStatus }) {
             Use an API key instead
           </summary>
           <div className="mt-2 rounded-lg border bg-muted/40 px-3 py-2.5">
+            {KEYED_AGENTS.has(agent.id) ? (
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-muted-foreground">Add the key in Models &amp; keys, stored in this Mac&apos;s keychain.</p>
+                <Button className="h-7 shrink-0" onClick={() => useUi.getState().setSettingsSection("models")} size="sm" variant="secondary">
+                  Models &amp; keys
+                </Button>
+              </div>
+            ) : null}
             <p className="text-muted-foreground">
-              {apiKey.label}: set one of these in the shell elastic launches from, then press
-              Refresh.
+              {KEYED_AGENTS.has(agent.id) ? "Or set" : `${apiKey.label}: set`} one of these in the shell elastic launches from, then press Refresh.
             </p>
             <p className="mt-1.5 font-mono text-[11px]" data-selectable>
               {apiKey.envVars.join("  ·  ")}
@@ -353,12 +364,7 @@ function SkillsSection({ agent }: { agent: AgentStatus }) {
         <InlineCode
           text={
             count > 0
-              ? `Every session in elastic is handed the app's skills (its own and those you turned on) as an extra directory,
-             ${
-               native
-                 ? `which ${agent.name} loads by itself.`
-                 : `and, because ${agent.name} does not load one, a line in the first prompt saying where they are. The app's MCP server can read them too.`
-             } Nothing is installed into ${agent.name}'s own configuration.`
+              ? `Handed to every session ${native ? "as an extra directory" : "through a line in the first prompt"}. Nothing is installed into ${agent.name}'s own configuration.`
               : "elastic hands its skills to every session. This build has none composed yet. Run `npm run build`."
           }
         />
@@ -381,9 +387,7 @@ function McpSection({ agent }: { agent: AgentStatus }) {
   return (
     <Section title="MCP servers">
       <p className="text-xs text-muted-foreground">
-        Every elastic session gets the app&apos;s own server (how an agent opens a file in the
-        explorer, attaches a snapshot, or reads a skill) beside whatever {agent.name} is
-        configured with itself. That configuration is {agent.name}&apos;s; this app does not touch it.
+        elastic&apos;s own servers, beside {agent.name}&apos;s own configuration, which is left alone.
       </p>
     </Section>
   );
@@ -438,7 +442,9 @@ function AdvancedSection({ agent }: { agent: AgentStatus }) {
 
   return (
     <Section title="Advanced">
-      <dl className="space-y-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-[11px]">
+      <details className="text-xs">
+      <summary className="cursor-default text-muted-foreground select-none hover:text-foreground">Command, arguments and environment</summary>
+      <dl className="mt-3 space-y-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-[11px]">
         <Field label="Command" value={agent.launch.command} />
         <Field label="Arguments" value={agent.launch.args.join(" ") || "—"} />
         <Field
@@ -487,6 +493,7 @@ function AdvancedSection({ agent }: { agent: AgentStatus }) {
       <p className="mt-1.5 text-[11px] text-muted-foreground">
         One per line. Merged over the launch environment when elastic starts {agent.name}.
       </p>
+      </details>
     </Section>
   );
 }
