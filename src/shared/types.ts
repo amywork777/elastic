@@ -10,6 +10,7 @@
  * free of Electron and Node imports.
  */
 import { z } from "zod";
+import { ColorThemeIdSchema } from "./color-themes";
 
 /* -------------------------------------------------------------------------- */
 /* Projects                                                                    */
@@ -598,6 +599,8 @@ export const SettingsSchema = z.object({
 
   /* Appearance */
   theme: ThemePreferenceSchema.default("system"),
+  /** A palette over the tokens, following `theme`'s light or dark (`src/shared/color-themes.ts`). */
+  colorTheme: ColorThemeIdSchema.default("default"),
   accentColor: AccentColorSchema.default("neutral"),
   uiFontSize: UiFontSizeSchema.default("default"),
   codeFont: CodeFontSchema.default("system"),

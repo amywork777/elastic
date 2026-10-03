@@ -112,6 +112,39 @@ test("the rail page and the session's + menu open the same app", async () => {
   await shoot("plugins-rail-page.png");
 });
 
+test("a colour theme repaints the window and a plugin's frame, live, and Default puts it back", async () => {
+  const token = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--background").trim());
+  const frameBackground = () => page.frameLocator('[data-testid="plugin-app"] iframe').locator("html").evaluate((html) => getComputedStyle(html).backgroundColor);
+  await page.getByRole("navigation", { name: "Rail" }).getByRole("button", { name: "Tables" }).click();
+  await expect(page.frameLocator('[data-testid="plugin-app"] iframe').locator("body")).toBeVisible({ timeout: 30_000 });
+  const stockToken = await token();
+  const stockFrame = await frameBackground();
+
+  await page.getByRole("navigation", { name: "Rail" }).getByRole("button", { name: "Sessions" }).click();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Appearance", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Default", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Nord", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-color-theme", "nord");
+  await expect.poll(token).not.toBe(stockToken);
+  await shoot("color-theme-nord.png");
+  await page.keyboard.press("Escape");
+
+  // Back on the plugin's page, a change made while its frame is on screen reaches it live,
+  // through the host context rather than a reload.
+  await page.getByRole("navigation", { name: "Rail" }).getByRole("button", { name: "Tables" }).click();
+  await expect.poll(frameBackground, { timeout: 10_000 }).not.toBe(stockFrame);
+  const nordFrame = await frameBackground();
+  expect((await page.evaluate(() => window.workbench.settings.get())).colorTheme).toBe("nord");
+  await page.evaluate(() => window.workbench.settings.set({ colorTheme: "solarized" }));
+  await expect(page.locator("html")).toHaveAttribute("data-color-theme", "solarized");
+  await expect.poll(frameBackground, { timeout: 10_000 }).not.toBe(nordFrame);
+
+  await page.evaluate(() => window.workbench.settings.set({ colorTheme: "default" }));
+  await expect.poll(token).toBe(stockToken);
+  await expect.poll(frameBackground, { timeout: 10_000 }).toBe(stockFrame);
+});
+
 test("each app frame is an origin of its own: workers start, the app and other frames stay out of reach", async () => {
   // The rail page and the session's Table tab, both open from the test above: two frames of one plugin.
   const apps = page.frames().filter((frame) => frame.url().startsWith("mcp-app://"));

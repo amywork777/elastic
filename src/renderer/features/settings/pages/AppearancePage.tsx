@@ -24,6 +24,7 @@ import {
 } from "@renderer/features/settings/settings-value";
 import { ACCENTS, fontAvailable } from "@renderer/hooks/use-appearance";
 import { isMac } from "@renderer/lib/platform";
+import { COLOR_THEMES, paletteOf, type ColorThemeId, type Palette } from "@shared/color-themes";
 import type { AccentColor, CodeFont, ThemePreference, UiFontSize } from "@shared/types";
 
 const THEMES: { value: ThemePreference; label: string; icon: React.ReactNode }[] = [
@@ -64,6 +65,7 @@ export function AppearancePage() {
     <>
       <SettingCard title="Theme">
         <ThemeRow onSelect={(theme) => patch({ theme })} value={settings.theme} />
+        <ColorThemeRow onSelect={(colorTheme) => patch({ colorTheme })} value={settings.colorTheme} />
         <AccentRow
           onSelect={(accentColor) => patch({ accentColor })}
           value={settings.accentColor}
@@ -161,6 +163,75 @@ function ThemeRow({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * The colour themes, each a card with its light and dark palettes side by side. A theme follows
+ * the light/dark choice above it; the accent below still tints buttons over any of them.
+ */
+function ColorThemeRow({
+  value,
+  onSelect,
+}: {
+  value: ColorThemeId;
+  onSelect: (theme: ColorThemeId) => void;
+}) {
+  const matched = useRowMatch(
+    "Colour theme",
+    "Palettes for light and dark",
+    `color colour theme palette ${COLOR_THEMES.map((theme) => theme.label).join(" ")}`,
+  );
+  if (!matched) {
+    return null;
+  }
+  return (
+    <div className="px-4 py-3">
+      <p className="text-sm">Colour theme</p>
+      <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+        A palette for light and for dark. Each follows the choice above.
+      </p>
+      <div aria-label="Colour theme" className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3" role="group">
+        {COLOR_THEMES.map((theme) => (
+          <button
+            aria-label={theme.label}
+            aria-pressed={value === theme.id}
+            className={cn(
+              "flex flex-col gap-2 rounded-lg border p-2 text-left text-xs outline-none transition-colors",
+              "focus-visible:ring-[3px] focus-visible:ring-ring/50",
+              value === theme.id ? "border-primary bg-accent" : "hover:bg-accent/50",
+            )}
+            data-color-theme-option={theme.id}
+            key={theme.id}
+            onClick={() => onSelect(theme.id)}
+            type="button"
+          >
+            <span className="flex h-12 overflow-hidden rounded-md ring-1 ring-border">
+              <Swatch palette={paletteOf(theme.id, "light")} />
+              <Swatch palette={paletteOf(theme.id, "dark")} />
+            </span>
+            <span className="px-0.5">
+              <span className="block font-medium">{theme.label}</span>
+              <span className="block text-muted-foreground">{theme.description}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** One mode of a palette in miniature: a sidebar strip, a line of text, a muted line, a button. */
+function Swatch({ palette }: { palette: Palette }) {
+  return (
+    <span aria-hidden className="flex flex-1" style={{ backgroundColor: palette.background }}>
+      <span className="w-3" style={{ backgroundColor: palette.sidebar }} />
+      <span className="flex flex-1 flex-col justify-center gap-1 px-2">
+        <span className="h-1 w-3/4 rounded-full" style={{ backgroundColor: palette.foreground }} />
+        <span className="h-1 w-1/2 rounded-full" style={{ backgroundColor: palette.mutedForeground }} />
+        <span className="h-1.5 w-1/3 rounded-full" style={{ backgroundColor: palette.primary }} />
+      </span>
+    </span>
   );
 }
 

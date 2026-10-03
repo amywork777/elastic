@@ -8,6 +8,7 @@
 import { useEffect } from "react";
 
 import { useResolvedTheme } from "@renderer/hooks/use-theme";
+import { applyColorTheme, readCachedColorTheme, writeCachedColorTheme } from "@renderer/lib/color-theme";
 import { useSettings } from "@renderer/state/settings";
 import type { AccentColor, CodeFont, UiFontSize } from "@shared/types";
 
@@ -61,6 +62,8 @@ export function fontAvailable(family: string): boolean {
 export function useApplyAppearance(): void {
   const settings = useSettings((state) => state.settings);
   const accent = settings?.accentColor ?? "neutral";
+  const storedColorTheme = settings?.colorTheme;
+  const colorTheme = storedColorTheme ?? readCachedColorTheme();
   const fontSize = settings?.uiFontSize ?? "default";
   const codeFont = settings?.codeFont ?? "system";
   const reduceMotion = settings?.reduceMotion ?? false;
@@ -69,12 +72,13 @@ export function useApplyAppearance(): void {
   // a `system` preference, and that never changes the setting.
   const resolved = useResolvedTheme();
 
+  // The palette first, then the accent over it: both write --primary, and the accent is the
+  // narrower choice. One effect, so a theme change cannot repaint over the accent.
   useEffect(() => {
     const root = document.documentElement;
+    applyColorTheme(colorTheme, resolved);
     if (accent === "neutral") {
-      root.style.removeProperty("--primary");
-      root.style.removeProperty("--primary-foreground");
-      root.style.removeProperty("--ring");
+      // The palette's own --primary and --ring stand.
       root.removeAttribute("data-accent");
       return;
     }
@@ -83,7 +87,11 @@ export function useApplyAppearance(): void {
     root.style.setProperty("--primary", colour);
     root.style.setProperty("--primary-foreground", "oklch(0.985 0 0)");
     root.style.setProperty("--ring", colour);
-  }, [accent, resolved]);
+  }, [accent, colorTheme, resolved]);
+
+  useEffect(() => {
+    if (storedColorTheme) writeCachedColorTheme(storedColorTheme);
+  }, [storedColorTheme]);
 
   useEffect(() => {
     document.documentElement.style.fontSize = FONT_SIZES[fontSize];

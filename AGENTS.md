@@ -76,7 +76,7 @@ the rule is about.
   types and pure, dependency-free modules** (zod aside) — never anything that
   touches Node, Electron or the file system. The modules it takes values from
   today: `types.ts` (the schemas, `PANE_LIMITS`), `acp/options.ts`,
-  `acp/reduce.ts`, `file-refs.ts`, `diff-counts.ts`, `image-cap.ts`, `terminal-replies.ts`, `titlebar.ts`, `brand.ts`, `plugins.ts` and
+  `acp/reduce.ts`, `file-refs.ts`, `diff-counts.ts`, `image-cap.ts`, `terminal-replies.ts`, `titlebar.ts`, `brand.ts`, `plugins.ts`, `color-themes.ts` and
   `ipc/errors.ts`. A shared module that grows a Node import stops
   qualifying. Its one way off the page is `window.workbench`, built from the
   contract in `src/shared/ipc/index.ts`.

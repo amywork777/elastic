@@ -7,6 +7,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@renderer/components/ui/button";
 import { Spinner } from "@renderer/components/ui/spinner";
 import { useResolvedTheme } from "@renderer/hooks/use-theme";
+import { useSettings } from "@renderer/state/settings";
 import { APP_NAME } from "@shared/brand";
 
 /** Which processes the app's requests reach: a session's, or the app's. */
@@ -100,6 +101,8 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
   /** The URL whose app said it is initialised, or the failure connecting to it. */
   const [connected, setConnected] = useState<{ url: string; error: string | null } | null>(null);
   const theme = useResolvedTheme();
+  const colorTheme = useSettings((state) => state.settings?.colorTheme);
+  const accent = useSettings((state) => state.settings?.accentColor);
   const callRef = useRef(call);
   useLayoutEffect(() => { callRef.current = call; }, [call]);
   const scopeKey = JSON.stringify(scope);
@@ -198,11 +201,16 @@ export function McpAppFrame({ pluginId, pluginName, server, tool, resourceUri, s
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one bridge per staged document; theme and size reach it below
   }, [url]);
 
-  // Theme and size changes reach the app.
+  // Theme and size changes reach the app. The colour theme and accent are written onto <html>
+  // by the shell's effect, which runs after this child's, so the tokens are read a frame later.
   useEffect(() => {
     const bridge = bridgeRef.current;
-    if (bridge && phase.kind === "ready") void Promise.resolve(bridge.sendHostContextChange({ theme, styles: { variables: hostStyles() } })).catch(() => {});
-  }, [theme, phase.kind]);
+    if (!bridge || phase.kind !== "ready") return;
+    const frame = requestAnimationFrame(() => {
+      void Promise.resolve(bridge.sendHostContextChange({ theme, styles: { variables: hostStyles() } })).catch(() => {});
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [theme, colorTheme, accent, phase.kind]);
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;

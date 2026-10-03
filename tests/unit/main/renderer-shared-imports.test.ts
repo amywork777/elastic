@@ -30,6 +30,7 @@ const VALUE_ALLOWLIST = new Set([
   "image-cap",
   "brand",
   "plugins",
+  "color-themes",
 ]);
 
 /** `.ts`/`.tsx` sources, declaration files excluded. */

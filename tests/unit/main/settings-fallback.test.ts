@@ -55,3 +55,16 @@ it("reads one unparsable field as its own default without throwing, and lists it
   expect(Object.keys(settings.fallbacks())).toEqual(["sidebar"]);
   expect(() => settings.set({ theme: "light" })).not.toThrow();
 });
+
+it("reads a colour theme this build does not have as the default one", () => {
+  rows.set("colorTheme", JSON.stringify("neon"));
+  rows.set("theme", JSON.stringify("dark"));
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  expect(settings.get().colorTheme).toBe("default");
+  expect(settings.get().theme).toBe("dark");
+  expect(settings.fallbacks()).toEqual({ colorTheme: "neon" });
+  settings.set({ colorTheme: "nord" });
+  expect(settings.get().colorTheme).toBe("nord");
+  expect(settings.fallbacks()).toEqual({});
+});

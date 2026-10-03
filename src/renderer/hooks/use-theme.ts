@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 
+import { applyColorTheme, readCachedColorTheme } from "@renderer/lib/color-theme";
 import { useSettings } from "@renderer/state/settings";
 import { ThemePreferenceSchema, type ThemePreference } from "@shared/types";
 
@@ -90,7 +91,10 @@ export function applyResolvedTheme(resolved: "light" | "dark"): void {
  * on `ready-to-show`, which is after that paint, so the flash is on screen.
  */
 export function applyCachedTheme(): void {
-  applyResolvedTheme(resolveThemePreference(readCachedThemePreference(), systemPrefersDark()));
+  const resolved = resolveThemePreference(readCachedThemePreference(), systemPrefersDark());
+  applyResolvedTheme(resolved);
+  // The colour theme rides on the same first paint (`lib/color-theme.ts`).
+  applyColorTheme(readCachedColorTheme(), resolved);
 }
 
 /** True when the OS is asking for dark, and again whenever that changes. */

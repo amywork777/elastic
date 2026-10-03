@@ -10,6 +10,7 @@ import { BrowserWindow, app, dialog, nativeImage, nativeTheme, shell } from "ele
 import { initIntegrations, shutdownIntegrations } from "./integrations";
 import { guardAppFrames, registerAppScheme, serveAppScheme } from "./plugins/app-protocol";
 import { APP_NAME, APP_SLUG } from "../shared/brand";
+import { oklchToHex, paletteOf, type ColorThemeId } from "../shared/color-themes";
 import { browserService } from "./browser/service";
 import { endTrackedChildren, killTrackedChildren } from "./children";
 import { closeDb, databaseFile, db, startupFailureMessage } from "./db";
@@ -54,13 +55,16 @@ const DEV_ICON = path.resolve(dirname, "..", "..", "build", "icon.png");
  */
 function windowBackgroundColor(): string {
   let preference: "system" | "light" | "dark" = "system";
+  let theme: ColorThemeId = "default";
   try {
-    preference = settingsRepository.get().theme;
+    ({ theme: preference, colorTheme: theme } = settingsRepository.get());
   } catch {
     // No database yet is not a reason to refuse to open a window.
   }
   const dark = preference === "system" ? nativeTheme.shouldUseDarkColors : preference === "dark";
-  return dark ? "#292929" : "#ffffff";
+  // The stock palette keeps its long-standing values; a colour theme's background is its own.
+  if (theme === "default") return dark ? "#292929" : "#ffffff";
+  return oklchToHex(paletteOf(theme, dark ? "dark" : "light").background);
 }
 
 /**
