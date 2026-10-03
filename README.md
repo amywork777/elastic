@@ -1,4 +1,15 @@
-# elastic
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="resources/brand/elastic-wordmark-dark@2x.png">
+    <img alt="elastic" height="72" src="resources/brand/elastic-wordmark-light@2x.png">
+  </picture>
+</p>
+
+<p align="center"><b>A Codex-style desktop agent app: any model, any plugin.</b></p>
+
+<p align="center">
+  <img alt="Claude showing a STEP file with the text-to-cad plugin, the CAD view in a tab beside the chat" src="docs/readme/cad.png" width="900">
+</p>
 
 A desktop app for coding agents (Claude Code, Codex and others over the Agent
 Client Protocol) where everything beyond the chat is a plugin. The core stays
@@ -8,7 +19,23 @@ App views, in the same format Codex and Claude Code use, so any model and any
 plugin can plug in.
 
 It started as the text-to-cad desktop app with the hardware parts taken out.
-The CAD tools are meant to come back as a plugin from the text-to-cad repo.
+CAD is back as a plugin: text-to-cad installs from its own marketplace,
+unchanged, the same plugin Codex runs.
+
+## What it looks like
+
+Every screenshot is the built app on a fresh profile with real output: the
+plugins were installed from their marketplaces, and the chats are real Claude
+turns (`tests/e2e/readme-shots.spec.ts`).
+
+| | |
+| --- | --- |
+| ![The plugin store: Popular, then one section per category, every plugin labelled with whether it works here](docs/readme/store.png) | ![Claude reading GitHub's trending page through the bundled Browser plugin](docs/readme/browser.png) |
+| **One store** over Claude Code's and Codex's marketplaces and text-to-cad's, the same plugin once. | **Browser**: Claude reads a public GitHub page in elastic's own browser tab, through the bundled Browser plugin. |
+| ![text-to-cad in dark mode](docs/readme/cad-dark.png) | ![A new session](docs/readme/home-dark.png) |
+| **CAD** from text-to-cad, installed from GitHub unchanged, in dark mode. | **A new session**: pick a project, a model (Claude, Codex or any ACP agent), and go. |
+
+<!-- TODO(Amy): a Linear or Notion shot needs a signed-in account; sign in from Plugins and re-run the spec with that case added. -->
 
 ## Run it
 

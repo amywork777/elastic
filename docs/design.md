@@ -85,11 +85,11 @@ unchanged; `use-appearance.ts` still scales rem-based text and layout together.
 
 ## Loading feedback
 
-The silver star appears while a file or tool tab loads. An initial agent connection uses a smaller version; the live
+The band (elastic's mark, its pegs drifting apart and back) appears while a file or tool tab loads. An initial agent connection uses a smaller version; the live
 Thinking/Running status uses a 24px mark with plain, unanimated text. Waiting
-for approval holds a still pose. These reuse `@workbench/ui/loading-icon` and its
-baked image (no additional WebGL context). OS/app reduced motion and hidden
-windows use the still image. Existing progress counts and status words remain
+for approval holds a still pose. These reuse `@workbench/ui/loading-icon`, an
+SVG animated with SMIL (no raster, no WebGL context, no JS loop). OS/app
+reduced motion and hidden windows draw the still pose. Existing progress counts and status words remain
 the source of truth.
 
 ## Onboarding
