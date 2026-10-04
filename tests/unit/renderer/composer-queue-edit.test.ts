@@ -122,3 +122,35 @@ it("an empty edit is not a save, and a prompt moves within the queue", async () 
   useComposer.getState().moveQueued(SESSION, c!.id, 2);
   expect(texts()).toEqual(["a", "b", "c"]);
 });
+
+it("Send now steers into the running turn when the agent takes it, leaving the rest queued", async () => {
+  (bridge.sessions as Record<string, unknown>).steer = vi.fn(async () => ({ outcome: "injected" }));
+  const composer = useComposer.getState();
+  void composer.submit(SESSION, "first", block("first"));
+  start("first");
+  void composer.submit(SESSION, "second", block("second"));
+  void composer.submit(SESSION, "third", block("third"));
+  await settle();
+  const third = useComposer.getState().queues[SESSION]![1]!.id;
+  expect(await useComposer.getState().sendNow(SESSION, third)).toBe("steered");
+  expect((bridge.sessions as { steer: ReturnType<typeof vi.fn> }).steer).toHaveBeenCalledWith({ id: SESSION, content: block("third") });
+  expect(texts()).toEqual(["second"]);
+});
+
+it("Send now without steering stops the turn and sends it first, the rest after in order", async () => {
+  const cancel = vi.fn(async () => undefined);
+  (bridge.sessions as Record<string, unknown>).steer = vi.fn(async () => ({ outcome: "unsupported" }));
+  (bridge.sessions as Record<string, unknown>).cancel = cancel;
+  const composer = useComposer.getState();
+  void composer.submit(SESSION, "first", block("first"));
+  start("first");
+  void composer.submit(SESSION, "second", block("second"));
+  void composer.submit(SESSION, "third", block("third"));
+  await settle();
+  const third = useComposer.getState().queues[SESSION]![1]!.id;
+  expect(await useComposer.getState().sendNow(SESSION, third)).toBe("next");
+  expect(cancel).toHaveBeenCalledWith({ id: SESSION });
+  expect(texts()).toEqual(["third", "second"]);
+  emit({ type: "prompt/end", stopReason: "cancelled", usage: null }); await settle(); replies[0]!.resolve(); await settle();
+  expect(inFlight()).toEqual(["third"]);
+});

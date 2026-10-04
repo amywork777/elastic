@@ -657,6 +657,34 @@ export class SessionConnection {
     }
   }
 
+  /**
+   * Put a message into the running turn instead of after it (`_session/steering`, which
+   * claude-agent-acp and codex-acp both offer and advertise in `_meta.steering.supported`).
+   * `injected`: the turn takes it, and the transcript shows it as the person's next message.
+   * `unsupported` (the agent does not steer), `idle` (no turn to steer into) or `failed`: the
+   * caller sends it the ordinary way.
+   */
+  async steer(content: PromptBlock[], turnId = `turn-${Date.now()}`): Promise<"injected" | "unsupported" | "idle" | "failed"> {
+    const acpSessionId = this.requireSession();
+    const meta = (this.initializeResponse?._meta ?? null) as { steering?: { supported?: boolean } } | null;
+    if (!meta?.steering?.supported) return "unsupported";
+    if (this.refusal(content)) return "failed";
+    try {
+      const response = (await this.agent.extMethod("_session/steering", {
+        sessionId: acpSessionId,
+        prompt: content.map(toContentBlock),
+        _meta: { steering: { idleBehavior: "promptRequired" } },
+      })) as { outcome?: string };
+      if (response?.outcome === "injected") {
+        this.dispatch({ type: "prompt/steer", turnId, content, at: Date.now() });
+        return "injected";
+      }
+      return response?.outcome === "promptRequired" ? "idle" : "failed";
+    } catch {
+      return "failed";
+    }
+  }
+
   async cancel(): Promise<void> {
     const acpSessionId = this.requireSession();
     this.client.cancelPendingPermissions();

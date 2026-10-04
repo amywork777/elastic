@@ -1085,3 +1085,15 @@ describe("reduce: parked updates stay small and local", () => {
     expect(JSON.parse(JSON.stringify(withoutParked(state)))).not.toHaveProperty("parked");
   });
 });
+
+describe("a steered message", () => {
+  it("adds the person's message and a fresh open agent turn, and the turn keeps running", () => {
+    let state = initialSessionState("s", "claude");
+    state = reduce(state, { type: "prompt/start", turnId: "t1", content: [{ type: "text", text: "first" }], at: 1 });
+    state = reduce(state, { type: "prompt/steer", turnId: "t2", content: [{ type: "text", text: "actually do this" }], at: 2 });
+    expect(state.status).toBe("running");
+    expect(state.turns.map((turn) => [turn.role, turn.endedAt === null])).toEqual([["user", false], ["agent", false], ["user", false], ["agent", true]]);
+    state = reduce(state, { type: "prompt/end", stopReason: "end_turn", usage: null, at: 3 });
+    expect(state.turns.at(-1)!.endedAt).toBe(3);
+  });
+});

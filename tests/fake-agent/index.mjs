@@ -581,7 +581,8 @@ new AgentSideConnection((conn) => ({
     return script(conn, params);
   },
 
-  async cancel() {
+  async cancel(params) {
+    record("cancel", params ?? {});
     cancelled = true;
     cancelWaiter?.();
   },

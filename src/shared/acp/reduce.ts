@@ -146,6 +146,19 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       };
     }
 
+    case "prompt/steer": {
+      const closed = closeOpenTurn(state, event.at, null);
+      return {
+        ...closed,
+        turns: [
+          ...closed.turns,
+          { id: event.turnId, role: "user", parts: event.content.map(promptBlockToPart), startedAt: event.at, endedAt: event.at, stopReason: null },
+          { id: `${event.turnId}:agent`, role: "agent", parts: [], startedAt: event.at, endedAt: null, stopReason: null },
+        ],
+        status: "running",
+      };
+    }
+
     case "prompt/end": {
       const next = closeOpenTurn(
         state,

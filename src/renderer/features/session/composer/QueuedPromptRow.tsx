@@ -1,4 +1,4 @@
-import { Pencil, X } from "lucide-react";
+import { ArrowUp, Pencil, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -14,7 +14,8 @@ import { useComposer, type QueuedPrompt } from "@renderer/state/composer";
  * One prompt waiting in the queue. Click its text (or Edit) to change it in place: Enter saves,
  * Shift+Enter is a new line, Escape puts it back as it was. While it is open the queue does not
  * send it (`editingQueued`), so it never goes out with the text being replaced. Drag a row onto
- * another to reorder.
+ * another to reorder. Send now (the arrow, or Cmd/Ctrl+Enter while editing) puts it into the
+ * running turn when the agent steers, else stops the turn and sends it next.
  */
 export function QueuedPromptRow({ sessionId, item, index, onRemove }: {
   sessionId: string;
@@ -77,6 +78,11 @@ export function QueuedPromptRow({ sessionId, item, index, onRemove }: {
               if (event.key === "Escape") {
                 event.preventDefault();
                 close(false);
+              } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                // Save and send now, ahead of the queue.
+                event.preventDefault();
+                close(true);
+                void useComposer.getState().sendNow(sessionId, item.id);
               } else if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
                 close(true);
@@ -115,6 +121,9 @@ export function QueuedPromptRow({ sessionId, item, index, onRemove }: {
             <QueueItemContent>{item.text || "(attachments)"}</QueueItemContent>
           </button>
           <QueueItemActions>
+            <QueueItemAction aria-label={`Send now: ${label}`} onClick={() => void useComposer.getState().sendNow(sessionId, item.id)}>
+              <ArrowUp className="size-3" />
+            </QueueItemAction>
             <QueueItemAction aria-label={`Edit queued prompt: ${label}`} onClick={open}>
               <Pencil className="size-3" />
             </QueueItemAction>

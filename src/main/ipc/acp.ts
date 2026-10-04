@@ -167,6 +167,7 @@ export const acpHandlers = {
     setMode: ({ id, modeId }) => surfacing(() => sessionManager.setMode(id, modeId)),
     setConfigOption: ({ id, configId, value }) =>
       surfacing(() => sessionManager.setConfigOption(id, configId, value)),
+    steer: async ({ id, content }) => ({ outcome: await sessionManager.steer(id, content) }),
     respondPermission: ({ id, requestId, optionId, answers }) =>
       surfacing(() => sessionManager.respondPermission(id, requestId, optionId, answers)),
     retrySetup: ({ id }) => surfacing(() => sessionManager.retrySetup(id)),

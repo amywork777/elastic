@@ -199,6 +199,12 @@ type ComposerState = {
   updateQueued: (sessionId: string, id: string, text: string) => void;
   /** Move a queued prompt to `index` (clamped), the others keeping their order. */
   moveQueued: (sessionId: string, id: string, index: number) => void;
+  /**
+   * Send a queued prompt now, ahead of the rest. Into the running turn when the agent steers
+   * (`sessions.steer` → `injected`); otherwise it moves to the front of the queue and the running
+   * turn is stopped, so it goes out the moment the turn ends and the rest follow in order.
+   */
+  sendNow: (sessionId: string, id: string) => Promise<"steered" | "next">;
   /** Send the next queued prompt if the session is idle and nothing is in flight. */
   drain: (sessionId: string, options?: { evenIfNotIdle?: boolean }) => Promise<void>;
   /** Lift a failure's pause by hand (the queue's Resume) and send what is next. */
@@ -428,6 +434,26 @@ export const useComposer = create<ComposerState>((set, get) => ({
         },
       };
     });
+  },
+  sendNow: async (sessionId, id) => {
+    if (get().editingQueued[sessionId] === id) get().endEditQueued(sessionId);
+    const item = get().queues[sessionId]?.find((entry) => entry.id === id);
+    if (!item) return "next";
+    const status = useAcp.getState().sessions[sessionId]?.status;
+    const busy = status === "running" || status === "waiting" || sessionId in get().sending;
+    if (busy) {
+      const { outcome } = await window.workbench.sessions.steer({ id: sessionId, content: item.content }).catch(() => ({ outcome: "failed" as const }));
+      if (outcome === "injected") {
+        get().dequeue(sessionId, id);
+        return "steered";
+      }
+    }
+    // First in line, and out of a pause: a person who asks for this one now is not waiting on Resume.
+    get().moveQueued(sessionId, id, 0);
+    set((state) => ({ paused: withoutKey(state.paused, sessionId) }));
+    if (busy) await useAcp.getState().cancel(sessionId).catch(() => {});
+    else await get().drain(sessionId);
+    return "next";
   },
   moveQueued: (sessionId, id, index) => set((state) => {
     const queue = [...(state.queues[sessionId] ?? [])];

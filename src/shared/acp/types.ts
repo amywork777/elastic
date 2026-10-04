@@ -598,6 +598,11 @@ export const SessionEventSchema = z.discriminatedUnion("type", [
     at: z.number(),
   }),
   z.object({ type: z.literal("prompt/error"), message: z.string(), at: z.number() }),
+  /**
+   * A message steered into the running turn (`_session/steering` answered `injected`): the turn
+   * goes on, so it is a user turn and a fresh open agent turn, and status stays running.
+   */
+  z.object({ type: z.literal("prompt/steer"), turnId: z.string(), content: z.array(PromptBlockSchema), at: z.number() }),
   z.object({
     type: z.literal("permission/request"),
     request: PendingPermissionSchema,

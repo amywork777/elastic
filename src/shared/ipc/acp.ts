@@ -89,6 +89,14 @@ export const acpContract = {
       Id.extend({ configId: z.string().min(1), value: z.union([z.string(), z.boolean()]) }),
       z.void(),
     ),
+    /**
+     * Put a prompt into the running turn (`_session/steering`) rather than after it. Anything but
+     * `injected` means nothing was sent: the caller sends it the ordinary way.
+     */
+    steer: invoke(
+      Id.extend({ content: z.array(PromptBlockSchema).min(1) }),
+      z.object({ outcome: z.enum(["injected", "unsupported", "idle", "failed"]) }),
+    ),
     respondPermission: invoke(
       Id.extend({
         requestId: z.string().min(1),
