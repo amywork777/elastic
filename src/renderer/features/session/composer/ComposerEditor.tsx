@@ -192,7 +192,7 @@ export function ComposerEditor({
   }, [editor, value]);
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     editor.setEditable(!disabled);
     // An autofocused box that was not editable yet (a chat still connecting on launch) could not
     // take focus then; it takes it when it can, unless the person has put focus somewhere since.

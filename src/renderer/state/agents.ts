@@ -136,6 +136,28 @@ export const useAgents = create<AgentsState>((set) => ({
  * probe has finished (`AgentStatus.probing`). Its `auth` is provisional: a
  * screen that would say "signed out" waits for `agents.status` instead.
  */
+/**
+ * The agent table once detection has answered (no row `probing`), or null after `timeoutMs`. For a
+ * caller that would act on the table (start a session) while it is still being read: it waits for
+ * the answer rather than reading "no agent installed" off a table that is not there yet.
+ */
+export function settledAgents(timeoutMs = 15_000): Promise<AgentStatus[] | null> {
+  const settled = (state: AgentsState) => state.ready && !state.agents.some((agent) => agent.probing === true);
+  if (settled(useAgents.getState())) return Promise.resolve(useAgents.getState().agents);
+  // Ask for the answer rather than only wait for it: a status pushed before this window was
+  // listening is not pushed again, and `refresh` answers with the table either way.
+  void useAgents.getState().refresh().catch(() => {});
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => { stop(); resolve(null); }, timeoutMs);
+    const stop = useAgents.subscribe((state) => {
+      if (!settled(state)) return;
+      window.clearTimeout(timer);
+      stop();
+      resolve(state.agents);
+    });
+  });
+}
+
 export function useAgentsProbing(): boolean {
   return useAgents((state) => state.agents.some((agent) => agent.probing === true));
 }

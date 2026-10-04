@@ -51,7 +51,10 @@ test.beforeAll(async () => {
   signedOutProject = scratch("signed-out");
   fs.writeFileSync(path.join(signedOutProject, ".fake-auth-required"), "");
 
-  ({ app, page } = await launch({ userData }));
+  // Claude Code and Codex count as installed (the fake agent stands in for both), so a send does
+  // not race the agent probe: on a machine without them the probe answering first said "Install
+  // an agent first" and the signed-out test never reached the agent.
+  ({ app, page } = await launch({ userData, env: { WORKBENCH_E2E_INSTALLED_AGENTS: "claude-code,codex" } }));
   page.on("console", (message) => {
     if (message.type() === "error" || message.type() === "warning") {
       console.error(`[renderer:${message.type()}] ${message.text()}`);

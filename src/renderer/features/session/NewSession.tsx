@@ -14,7 +14,7 @@ import {
   useProviderMode,
   useProviderModels,
 } from "@renderer/state/agent-options";
-import { useAgents, useAgentsProbing, useInstalledAgents } from "@renderer/state/agents";
+import { settledAgents, useAgents, useAgentsProbing, useInstalledAgents } from "@renderer/state/agents";
 import { newSessionKey, useComposer, type TakenDraft } from "@renderer/state/composer";
 import { useProjects } from "@renderer/state/projects";
 import { useProviderGroups } from "@renderer/state/providers";
@@ -241,7 +241,20 @@ export function NewSession({ project }: { project: Project }) {
    * annotations into the text, as a list, a second time beside their own chip.
    */
   const start = async (text: string, content: PromptBlock[], draft: TakenDraft): Promise<boolean> => {
-    if (!startingAgentId) {
+    let agentToStart = startingAgentId;
+    // Sent before detection answered: wait for the table rather than say nothing is installed, then
+    // pick the way `resolvedAgentId` does.
+    if (!agentToStart && (!detected || tableProbing)) {
+      const table = await settledAgents();
+      const ready = (table ?? []).filter((candidate) => candidate.installed || candidate.launchWithoutBinary);
+      agentToStart =
+        (settings?.defaultAgentId && ready.some((candidate) => candidate.id === settings.defaultAgentId) ? settings.defaultAgentId : null) ??
+        ready.find((candidate) => candidate.auth !== "unauthenticated")?.id ??
+        ready[0]?.id ??
+        null;
+      if (!mounted.current) return false;
+    }
+    if (!agentToStart) {
       setFailure({ message: "Install an agent first. Settings › Agents lists what elastic can run.", auth: false });
       return false;
     }
@@ -255,7 +268,7 @@ export function NewSession({ project }: { project: Project }) {
       // efforts exist.
       sessionId = await create({
         projectId: project.id,
-        agentId: startingAgentId,
+        agentId: agentToStart,
         ...(draftRoot ? { cwd: draftRoot } : {}),
         gitMode: resolvedGitMode,
         ...(pickedGroup && providerPick ? { provider: { id: providerPick.providerId, model: providerPick.model } } : {}),
