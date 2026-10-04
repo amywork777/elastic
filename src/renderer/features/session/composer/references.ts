@@ -18,13 +18,30 @@ import { isReferenceFile, referenceText, splitReference, type FileReference } fr
  * `README.md` in a prompt stays words — the person is talking about it, not
  * pointing into it.
  */
-export type Segment = { type: "text"; text: string } | { type: "reference"; reference: FileReference };
+/**
+ * A reference as the composer holds it. `mention` is an `@path` picked from the `@` list: any file
+ * in the project, not only one a plugin renders, printed back with its `@` (`@src/app.ts`), the
+ * way Claude Code and Codex users write a file into a prompt.
+ */
+export type ComposerReference = FileReference & { mention?: boolean };
+
+export type Segment = { type: "text"; text: string } | { type: "reference"; reference: ComposerReference };
 
 /** Punctuation a sentence hangs on a reference; kept as text after the chip. */
 const TRAILING_RE = /[.,;:!?)\]]+$/;
 
+/** `@src/app.ts`: a mention names a path (a slash or a dot in it), so `@decorator` stays a word. */
+function parseMention(word: string): ComposerReference | null {
+  if (!word.startsWith("@") || word.length < 2) return null;
+  const file = word.slice(1);
+  if (/[@\s"'`<>|]/.test(file) || file.includes("://") || file.startsWith("#") || !/[./]/.test(file)) return null;
+  return { file, selector: "", mention: true };
+}
+
 /** Is this word, on its own, a reference? */
-export function parseReference(word: string): FileReference | null {
+export function parseReference(word: string): ComposerReference | null {
+  const mention = parseMention(word);
+  if (mention) return mention;
   if (!word || (!word.startsWith('"') && /\s/.test(word)) || word.includes("://")) {
     return null;
   }
@@ -82,7 +99,9 @@ export function parseSegments(text: string): Segment[] {
 }
 
 /** The chip's serialized form — what the agent reads. */
-export const referenceToken = referenceText;
+export function referenceToken(reference: ComposerReference): string {
+  return reference.mention ? `@${reference.file}` : referenceText(reference);
+}
 
 /* -------------------------------------------------------------------------- */
 /* The editor's document                                                       */
@@ -98,8 +117,8 @@ export type DocNode = {
 
 export const REFERENCE_NODE = "reference";
 
-export function referenceNode(reference: FileReference): DocNode {
-  return { type: REFERENCE_NODE, attrs: { file: reference.file, selector: reference.selector } };
+export function referenceNode(reference: ComposerReference): DocNode {
+  return { type: REFERENCE_NODE, attrs: { file: reference.file, selector: reference.selector, ...(reference.mention ? { mention: true } : {}) } };
 }
 
 /** One paragraph's content: text, chips and hard breaks, from a string. */
@@ -143,7 +162,7 @@ export function textFromDoc(doc: DocNode | null | undefined): string {
         out.push("\n");
         return;
       case REFERENCE_NODE:
-        out.push(referenceToken({ file: String(node.attrs?.file ?? ""), selector: String(node.attrs?.selector ?? "") }));
+        out.push(referenceToken({ file: String(node.attrs?.file ?? ""), selector: String(node.attrs?.selector ?? ""), mention: node.attrs?.mention === true }));
         return;
       default:
         break;

@@ -1,14 +1,13 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { Box, Hash } from "lucide-react";
+import { Box, FileText, Hash } from "lucide-react";
 import { useContext } from "react";
 import { toast } from "sonner";
 
 import { cn } from "@renderer/lib/utils";
-import type { FileReference } from "@shared/file-refs";
 import { useComposer } from "@renderer/state/composer";
 
-import { referenceToken } from "./references";
+import { referenceToken, type ComposerReference } from "./references";
 import { openComposerReference, ReferenceScopeContext } from "./ReferenceScope";
 import { errorMessage } from "@shared/ipc/errors";
 
@@ -27,7 +26,7 @@ const CHIP_BODY =
 
 export function ReferenceChip({ node, selected }: NodeViewProps) {
   const scope = useContext(ReferenceScopeContext);
-  const reference = node.attrs as FileReference;
+  const reference = node.attrs as ComposerReference;
   const token = referenceToken(reference);
   const label = useComposer((state) => scope?.draftKey ? state.referenceLabels[scope.draftKey]?.[token] : undefined);
   // The hint is the chip's whole name, and only when the chip clips it (160px per part): the
@@ -47,12 +46,13 @@ export function ReferenceChip({ node, selected }: NodeViewProps) {
         data-reference-chip=""
         data-selected={selected ? "" : undefined}
         data-selector={reference.selector}
+        data-mention={reference.mention ? "" : undefined}
       >
         {/* With no project to open it in, the chip is its name and not a control: a disabled
             button would also switch the hint off. */}
         {scope ? (
           <button
-            aria-label={`Show ${fullName} in viewer`}
+            aria-label={reference.mention ? `Open ${fullName}` : `Show ${fullName} in viewer`}
             className={CHIP_BODY}
             type="button"
             onMouseDown={(event) => event.preventDefault()}
@@ -66,11 +66,11 @@ export function ReferenceChip({ node, selected }: NodeViewProps) {
               }
             }}
           >
-            <ReferenceChipContent file={reference.file} label={label} selector={reference.selector} />
+            <ReferenceChipContent file={reference.file} label={label} mention={reference.mention} selector={reference.selector} />
           </button>
         ) : (
           <span className={CHIP_BODY}>
-            <ReferenceChipContent file={reference.file} label={label} selector={reference.selector} />
+            <ReferenceChipContent file={reference.file} label={label} mention={reference.mention} selector={reference.selector} />
           </span>
         )}
       </NodeViewWrapper>
@@ -87,11 +87,13 @@ export const REFERENCE_CHIP_CLASS =
  * part/feature label, or its selector as a badge when it has none; a hash instead of the file
  * for a bare selector.
  */
-export function ReferenceChipContent({ file, label, selector }: { file: string; label?: string; selector?: string }) {
+export function ReferenceChipContent({ file, label, selector, mention }: { file: string; label?: string; selector?: string; mention?: boolean }) {
   const name = file ? (file.split(/[\\/]/).pop() ?? file) : "";
   return (
     <>
-      {name ? (
+      {mention ? (
+        <FileText aria-hidden className="size-3 shrink-0 opacity-70" />
+      ) : name ? (
         <Box aria-hidden className="size-3 shrink-0 opacity-70" />
       ) : (
         <Hash aria-hidden className="size-3 shrink-0 opacity-70" />

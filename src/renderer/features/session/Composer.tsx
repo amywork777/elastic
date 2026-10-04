@@ -1,3 +1,4 @@
+import { fuzzyFilter } from "@workbench/ui/navigation";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Paperclip } from "lucide-react";
@@ -45,6 +46,7 @@ import {
 } from "./composer/attachments";
 import { AttachmentImagePreview } from "./composer/AttachmentImagePreview";
 import { ComposerEditor, type ComposerEditorHandle } from "./composer/ComposerEditor";
+import { applyMention, mentionQuery } from "./composer/mentions";
 import { ReferenceScopeContext } from "./composer/ReferenceScope";
 import { AnnotationsChip, annotationImageParts, withAnnotations } from "./composer/AnnotationsChip";
 import { AppContextChips } from "./composer/AppContextChip";
@@ -197,6 +199,7 @@ export function Composer({
   }, [autoFocus, draftKey]);
 
   const slash = useSlashCommands(text, commands);
+  const mention = useMentions(text, referenceScope);
   const annotations = useComposer((state) => state.annotations[draftKey] ?? NO_ANNOTATIONS);
   const removeAnnotations = useComposer((state) => state.removeAnnotations);
   const editAnnotation = useComposer((state) => state.editAnnotation);
@@ -311,6 +314,18 @@ export function Composer({
         </Queue>
       ) : null}
 
+      {mention.open ? (
+        <MentionPalette
+          paths={mention.matches}
+          onPick={(path) => {
+            setText((current) => applyMention(current, path));
+            textRef.current?.focus();
+          }}
+          selected={mention.selected}
+          loading={mention.loading}
+        />
+      ) : null}
+
       {slash.open ? (
         <SlashPalette
           commands={slash.matches}
@@ -371,6 +386,22 @@ export function Composer({
                 handle={textRef}
                 onChange={setText}
                 onKeyDown={(event) => {
+                  // An input method's Enter or arrow belongs to it, not to a list.
+                  if ((event.nativeEvent ?? (event as unknown as KeyboardEvent))?.isComposing || event.keyCode === 229) return;
+                  if (mention.open) {
+                    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                      event.preventDefault();
+                      mention.move(event.key === "ArrowDown" ? 1 : -1);
+                    } else if ((event.key === "Enter" || event.key === "Tab") && mention.matches.length > 0) {
+                      event.preventDefault();
+                      const path = mention.matches[mention.selected];
+                      if (path) setText((current) => applyMention(current, path));
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      mention.dismiss();
+                    }
+                    return;
+                  }
                   if (!slash.open) {
                     if (event.key === "Escape" && status === "streaming" && onStop) {
                       event.preventDefault();
@@ -609,6 +640,90 @@ function AttachmentStrip({ annotations, hasAnnotations }: { annotations: React.R
         })}
       </Attachments>
     </PromptInputHeader>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* @ file mentions                                                             */
+/* -------------------------------------------------------------------------- */
+
+/** How many paths the list fetches for a project, and shows at once. */
+const MENTION_PATH_LIMIT = 20_000;
+const MENTION_SHOWN = 12;
+
+/**
+ * The `@` list: the chat's project (its worktree when it has one) listed once per scope, through
+ * the same `explorer.paths` the tree's filter uses, ranked by the tree's fuzzy match.
+ */
+function useMentions(text: string, scope: { projectId: string; root: string | null } | null) {
+  const query = scope ? mentionQuery(text) : null;
+  const scopeKey = scope ? `${scope.projectId}\u0000${scope.root ?? ""}` : null;
+  const [listed, setListed] = useState<{ key: string; paths: string[] } | null>(null);
+  const [selection, setSelection] = useState<{ query: string | null; index: number }>({ query: null, index: 0 });
+  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
+  const wanted = query !== null && scopeKey !== null && listed?.key !== scopeKey;
+  useEffect(() => {
+    if (!wanted || !scope || !scopeKey) return;
+    let live = true;
+    void window.workbench.explorer
+      .paths({ projectId: scope.projectId, ...(scope.root ? { root: scope.root } : {}), path: "", limit: MENTION_PATH_LIMIT })
+      .then((answer) => { if (live) setListed({ key: scopeKey, paths: answer.paths }); })
+      .catch(() => { if (live) setListed({ key: scopeKey, paths: [] }); });
+    return () => { live = false; };
+  }, [wanted, scope, scopeKey]);
+  const paths = listed?.key === scopeKey ? listed.paths : null;
+  const matches = useMemo(
+    () => (query === null || !paths ? [] : fuzzyFilter(paths, query, MENTION_SHOWN).map((match) => match.path)),
+    [paths, query],
+  );
+  const open = query !== null && dismissedFor !== text && (paths === null || matches.length > 0);
+  const selected = selection.query === query ? Math.min(selection.index, Math.max(0, matches.length - 1)) : 0;
+  return {
+    open,
+    loading: paths === null,
+    matches,
+    selected,
+    move: (delta: number) =>
+      setSelection({ query, index: matches.length === 0 ? 0 : (selected + delta + matches.length) % matches.length }),
+    dismiss: () => setDismissedFor(text),
+  };
+}
+
+function MentionPalette({ paths, selected, loading, onPick }: { paths: string[]; selected: number; loading: boolean; onPick: (path: string) => void }) {
+  return (
+    <div
+      aria-label="Files"
+      className="absolute right-0 bottom-full left-0 z-20 mb-2 max-h-64 overflow-y-auto rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
+      data-mention-palette
+      role="listbox"
+    >
+      {loading ? <div className="px-2 py-1.5 text-[12px] text-muted-foreground">Listing files…</div> : null}
+      {paths.map((path, index) => {
+        const cut = path.lastIndexOf("/");
+        const name = cut < 0 ? path : path.slice(cut + 1);
+        const parent = cut < 0 ? "" : path.slice(0, cut);
+        return (
+          <button
+            aria-selected={index === selected}
+            className={cn(
+              "flex w-full items-baseline gap-2 rounded-md px-2 py-1.5 text-left text-[13px]",
+              index === selected ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
+            )}
+            key={path}
+            onMouseDown={(event) => {
+              // Before the editor loses focus.
+              event.preventDefault();
+              onPick(path);
+            }}
+            role="option"
+            type="button"
+          >
+            <span className="shrink-0">{name}</span>
+            {parent ? <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">{parent}</span> : null}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

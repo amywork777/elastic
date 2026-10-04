@@ -5,7 +5,7 @@ import { ReactNodeViewRenderer } from "@tiptap/react";
 import type { FileReference } from "@shared/file-refs";
 
 import { ReferenceChip } from "./ReferenceChip";
-import { REFERENCE_NODE, parseSegments, referenceToken } from "./references";
+import { REFERENCE_NODE, parseSegments, referenceToken, type ComposerReference } from "./references";
 
 /**
  * A CAD reference as an inline atom in the composer's document.
@@ -39,6 +39,7 @@ export const ReferenceNode = Node.create({
     return {
       file: { default: "" },
       selector: { default: "" },
+      mention: { default: false },
     };
   },
 
@@ -49,6 +50,7 @@ export const ReferenceNode = Node.create({
         getAttrs: (element) => ({
           file: element.getAttribute("data-file") ?? "",
           selector: element.getAttribute("data-selector") ?? "",
+          mention: element.hasAttribute("data-mention"),
         }),
       },
     ];
@@ -62,6 +64,7 @@ export const ReferenceNode = Node.create({
         "data-reference-chip": "",
         "data-file": reference.file,
         "data-selector": reference.selector,
+        ...((reference as ComposerReference).mention ? { "data-mention": "" } : {}),
       }),
       referenceToken(reference),
     ];
@@ -122,7 +125,7 @@ export const ReferenceNode = Node.create({
           const wordEnd = wordStart + word.length;
           const spaceInDoc = range.to > wordEnd;
           const nodes = [
-            type.create({ file: first.reference.file, selector: first.reference.selector }),
+            type.create({ file: first.reference.file, selector: first.reference.selector, mention: first.reference.mention === true }),
             ...(trailing || !spaceInDoc ? [state.schema.text(`${trailing}${spaceInDoc ? "" : " "}`)] : []),
           ];
           state.tr.replaceWith(wordStart, wordEnd, nodes).scrollIntoView();

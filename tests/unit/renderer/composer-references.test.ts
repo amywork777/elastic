@@ -93,7 +93,7 @@ describe("the editor", () => {
     const json = instance.getJSON();
     const content = (json.content?.[0]?.content ?? []) as Array<{ type: string; attrs?: unknown; text?: string }>;
     expect(content.map((node) => node.type)).toEqual(["text", "reference", "text"]);
-    expect(content[1]?.attrs).toEqual({ file: "bracket.step", selector: "o1.2" });
+    expect(content[1]?.attrs).toEqual({ file: "bracket.step", selector: "o1.2", mention: false });
     expect(content[2]?.text).toBe(", ");
     expect(textFromDoc(json as never)).toBe("make bracket.step#o1.2, ");
 
@@ -182,5 +182,23 @@ describe("imported filenames", () => {
     ]);
     expect(textFromDoc(doc)).toBe(text);
     expect(docFromText(textFromDoc(doc))).toEqual(doc);
+  });
+});
+
+describe("@ mentions", () => {
+  it("reads @path as a mention chip and keeps @word, emails and URLs as text", () => {
+    expect(parseReference("@src/app.ts")).toEqual({ file: "src/app.ts", selector: "", mention: true });
+    expect(parseReference("@README.md")).toEqual({ file: "README.md", selector: "", mention: true });
+    for (const word of ["@decorator", "@", "a@b.com", "@https://x.y/a.ts", "@#o1"]) {
+      expect(parseReference(word)?.mention ?? null, word).toBeNull();
+    }
+  });
+
+  it("round-trips a mention through the document with its @", () => {
+    const text = "fix the bug in @src/app.ts, then run tests";
+    const doc = docFromText(text);
+    const chips = doc.content![0]!.content!.filter((node) => node.type === "reference");
+    expect(chips).toEqual([{ type: "reference", attrs: { file: "src/app.ts", selector: "", mention: true } }]);
+    expect(textFromDoc(doc)).toBe(text);
   });
 });
