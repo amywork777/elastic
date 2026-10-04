@@ -1180,8 +1180,8 @@ export class SessionManager {
    * asked by an adapter that has since gone — so the card can say so rather
    * than swallow the click.
    */
-  respondPermission(id: string, requestId: string, optionId: string | null): void {
-    if (!this.requireLive(id).respondPermission(requestId, optionId)) {
+  respondPermission(id: string, requestId: string, optionId: string | null, answers?: Record<string, string | string[]>): void {
+    if (!this.requireLive(id).respondPermission(requestId, optionId, answers)) {
       throw new Error("This request has expired — reconnect and ask again.");
     }
   }

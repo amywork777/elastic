@@ -321,7 +321,13 @@ export type Part =
       title: string | null;
       description: string | null;
       options: PermissionOption[];
-      outcome: { state: "pending" } | { state: "selected"; optionId: string } | { state: "cancelled" };
+      outcome:
+        | { state: "pending" }
+        | { state: "selected"; optionId: string }
+        | { state: "cancelled" }
+        | { state: "answered"; answers: Record<string, string | string[]> };
+      /** Set when the request is a question (form elicitation) rather than a permission. */
+      question?: z.infer<typeof QuestionFormSchema>;
     }
   | {
       type: "subagent";
@@ -344,7 +350,23 @@ const PermissionOutcomeSchema = z.discriminatedUnion("state", [
   z.object({ state: z.literal("pending") }),
   z.object({ state: z.literal("selected"), optionId: z.string() }),
   z.object({ state: z.literal("cancelled") }),
+  /** A question (form elicitation) the person answered: the values by field key. */
+  z.object({ state: z.literal("answered"), answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])) }),
 ]);
+
+/** An agent's question (form elicitation), as `shared/acp/elicitation.ts` reads it. */
+export const QuestionFormSchema = z.object({
+  message: z.string(),
+  fields: z.array(z.object({
+    key: z.string(),
+    title: z.string().nullable(),
+    prompt: z.string().nullable(),
+    kind: z.enum(["single", "multi", "text"]),
+    options: z.array(z.object({ value: z.string(), label: z.string(), description: z.string().nullable() })),
+    required: z.boolean(),
+    valueType: z.enum(["string", "number", "integer", "boolean"]).optional(),
+  })),
+});
 
 export const PartSchema: z.ZodType<Part> = z.lazy(() =>
   z.discriminatedUnion("type", [
@@ -374,6 +396,7 @@ export const PartSchema: z.ZodType<Part> = z.lazy(() =>
       description: z.string().nullable(),
       options: z.array(PermissionOptionSchema),
       outcome: PermissionOutcomeSchema,
+      question: QuestionFormSchema.optional(),
     }),
     z.object({
       type: z.literal("subagent"),
@@ -440,6 +463,8 @@ export const PendingPermissionSchema = z.object({
   kind: ToolKindSchema.nullable(),
   input: z.unknown(),
   options: z.array(PermissionOptionSchema),
+  /** Set when the request is a question (form elicitation) rather than a permission. */
+  question: QuestionFormSchema.optional(),
 });
 export type PendingPermission = z.infer<typeof PendingPermissionSchema>;
 

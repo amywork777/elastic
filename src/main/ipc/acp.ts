@@ -167,8 +167,8 @@ export const acpHandlers = {
     setMode: ({ id, modeId }) => surfacing(() => sessionManager.setMode(id, modeId)),
     setConfigOption: ({ id, configId, value }) =>
       surfacing(() => sessionManager.setConfigOption(id, configId, value)),
-    respondPermission: ({ id, requestId, optionId }) =>
-      surfacing(() => sessionManager.respondPermission(id, requestId, optionId)),
+    respondPermission: ({ id, requestId, optionId, answers }) =>
+      surfacing(() => sessionManager.respondPermission(id, requestId, optionId, answers)),
     retrySetup: ({ id }) => surfacing(() => sessionManager.retrySetup(id)),
     rename: ({ id, title }) => surfacing(() => sessionManager.rename(id, title)),
     // The row first, as `delete` does: an archive that throws leaves the session

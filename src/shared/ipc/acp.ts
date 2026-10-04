@@ -94,6 +94,8 @@ export const acpContract = {
         requestId: z.string().min(1),
         /** Null cancels the request instead of picking an option. */
         optionId: z.string().nullable(),
+        /** A question's answers (form elicitation), by field key; the request is answered with them. */
+        answers: z.record(z.string(), z.union([z.string().max(10_000), z.array(z.string().max(1_000)).max(100)])).optional(),
       }),
       z.void(),
     ),

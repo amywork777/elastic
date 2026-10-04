@@ -624,6 +624,25 @@ async function script(conn, params) {
     return { stopReason: "end_turn" };
   }
 
+  if (text.includes("ask-question")) {
+    // Claude Code's AskUserQuestion, as claude-agent-acp sends it (askUserQuestionsToCreateRequest).
+    const answer = await conn.createElicitation({
+      mode: "form",
+      sessionId,
+      message: "Which database?",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          question_0: { type: "string", title: "Database", oneOf: [{ const: "Postgres", title: "Postgres", description: "Relational" }, { const: "SQLite", title: "SQLite" }] },
+          question_0_custom: { type: "string", title: "Other", description: "Type your own answer (optional)." },
+        },
+      },
+    });
+    record("elicitation", answer);
+    await send({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: `you picked ${answer.action === "accept" ? answer.content?.question_0 ?? answer.content?.question_0_custom : answer.action}` } });
+    return { stopReason: "end_turn" };
+  }
+
   if (text.includes("crash")) {
     await send({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "about to " } });
     process.exit(3);

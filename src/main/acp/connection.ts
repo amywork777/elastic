@@ -57,6 +57,7 @@ import {
   type SessionEvent,
   type SessionState,
 } from "../../shared/acp/types";
+import type { QuestionAnswers } from "../../shared/acp/elicitation";
 import type { Launch } from "../../shared/agents";
 import type { ProviderSet } from "../../shared/providers";
 import { agentProvider } from "../agents/registry";
@@ -415,6 +416,9 @@ export class SessionConnection {
           fs: { readTextFile: true, writeTextFile: true },
           terminal: true,
           auth: { terminal: false },
+          // Questions from the agent (Claude Code's AskUserQuestion, Codex's request_user_input)
+          // as cards in the transcript (`client.ts` createElicitation). URL mode is not offered.
+          elicitation: { form: {} },
           // Subagent transcripts. The canonical draft field (`subagents`) is
           // not in SDK 1.4.0's ClientCapabilities type, so it rides in as a
           // plain property; the AIR meta key is what the Claude and Codex
@@ -685,8 +689,8 @@ export class SessionConnection {
     });
   }
 
-  respondPermission(requestId: string, optionId: string | null): boolean {
-    return this.client.respondPermission(requestId, optionId);
+  respondPermission(requestId: string, optionId: string | null, answers?: QuestionAnswers): boolean {
+    return this.client.respondPermission(requestId, optionId, answers);
   }
 
   /** Kill the adapter. Idempotent. */

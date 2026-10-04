@@ -77,7 +77,7 @@ type AcpState = {
   cancel: (sessionId: string) => Promise<void>;
   setMode: (sessionId: string, modeId: string) => Promise<void>;
   setConfigOption: (sessionId: string, configId: string, value: string | boolean) => Promise<void>;
-  respondPermission: (sessionId: string, requestId: string, optionId: string | null) => Promise<void>;
+  respondPermission: (sessionId: string, requestId: string, optionId: string | null, answers?: Record<string, string | string[]>) => Promise<void>;
   close: (sessionId: string) => Promise<void>;
   /**
    * The setup note's retry: main runs the setup again on the live session and answers with the
@@ -299,8 +299,8 @@ export const useAcp = create<AcpState>((set, get) => ({
   setConfigOption: (sessionId, configId, value) =>
     window.workbench.sessions.setConfigOption({ id: sessionId, configId, value }),
 
-  respondPermission: (sessionId, requestId, optionId) =>
-    window.workbench.sessions.respondPermission({ id: sessionId, requestId, optionId }),
+  respondPermission: (sessionId, requestId, optionId, answers) =>
+    window.workbench.sessions.respondPermission({ id: sessionId, requestId, optionId, ...(answers ? { answers } : {}) }),
 
   close: async (sessionId) => {
     // Counted as a forget without the forgetting: a Reconnect still loading is for nobody now, and

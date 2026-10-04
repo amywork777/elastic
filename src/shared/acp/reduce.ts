@@ -196,6 +196,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         description: request.description,
         options: request.options,
         outcome: { state: "pending" },
+        ...(request.question ? { question: request.question } : {}),
       };
       // Not `create`: a request that arrives with no turn open (the prompt has
       // ended, or was cancelled, and the adapter asked late) must not open one

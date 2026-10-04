@@ -22,6 +22,7 @@ const VALUE_ALLOWLIST = new Set([
   "types",
   "acp/options",
   "acp/reduce",
+  "acp/elicitation",
   "file-refs",
   "diff-counts",
   "terminal-replies",

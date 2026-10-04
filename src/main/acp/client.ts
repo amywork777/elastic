@@ -20,6 +20,7 @@ import path from "node:path";
 import { RequestError } from "@agentclientprotocol/sdk";
 import type * as acp from "@agentclientprotocol/sdk";
 
+import { formContent, questionForm, type QuestionAnswers } from "../../shared/acp/elicitation";
 import { pendingPermissionFromRequest } from "../../shared/acp/reduce";
 import type { SessionEvent } from "../../shared/acp/types";
 import { climbsOut } from "../explorer/fs";
@@ -71,13 +72,46 @@ export class AcpClient implements acp.Client {
     });
   }
 
+  /**
+   * `elicitation/create`, form mode: a question the agent asks (Claude Code's AskUserQuestion,
+   * Codex's request_user_input). Shown and answered the way a permission is — the same pending
+   * map, the same events, so the turn waits on it and a cancel answers it — with the questions
+   * on the request. URL mode (an MCP server's sign-in page) is declined: elastic does not
+   * advertise it.
+   */
+  async createElicitation(params: acp.CreateElicitationRequest): Promise<acp.CreateElicitationResponse> {
+    const form = questionForm(params);
+    const raw = params as Record<string, unknown>;
+    const acpSessionId = typeof raw.sessionId === "string" ? raw.sessionId : null;
+    if (!form || !acpSessionId) {
+      return { action: "decline" };
+    }
+    const requestId = `ask-${++this.counter}`;
+    const toolCallId = typeof raw.toolCallId === "string" ? raw.toolCallId : requestId;
+    this.options.dispatch({
+      type: "permission/request",
+      request: { requestId, acpSessionId, toolCallId, title: form.message, description: null, kind: null, input: null, options: [], question: form },
+      at: Date.now(),
+    });
+    return new Promise((resolve) => {
+      this.pending.set(requestId, (outcome) => {
+        this.pending.delete(requestId);
+        this.options.dispatch({ type: "permission/resolve", requestId, outcome, at: Date.now() });
+        resolve(outcome.state === "answered" ? { action: "accept", content: formContent(form, outcome.answers) } : { action: "cancel" });
+      });
+    });
+  }
+
+  /** `elicitation/complete` is for URL mode, which elastic does not take. */
+  async completeElicitation(): Promise<void> {}
+
   /** The renderer's answer. Unknown or already-answered ids are ignored. */
-  respondPermission(requestId: string, optionId: string | null): boolean {
+  respondPermission(requestId: string, optionId: string | null, answers?: QuestionAnswers): boolean {
     const resolve = this.pending.get(requestId);
     if (!resolve) {
       return false;
     }
-    resolve(optionId === null ? { state: "cancelled" } : { state: "selected", optionId });
+    resolve(answers ? { state: "answered", answers } : optionId === null ? { state: "cancelled" } : { state: "selected", optionId });
     return true;
   }
 
