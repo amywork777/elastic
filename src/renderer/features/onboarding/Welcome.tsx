@@ -1,6 +1,6 @@
 import LoadingIcon from "@workbench/ui/loading-icon";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Blocks, Check, FolderOpen, Loader2 } from "lucide-react";
+import { ArrowRight, Blocks, Check, FolderOpen, KeyRound, Loader2 } from "lucide-react";
 
 import { Button } from "@renderer/components/ui/button";
 import { AgentRow, isAgentReady, useOfferedAgents } from "@renderer/features/session/agent-setup";
@@ -95,12 +95,12 @@ function WelcomeStep() {
         Welcome to elastic
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        The coding agent you already use, in a window built around it. Everything beyond the chat is a plugin.
+        Any agent, any model, any plugin. A desktop app for the coding agents you use, with the models and tools you choose.
       </p>
       <ul className="mt-6 space-y-3 text-sm">
-        <Point title="Session in the middle">The agent works in your folder, and you watch every step.</Point>
-        <Point title="Tabs on the right">Files, changes, a browser, terminals, and the views plugins add.</Point>
-        <Point title="Plugins on the rail">Give agents new tools and skills, and open what they make.</Point>
+        <Point title="Any agent">Claude Code, Codex, OpenCode and more, side by side in one window.</Point>
+        <Point title="Any model">Add an Anthropic, OpenAI or OpenRouter key, or run Ollama locally, and pick any model per chat.</Point>
+        <Point title="Any plugin">Plugins made for Codex and Claude Code install here, from one store.</Point>
       </ul>
     </section>
   );
@@ -146,13 +146,22 @@ function AgentStep() {
           <AgentRow agent={agent} key={agent.id} />
         ))}
       </div>
-      <button
-        className="mt-3 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-        onClick={() => openSettings("agents")}
-        type="button"
-      >
-        Use a different agent in Settings › Agents
-      </button>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+        <button
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => openSettings("agents")}
+          type="button"
+        >
+          Use a different agent in Settings › Agents
+        </button>
+        <button
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => openSettings("models")}
+          type="button"
+        >
+          Use an API key in Settings › Models &amp; keys
+        </button>
+      </div>
     </section>
   );
 }
@@ -175,6 +184,12 @@ function StartStep({ onDone }: { onDone: () => void }) {
   const browsePlugins = () => {
     useUi.getState().setSurface({ kind: "plugins", view: "browse" });
     onDone();
+  };
+
+  // Models & keys is a Settings page: the welcome ends there, the way it ends on Plugins.
+  const addModel = () => {
+    onDone();
+    useUi.getState().openSettings("models");
   };
 
   const chooseFolder = async () => {
@@ -210,11 +225,19 @@ function StartStep({ onDone }: { onDone: () => void }) {
         />
         <StartOption
           busy={false}
-          description="Add tools, skills and views: a table viewer, the filesystem server, your own MCP servers."
+          description="Popular plugins from Codex and Claude Code: Linear, GitHub, Notion, browsers and more."
           disabled={busy !== null}
           icon={<Blocks className="size-4" />}
           onClick={browsePlugins}
           title="Browse plugins"
+        />
+        <StartOption
+          busy={false}
+          description="Use an Anthropic, OpenAI or OpenRouter key, or a local Ollama."
+          disabled={busy !== null}
+          icon={<KeyRound className="size-4" />}
+          onClick={addModel}
+          title="Add a model"
         />
       </div>
       {error ? (

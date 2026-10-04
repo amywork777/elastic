@@ -50,11 +50,11 @@ describe("the welcome", () => {
     expect(document.activeElement?.tagName).toBe("H1");
   });
 
-  it("names the panes as they are, and the rail's plugins", () => {
+  it("leads with any agent, any model, any plugin", () => {
     render(<Welcome />);
-    expect(screen.getByText("Session in the middle.")).toBeInTheDocument();
-    expect(screen.getByText("Plugins on the rail.")).toBeInTheDocument();
-    expect(screen.queryByText(/Chat on the left/)).toBeNull();
+    expect(screen.getByText(/^Any agent, any model, any plugin\./)).toBeInTheDocument();
+    for (const point of ["Any agent.", "Any model.", "Any plugin."]) expect(screen.getByText(point)).toBeInTheDocument();
+    expect(screen.queryByText(/table viewer|filesystem server/)).toBeNull();
   });
 
   it("reserves the title bar and the traffic lights' corner like Settings", () => {
