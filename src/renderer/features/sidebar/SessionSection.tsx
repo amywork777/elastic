@@ -1,5 +1,5 @@
 import { useShallow } from "zustand/react/shallow";
-import { ChevronRight, Plus, Folder } from "lucide-react";
+import { ChevronRight, Ellipsis, Plus, Folder } from "lucide-react";
 import { cn } from "cn";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
@@ -9,6 +9,11 @@ import {
   ContextMenuContent,
   ContextMenuTrigger,
 } from "@renderer/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@renderer/components/ui/dropdown-menu";
 import { MenuKind } from "@renderer/features/sidebar/menu";
 import { ProjectMenuItems } from "@renderer/features/sidebar/project-menu";
 import { SessionRow } from "@renderer/features/sidebar/SessionRow";
@@ -70,7 +75,7 @@ export function SessionSection({ section }: { section: SidebarSection }) {
 
   const header = (
     <div
-      className="flex h-8 items-center gap-0.5 rounded-md pr-0.5 pl-2"
+      className="group/section flex h-8 items-center gap-0.5 rounded-md pr-0.5 pl-2"
       data-sidebar-section-header
     >
       {/* Named for the section, always: the state is aria-expanded's to say, not the name's. */}
@@ -105,11 +110,28 @@ export function SessionSection({ section }: { section: SidebarSection }) {
       </button>
 
       {project ? (
-        /* `+` is the header's one control, and it is always there. The search
-           glyph and the sliders that used to join it on hover have moved to
-           the panel's own header: neither was ever about one project — the
-           palette searches every thread and the filters are global — and a
-           control that appears on hover is one nobody finds. */
+        /* `…` (the folder's own actions, Codex's: shown on hover and on focus) and `+`, which
+           is always there. Search and the filters live in the panel's header: neither was
+           ever about one project. */
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`More for ${project.name}`}
+              className="size-5 shrink-0 text-muted-foreground opacity-0 group-hover/section:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+              size="icon-xs"
+              variant="ghost"
+            >
+              <Ellipsis className="size-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <MenuKind.Provider value="dropdown">
+              <ProjectMenuItems project={project} />
+            </MenuKind.Provider>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+      {project ? (
         <Button
           aria-label={`New session in ${project.name}`}
           className="size-5 shrink-0 text-muted-foreground"

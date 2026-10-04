@@ -175,6 +175,19 @@ describe("sidebarSections", () => {
       .toEqual([]);
   });
 
+  it("leaves a hidden folder out of the groups and the flat list, keeps its pinned rows, and archives nothing", () => {
+    const sessions = [
+      session({ id: "a", title: "Alpha" }),
+      session({ id: "b", title: "Beta", projectId: "p2" }),
+      session({ id: "c", title: "Pinned one", pinned: true }),
+    ];
+    const hidden = ["p1"];
+    expect(sidebarSections({ projects, filters: filters(), sessions, hidden }).map((section) => section.id)).toEqual(["pinned", "p2"]);
+    const flat = sidebarSections({ projects, filters: filters({ groupBy: "none" }), sessions, hidden });
+    expect(flat.find((section) => section.id === "all")?.sessions.map((row) => row.id)).toEqual(["b"]);
+    expect(sessions.every((row) => !row.archived)).toBe(true);
+  });
+
 });
 
 /* -------------------------------------------------------------------------- */

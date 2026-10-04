@@ -64,8 +64,11 @@ export function sidebarSections(input: {
   sessions: readonly Session[];
   projects: readonly Project[];
   filters: SidebarSettings;
+  /** Project ids hidden from the folder groups (`settings.hiddenProjects`). Pinned rows stay. */
+  hidden?: readonly string[];
 }): SidebarSection[] {
   const { filters } = input;
+  const hidden = new Set(input.hidden ?? []);
   const matching = input.sessions.filter(
     (session) => matchesStatus(session, filters) && matchesEnvironment(session, filters),
   );
@@ -80,7 +83,9 @@ export function sidebarSections(input: {
     sections.push({ id: "pinned", kind: "pinned", name: "Pinned", project: null, sessions: pinned });
   }
 
-  const loose = matching.filter((session) => !session.pinned);
+  // A hidden folder's sessions leave the groups and the flat list; a pinned one was pinned on
+  // purpose, and stays in Pinned.
+  const loose = matching.filter((session) => !session.pinned && !hidden.has(session.projectId));
 
   if (filters.groupBy === "none") {
     sections.push({

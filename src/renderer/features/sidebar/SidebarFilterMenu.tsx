@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -13,6 +14,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@renderer/components/ui/dropdown-menu";
+import { unhideFolder } from "@renderer/state/hidden-folders";
+import { useProjects } from "@renderer/state/projects";
 import { useSettings, useSidebarSettings } from "@renderer/state/settings";
 import type {
   SidebarEnvironmentFilter,
@@ -34,9 +37,18 @@ import type {
  * it acts, and the project actions are on the header's right-click, which is
  * the one place they were ever a project's.
  */
+const NO_HIDDEN: readonly string[] = [];
+
 export function SidebarFilterMenu() {
   const filters = useSidebarSettings();
   const setSidebar = useSettings((state) => state.setSidebar);
+  const hiddenIds = useSettings((state) => state.settings?.hiddenProjects ?? NO_HIDDEN);
+  const projects = useProjects((state) => state.projects);
+  // A hidden folder the index no longer lists (its sessions deleted) has nothing to show.
+  const hidden = hiddenIds.flatMap((id) => {
+    const project = projects.find((candidate) => candidate.id === id);
+    return project ? [project] : [];
+  });
 
   return (
     <DropdownMenu>
@@ -86,6 +98,25 @@ export function SidebarFilterMenu() {
         >
           Show branch
         </DropdownMenuCheckboxItem>
+        {hidden.length > 0 ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <span className="flex-1">Hidden folders</span>
+                <span className="text-muted-foreground">{hidden.length}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
+                {hidden.map((project) => (
+                  <DropdownMenuItem key={project.id} onSelect={() => unhideFolder(project.id)}>
+                    <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                    <span className="text-muted-foreground">Unhide</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

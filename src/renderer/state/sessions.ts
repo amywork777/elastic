@@ -210,13 +210,16 @@ function defaultAgentId(): string | null {
  * replaces its list when it changes and not otherwise — so memoising on them
  * recomputes exactly when one of them moves.
  */
+const NO_HIDDEN: readonly string[] = [];
+
 export function useSidebarSections(): SidebarSection[] {
   const sessions = useSessions((state) => state.sessions);
   const projects = useProjects((state) => state.projects);
   const filters = useSidebarSettings();
+  const hidden = useSettings((state) => state.settings?.hiddenProjects ?? NO_HIDDEN);
   return useMemo(
-    () => sidebarSections({ sessions, projects, filters }),
-    [sessions, projects, filters],
+    () => sidebarSections({ sessions, projects, filters, hidden }),
+    [sessions, projects, filters, hidden],
   );
 }
 

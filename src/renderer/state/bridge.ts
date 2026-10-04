@@ -24,6 +24,7 @@ import { useSettings } from "./settings";
 import { useUi } from "./ui";
 import { useUpdates } from "./updates";
 import { explorerRootFor } from "./workspace-root";
+import { unhideOnOpen } from "./hidden-folders";
 import { restoreWhereYouWere, trackWhereYouWere } from "./where-you-were";
 export { explorerRootFor } from "./workspace-root";
 
@@ -227,6 +228,7 @@ function toggleLayout(key: "sidebarCollapsed") {
 
 /** First read of everything the shell needs. */
 let stopTracking: (() => void) | null = null;
+let stopUnhiding: (() => void) | null = null;
 
 export async function hydrate(): Promise<void> {
   // Not in the wait below: a cold `agents.list` waits for main's first probe
@@ -244,6 +246,8 @@ export async function hydrate(): Promise<void> {
   // Open where the person was (the session and the rail's page), then keep that current.
   restoreWhereYouWere();
   stopTracking ??= trackWhereYouWere();
+  // After the restore: reopening where the person was is not going to a hidden folder.
+  stopUnhiding ??= unhideOnOpen();
   const state = useSessions.getState();
   const session = state.sessions.find(session => session.id === state.activeId && !session.archived);
   await useExplorer.getState().bindSession(session?.id ?? null, session?.projectId ?? null,

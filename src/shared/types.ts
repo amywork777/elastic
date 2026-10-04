@@ -648,6 +648,12 @@ export const SettingsSchema = z.object({
   translucentSidebar: z.boolean().default(false),
   layout: PaneLayoutSchema.default(PaneLayoutSchema.parse({})),
   sidebar: SidebarSettingsSchema.default(SidebarSettingsSchema.parse({})),
+  /**
+   * Project ids (directories) hidden from the sidebar's folder groups. Their sessions are kept
+   * and unarchived; a project comes back when it is opened or a session starts in it. Its own
+   * field, not `sidebar`'s, so a bad stored list falls back alone.
+   */
+  hiddenProjects: z.array(z.string().min(1)).max(1000).default([]),
 
   /* Agents */
   defaultAgentId: z.string().nullable().default(null),

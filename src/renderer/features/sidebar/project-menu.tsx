@@ -1,6 +1,7 @@
-import { FolderOpen, MessageSquarePlus } from "lucide-react";
+import { EyeOff, FolderOpen, MessageSquarePlus } from "lucide-react";
 
-import { MenuItem } from "@renderer/features/sidebar/menu";
+import { MenuItem, MenuSeparator } from "@renderer/features/sidebar/menu";
+import { hideFolder } from "@renderer/state/hidden-folders";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import type { Project } from "@shared/types";
@@ -43,6 +44,28 @@ export function ProjectMenuItems({
         label="Reveal in Finder"
         onSelect={() => void window.workbench.shell.showItemInFolder({ projectId: project.id })}
       />
+      <MenuSeparator />
+      <MenuItem icon={<EyeOff />} label="Hide folder" onSelect={() => hideFolderKeepingFocus(project.id)} />
     </>
   );
+}
+
+/**
+ * Hide a folder and hand focus on: its header goes with it, and the menu would give focus back
+ * to a control that is no longer there. The next folder's header takes it, else the previous
+ * one's, else the sidebar's New.
+ */
+function hideFolderKeepingFocus(projectId: string): void {
+  const sections = [...document.querySelectorAll<HTMLElement>("[data-sidebar-section]")];
+  const at = sections.findIndex((section) => section.dataset.sidebarSection === projectId);
+  const neighbour = sections[at + 1] ?? sections[at - 1] ?? null;
+  const neighbourId = neighbour?.dataset.sidebarSection ?? null;
+  hideFolder(projectId);
+  // After the menu has closed and returned focus, and the section has gone.
+  window.setTimeout(() => {
+    const target =
+      (neighbourId ? document.querySelector<HTMLElement>(`[data-sidebar-section="${CSS.escape(neighbourId)}"] [data-sidebar-section-header] button`) : null) ??
+      document.querySelector<HTMLElement>('[data-sidebar-link="New"]');
+    target?.focus();
+  }, 0);
 }

@@ -159,6 +159,7 @@ function SidebarLink({
         "flex h-7 w-full items-center gap-2 rounded-md px-2 text-[13px]",
         "text-sidebar-foreground/90 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
       )}
+      data-sidebar-link={label}
       onClick={onClick}
       type="button"
     >
