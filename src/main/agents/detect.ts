@@ -131,6 +131,17 @@ export function parseVersion(output: string): string | null {
   return match ? match[0] : null;
 }
 
+/**
+ * `WORKBENCH_E2E_INSTALLED_AGENTS=claude-code,codex`: agents an e2e run treats as installed, so a
+ * spec that runs on the fake agent sees what a machine with those CLIs would (a provider group
+ * offers its models rather than "Install Claude Code"). Honoured only under `NODE_ENV=test` with
+ * `WORKBENCH_FAKE_AGENT` set, which a packaged app launched normally never has.
+ */
+export function e2eAssumedAgents(env: NodeJS.ProcessEnv = process.env): Set<string> {
+  if (env.NODE_ENV !== "test" || !env.WORKBENCH_FAKE_AGENT || !env.WORKBENCH_E2E_INSTALLED_AGENTS) return new Set();
+  return new Set(env.WORKBENCH_E2E_INSTALLED_AGENTS.split(",").map((id) => id.trim()).filter(Boolean));
+}
+
 export class AgentDetector {
   private statuses: AgentStatus[] = [];
   private inflight: Promise<AgentStatus[]> | null = null;
@@ -146,6 +157,8 @@ export class AgentDetector {
     private readonly providers: readonly AgentProvider[] = AGENT_PROVIDERS,
     private readonly probes: DetectorProbes = nodeProbes,
     private readonly cache: AgentsCache | null = null,
+    /** Agents an e2e run says are installed (`e2eAssumedAgents`); empty outside the suite. */
+    private readonly assumeInstalled: ReadonlySet<string> = e2eAssumedAgents(),
   ) {}
 
   /**
@@ -338,6 +351,10 @@ export class AgentDetector {
   }
 
   private async probe(provider: AgentProvider, env: Env): Promise<AgentStatus> {
+    if (this.assumeInstalled.has(provider.id)) {
+      // The suite's fake agent stands in for it (WORKBENCH_FAKE_AGENT), so it is as good as installed.
+      return { ...provider, installed: true, binaryPath: process.execPath, version: null, auth: "authenticated", checkedAt: Date.now() };
+    }
     let binaryPath: string | null = null;
     for (const name of provider.binaryNames) {
       binaryPath = await which(name, env, this.probes);

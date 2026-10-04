@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { AgentDetector, nodeProbes, parseVersion, which, type DetectorProbes } from "@main/agents/detect";
+import { AgentDetector, e2eAssumedAgents, nodeProbes, parseVersion, which, type DetectorProbes } from "@main/agents/detect";
 import type { AgentStatus } from "@shared/agents";
 import { CLAUDE_ADAPTER, CODEX_ADAPTER, agentProvider } from "@main/agents/registry";
 import { parseEnv, stripHostSession } from "@main/agents/shell-env";
@@ -105,6 +105,16 @@ describe("AgentDetector", () => {
     });
     expect(byId.codex).toMatchObject({ installed: true, version: "0.149.1", auth: "unauthenticated" });
     expect(byId["gemini-cli"]).toMatchObject({ installed: false, binaryPath: null, version: null });
+  });
+
+  it("takes the agents an e2e run names as installed, only under NODE_ENV=test with the fake agent", async () => {
+    expect([...e2eAssumedAgents({ NODE_ENV: "test", WORKBENCH_FAKE_AGENT: "/fake.mjs", WORKBENCH_E2E_INSTALLED_AGENTS: "claude-code, codex" })]).toEqual(["claude-code", "codex"]);
+    expect(e2eAssumedAgents({ NODE_ENV: "production", WORKBENCH_FAKE_AGENT: "/fake.mjs", WORKBENCH_E2E_INSTALLED_AGENTS: "claude-code" }).size).toBe(0);
+    expect(e2eAssumedAgents({ NODE_ENV: "test", WORKBENCH_E2E_INSTALLED_AGENTS: "claude-code" }).size).toBe(0);
+    const detector = new AgentDetector(providers, machine({}), null, new Set(["claude-code"]));
+    const byId = Object.fromEntries((await detector.refresh()).map((status) => [status.id, status]));
+    expect(byId["claude-code"]).toMatchObject({ installed: true, auth: "authenticated" });
+    expect(byId.codex).toMatchObject({ installed: false });
   });
 
   it("carries the registry's adapter pin onto the status, installed or not", async () => {

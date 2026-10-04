@@ -33,7 +33,7 @@ test.beforeAll(async () => {
   project = scratch("models-project");
   record = path.join(userData, "agent.jsonl");
   fs.writeFileSync(path.join(project, "README.md"), "# Models\n");
-  ({ app, page } = await launch({ userData: path.join(userData, "profile"), env: { FAKE_AGENT_RECORD: record } }));
+  ({ app, page } = await launch({ userData: path.join(userData, "profile"), env: { FAKE_AGENT_RECORD: record, WORKBENCH_E2E_INSTALLED_AGENTS: "claude-code,codex" } }));
   projectId = (await chooseDirectory(app, project)).id;
 });
 
