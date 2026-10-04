@@ -373,7 +373,7 @@ function SkillsSection({ agent }: { agent: AgentStatus }) {
 function McpSection({ agent }: { agent: AgentStatus }) {
   return (
     <Section title="MCP servers">
-      <p className="text-xs text-muted-foreground">Plugin servers, added beside {agent.name}&apos;s own.</p>
+      <p className="text-xs text-muted-foreground">elastic&apos;s servers, added beside {agent.name}&apos;s own.</p>
     </Section>
   );
 }
