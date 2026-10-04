@@ -43,6 +43,7 @@ test("@ lists the project's files and the picked one reaches the agent as @path"
   await page.keyboard.type("explain @app");
   const palette = page.locator("[data-mention-palette]");
   await expect(palette.getByRole("option", { name: /app\.ts/ })).toBeVisible();
+  if (process.env.ELASTIC_DOC_SHOTS === "1") await page.screenshot({ path: path.resolve("docs/research/design-pass/mentions-after.png") });
   await page.keyboard.press("Enter");
   await expect(palette).toHaveCount(0);
   await expect(input.locator('[data-reference-chip][data-mention][data-file="src/app.ts"]')).toBeVisible();

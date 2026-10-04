@@ -71,6 +71,14 @@ test("themes, Plugins and Add a model are palette rows", async () => {
   await palette("new session");
 });
 
+test("the palette's model, plugin and theme rows (doc shot, opt-in)", async () => {
+  test.skip(process.env.ELASTIC_DOC_SHOTS !== "1", "set ELASTIC_DOC_SHOTS=1 for the screenshot");
+  await page.keyboard.press(`${mod}+k`);
+  await page.getByRole("combobox", { name: "Search sessions, projects and commands" }).fill("model");
+  await page.screenshot({ path: path.resolve("docs/research/design-pass/palette-after.png") });
+  await page.keyboard.press("Escape");
+});
+
 test("Switch model opens the composer's model menu", async () => {
   await selectFixtureSession(app, page, project);
   await palette("switch model");
