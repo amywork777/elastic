@@ -167,6 +167,9 @@ test("a new session runs a Codex-shaped turn through every state", async () => {
   await expect(page.getByText("the stale build directory is gone")).toBeVisible();
   await expect(page.locator("[data-subagent]")).toContainText("Docs checker finished");
   await expect(page.locator("[data-plan-card]")).toContainText("3 of 3 done");
+  // Complete and its turn over: the plan is in the transcript, not pinned above the box.
+  await expect(page.locator("[data-part=plan] [data-plan-card]")).toContainText("3 of 3 done");
+  await expect(page.locator("[data-plan-card]")).toHaveCount(1);
   await expect(page.locator("[data-files-changed]")).toHaveCount(0);
   await expect(page.locator("[data-part=usage]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Submit" })).toBeVisible();

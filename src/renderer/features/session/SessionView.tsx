@@ -28,7 +28,7 @@ import { TranscriptScopeContext, type TranscriptScope } from "./links/PathLink";
 import { PlanCard } from "./PlanCard";
 import { SessionHeader } from "./SessionHeader";
 import { Transcript } from "./Transcript";
-import { isAuthError, planClock } from "./view";
+import { isAuthError, planClock, planPinned } from "./view";
 
 /**
  * One thread, one agent (plan §3): the header, the transcript, the pinned
@@ -356,7 +356,7 @@ export function SessionView({ session }: { session: Session }) {
               </Button>
             </div>
           ) : null}
-          {state?.plan && state.plan.length > 0 ? (
+          {state?.plan && planPinned(state.plan, plan) ? (
             <PlanCard
               endedAt={plan?.endedAt ?? null}
               entries={state.plan}

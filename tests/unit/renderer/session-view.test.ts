@@ -9,6 +9,7 @@ import {
   isEffortOption,
   partsView,
   planClock,
+  planPinned,
   shellJoin,
   statusLine,
   turnView,
@@ -399,5 +400,28 @@ describe("planClock", () => {
       turns: [turn("t1", "user", [], 1_000, 1_000), turn("t2", "agent", [plan], 1_000, null)],
     };
     expect(planClock(state)).toEqual({ startedAt: 1_000, endedAt: null, running: true });
+  });
+});
+
+describe("a plan that is done", () => {
+  const steps = (status: "completed" | "in_progress" | "pending") => [
+    { content: "Read", status: "completed" as const, priority: "medium" as const },
+    { content: "Write", status, priority: "medium" as const },
+  ];
+  const turnWith = (entries: ReturnType<typeof steps>, endedAt: number | null) =>
+    ({ id: "t1", role: "agent", startedAt: 1, endedAt, parts: [{ type: "plan", entries }, { type: "text", text: "Done." }] }) as never;
+
+  it("folds into its finished turn and stops pinning", () => {
+    const done = steps("completed");
+    expect(turnView(turnWith(done, 9)).map((item) => item.kind)).toEqual(["plan", "text"]);
+    expect(planPinned(done, { running: false })).toBe(false);
+  });
+
+  it("stays pinned while it has steps left or its turn still runs", () => {
+    expect(turnView(turnWith(steps("in_progress"), 9)).map((item) => item.kind)).toEqual(["text"]);
+    expect(turnView(turnWith(steps("completed"), null)).map((item) => item.kind)).not.toContain("plan");
+    expect(planPinned(steps("in_progress"), { running: false })).toBe(true);
+    expect(planPinned(steps("completed"), { running: true })).toBe(true);
+    expect(planPinned([], null)).toBe(false);
   });
 });

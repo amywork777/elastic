@@ -28,6 +28,7 @@ import { ActivityGroup } from "./ActivityRow";
 import { PermissionCard } from "./PermissionCard";
 import { SubagentRow } from "./SubagentRow";
 import { ThoughtPart } from "./ThoughtPart";
+import { PlanCard } from "../PlanCard";
 
 /**
  * The parts of an agent turn (or of a subagent, or of a Claude tool call's
@@ -143,6 +144,12 @@ function ViewItemView({
         <p className="not-prose my-1 px-1.5 text-[12px] text-muted-foreground" data-part="mode">
           Switched to {item.modeId} mode
         </p>
+      );
+    case "plan":
+      return (
+        <div className="not-prose my-1" data-part="plan">
+          <PlanCard endedAt={null} entries={item.entries} running={false} startedAt={null} />
+        </div>
       );
   }
 }

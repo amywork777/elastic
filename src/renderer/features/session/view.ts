@@ -15,6 +15,7 @@
 import type {
   Part,
   PermissionRequestPart,
+  PlanEntry,
   SessionState,
   SubagentPart,
   ToolCallPart,
@@ -74,7 +75,9 @@ export type ViewItem =
   | { kind: "error"; key: string; message: string }
   | { kind: "image"; key: string; data: string; mimeType: string }
   | { kind: "attachment"; key: string; uri: string; name: string }
-  | { kind: "mode"; key: string; modeId: string };
+  | { kind: "mode"; key: string; modeId: string }
+  /** A plan its finished turn completed: it folds into the turn instead of staying pinned. */
+  | { kind: "plan"; key: string; entries: PlanEntry[] };
 
 /** The rows a turn's parts render as, folded. `open` is whether the turn is still streaming. */
 export function turnView(turn: Turn, open = turn.endedAt === null): ViewItem[] {
@@ -142,9 +145,15 @@ export function partsView(parts: Part[], open: boolean, prefix: string): ViewIte
         items.push({ kind: "mode", key, modeId: part.modeId });
         return;
       case "plan":
+        // A plan in progress is the pinned card above the composer. Once the turn that made it
+        // has finished with every step done, it stops pinning and reads here, folded.
+        if (!open && planComplete(part.entries)) {
+          flush();
+          items.push({ kind: "plan", key, entries: part.entries });
+        }
+        return;
       case "available_commands":
-        // The plan is the pinned card above the composer; commands feed the
-        // composer's palette. Neither is a transcript row.
+        // Commands feed the composer's palette; not a transcript row.
         return;
     }
   });
@@ -571,6 +580,19 @@ function lastActive(parts: Part[]): Part | null {
  * It runs only while that turn is the one running — not while any later turn
  * does — and a turn that ended says how long it took, whenever it is drawn.
  */
+/** Every step of a plan done. */
+export function planComplete(entries: readonly PlanEntry[]): boolean {
+  return entries.length > 0 && entries.every((entry) => entry.status === "completed");
+}
+
+/**
+ * Whether the plan stays pinned above the composer: while it has steps left, or while the turn
+ * that completed it is still running. A finished plan folds into its turn instead (`turnView`).
+ */
+export function planPinned(entries: readonly PlanEntry[], clock: { running: boolean } | null): boolean {
+  return entries.length > 0 && (!planComplete(entries) || (clock?.running ?? false));
+}
+
 export function planClock(state: SessionState): { startedAt: number; endedAt: number | null; running: boolean } | null {
   const turn = state.turns.findLast(
     (candidate) => candidate.role === "agent" && candidate.parts.some((part) => part.type === "plan"),
