@@ -378,6 +378,7 @@ function ReviewBody({
         <span aria-live="polite" className="sr-only" role="status">
           {loading ? "Refreshing…" : ""}
         </span>
+        <TooltipHint content="Refresh changes">
         <Button
           aria-busy={loading}
           aria-label="Refresh"
@@ -388,6 +389,7 @@ function ReviewBody({
         >
           <RotateCw className={cn("size-3.5", loading && "animate-spin")} />
         </Button>
+        </TooltipHint>
 
         <CommitTrigger
           canPush={Boolean(info?.hasRemote)}

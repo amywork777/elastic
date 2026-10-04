@@ -11,6 +11,9 @@ import { useProjects } from "@renderer/state/projects";
 import { useSessions, useSidebarSections } from "@renderer/state/sessions";
 import { useSettings, useSidebarSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
+import { hintWith } from "@renderer/lib/shortcuts";
+import { isMac } from "@renderer/lib/platform";
 
 /**
  * Projects and their threads, as Claude Code's sidebar: a short nav list, then
@@ -89,6 +92,7 @@ export function Sidebar() {
         </div>
         {/* Search and the filters, small, at the row's right: they act on the
             list below, so they sit at its head rather than beside the name. */}
+        <TooltipHint content={hintWith("Search", "command-palette", isMac)}>
         <Button
           aria-label="Search"
           className="size-7 text-muted-foreground"
@@ -98,6 +102,7 @@ export function Sidebar() {
         >
           <Search className="size-3.5" />
         </Button>
+        </TooltipHint>
         <SidebarFilterMenu />
       </nav>
 
@@ -129,6 +134,7 @@ export function Sidebar() {
       </ScrollArea>
 
       <footer className="flex shrink-0 items-center gap-2 border-t border-sidebar-border px-3 py-2">
+        <TooltipHint content={hintWith("Settings", "settings", isMac)} side="top">
         <Button
           aria-label="Settings"
           className="size-7 text-muted-foreground"
@@ -138,6 +144,7 @@ export function Sidebar() {
         >
           <Settings className="size-4" />
         </Button>
+        </TooltipHint>
         <span className="truncate text-xs text-muted-foreground">Local · v{__APP_VERSION__}</span>
       </footer>
     </div>

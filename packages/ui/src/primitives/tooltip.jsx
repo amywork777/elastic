@@ -93,7 +93,7 @@ const TooltipHint = React.forwardRef(/**
     || target.current?.closest('[inert]') || target.current?.querySelector('[aria-expanded="true"], :disabled');
   return <TooltipProvider delayDuration={400} skipDelayDuration={0}>
     <Tooltip open={!blocked && open} onOpenChange={next => setOpen(!blocked && next && !unavailable() && (!overflowOnly || isClipped()))} disableHoverableContent>
-      <TooltipTrigger asChild {...props} ref={bindTarget}
+      <TooltipTrigger asChild data-hint="" {...props} ref={bindTarget}
         onPointerDown={event => { setOpen(false); props.onPointerDown?.(event); }}
         onClick={event => { setOpen(false); props.onClick?.(event); }}
         onFocus={event => { props.onFocus?.(event); if (!focusArrivedByTab || !event.currentTarget.matches(':focus-visible')) event.preventDefault(); }}>

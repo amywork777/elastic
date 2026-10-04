@@ -9,6 +9,7 @@ import {
   QueueItemIndicator,
 } from "@renderer/components/ai-elements/queue";
 import { useComposer, type QueuedPrompt } from "@renderer/state/composer";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 /**
  * One prompt waiting in the queue. Click its text (or Edit) to change it in place: Enter saves,
@@ -121,15 +122,15 @@ export function QueuedPromptRow({ sessionId, item, index, onRemove }: {
             <QueueItemContent>{item.text || "(attachments)"}</QueueItemContent>
           </button>
           <QueueItemActions>
-            <QueueItemAction aria-label={`Send now: ${label}`} onClick={() => void useComposer.getState().sendNow(sessionId, item.id)}>
+            <TooltipHint content="Send now"><QueueItemAction aria-label={`Send now: ${label}`} onClick={() => void useComposer.getState().sendNow(sessionId, item.id)}>
               <ArrowUp className="size-3" />
-            </QueueItemAction>
-            <QueueItemAction aria-label={`Edit queued prompt: ${label}`} onClick={open}>
+            </QueueItemAction></TooltipHint>
+            <TooltipHint content="Edit"><QueueItemAction aria-label={`Edit queued prompt: ${label}`} onClick={open}>
               <Pencil className="size-3" />
-            </QueueItemAction>
-            <QueueItemAction aria-label={`Remove from queue: ${label}`} onClick={onRemove}>
+            </QueueItemAction></TooltipHint>
+            <TooltipHint content="Remove from queue"><QueueItemAction aria-label={`Remove from queue: ${label}`} onClick={onRemove}>
               <X className="size-3" />
-            </QueueItemAction>
+            </QueueItemAction></TooltipHint>
           </QueueItemActions>
         </div>
       )}

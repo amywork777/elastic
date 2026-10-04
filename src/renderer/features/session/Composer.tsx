@@ -51,6 +51,8 @@ import { ReferenceScopeContext } from "./composer/ReferenceScope";
 import { AnnotationsChip, annotationImageParts, withAnnotations } from "./composer/AnnotationsChip";
 import { AppContextChips } from "./composer/AppContextChip";
 import type { AppContext, DraftAnnotation, TakenDraft } from "@renderer/state/composer";
+import { hintWith } from "@renderer/lib/shortcuts";
+import { isMac } from "@renderer/lib/platform";
 
 const NO_ANNOTATIONS: DraftAnnotation[] = [];
 const NO_APP_CONTEXTS: AppContext[] = [];
@@ -427,6 +429,7 @@ export function Composer({
                 value={text}
               />
             </ReferenceScopeContext.Provider>
+            <TooltipHint content={status === "streaming" ? hintWith("Stop", "stop", isMac) : hintWith("Send", "send", isMac)}>
             <PromptInputSubmit
               className={cn(
                 "size-7 shrink-0 rounded-full",
@@ -440,6 +443,7 @@ export function Composer({
               size="icon-sm"
               status={status}
             />
+            </TooltipHint>
           </div>
         </PromptInput>
         {refuseSend ? <span className="sr-only" id={refuseId}>{refuseSend}</span> : null}
@@ -634,7 +638,7 @@ function AttachmentStrip({ annotations, hasAnnotations }: { annotations: React.R
             >
               {isImage ? <AttachmentImagePreview file={file} /> : <AttachmentPreview className="size-4" />}
               <AttachmentInfo className={isImage ? "min-w-0 text-[11px] leading-4" : "max-w-[160px]"} />
-              <AttachmentRemove className="size-6 opacity-60 hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring" />
+              <TooltipHint content="Remove attachment"><span className="inline-flex">{/* a span: AttachmentRemove lets passed props replace its own click */}<AttachmentRemove className="size-6 opacity-60 hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring" /></span></TooltipHint>
             </Attachment>
           );
         })}

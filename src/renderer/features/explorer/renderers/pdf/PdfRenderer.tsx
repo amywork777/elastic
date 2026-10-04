@@ -6,6 +6,7 @@ import PdfWorker from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import { PromptContextAction, useViewerHost, type LivePdfDocument } from '@workbench/ui/host';
 import type { FileRendererProps } from '@workbench/ui/file-viewer';
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 export interface PdfRendererData { bytes: Uint8Array<ArrayBuffer> }
 function validPage(page: number, count: number) {
@@ -250,11 +251,11 @@ export default function PdfRenderer({ data, file, source, state, onStateChange, 
   }, [moveTo, fit]);
   return <div className="flex h-full flex-col bg-muted/30" aria-label={`PDF ${file.name}`}>
     <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
-      <button disabled={!pdf || page <= 1} onClick={() => setPage(page - 1)} aria-label="Previous page">‹</button>
+      <TooltipHint content="Previous page"><button disabled={!pdf || page <= 1} onClick={() => setPage(page - 1)} aria-label="Previous page">‹</button></TooltipHint>
       <label>Page <input aria-label="PDF page" type="number" min={1} max={pdf?.numPages ?? 1} value={page} className="w-14 rounded border bg-background px-1"
         onChange={event => { const value = Number(event.target.value); if (pdf && Number.isInteger(value) && value >= 1 && value <= pdf.numPages) setPage(value); }} /></label>
       <span>of {pdf?.numPages ?? '…'}</span>
-      <button disabled={!pdf || page >= pdf.numPages} onClick={() => setPage(page + 1)} aria-label="Next page">›</button>
+      <TooltipHint content="Next page"><button disabled={!pdf || page >= pdf.numPages} onClick={() => setPage(page + 1)} aria-label="Next page">›</button></TooltipHint>
       <PromptContextAction size="sm" variant="ghost" disabled={!pdf} createContext={() => {
         const target = liveRef.current; if (!target) throw new Error('PDF is still loading.');
         const current = target.state();

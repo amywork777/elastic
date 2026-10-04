@@ -149,11 +149,13 @@ export function SessionHeader({
         ) : null}
         {session ? (
           <DropdownMenu>
+            <TooltipHint content="Chat actions">
             <DropdownMenuTrigger asChild>
               <Button aria-label="Session actions" className="size-6 text-muted-foreground" size="icon-xs" variant="ghost">
                 <MoreHorizontal className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
+            </TooltipHint>
             <DropdownMenuContent align="start" className="w-44">
               <DropdownMenuItem onSelect={startEditing}>
                 <Pencil />

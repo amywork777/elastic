@@ -125,3 +125,12 @@ export function shortcutKeys(binding: string, mac: boolean): string {
 export function shortcutsIn(group: ShortcutGroup): Shortcut[] {
   return SHORTCUTS.filter((shortcut) => shortcut.group === group);
 }
+
+/**
+ * A hint's words with the control's keys, as the tooltips show them: "Settings ⌘,". Read from the
+ * table, so a hint never names a key the app does not bind.
+ */
+export function hintWith(label: string, id: string, mac: boolean): string {
+  const shortcut = SHORTCUTS.find((candidate) => candidate.id === id);
+  return shortcut ? `${label}  ${shortcutKeys(shortcut.binding, mac)}` : label;
+}

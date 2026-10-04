@@ -23,6 +23,7 @@ import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import { useUi, type Surface } from "@renderer/state/ui";
 import type { CatalogEntry, CatalogNeed, CatalogSource, Compatibility, Marketplace, MarketplacePreview, PluginRecord } from "@shared/plugins";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 const message = (error: unknown) => (error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': (IpcError: )?/, "") : String(error));
 
@@ -201,8 +202,8 @@ function PluginsSidebar() {
             <button className={row(typeof view === "object" && "plugin" in view && view.plugin === plugin.id)} key={plugin.id} onClick={() => show({ plugin: plugin.id })} type="button">
               <PluginLogo className={cn("size-4", !plugin.enabled && "opacity-50")} plugin={plugin} />
               <span className={cn("truncate", !plugin.enabled && "text-muted-foreground")}>{plugin.displayName}</span>
-              {plugin.error || plugin.servers.some((server) => server.status === "failed") ? <span aria-label="Has a problem" className="ml-auto size-1.5 shrink-0 rounded-full bg-destructive" />
-                : plugin.servers.some((server) => server.status === "signin") ? <span aria-label="Needs sign-in" className="ml-auto size-1.5 shrink-0 rounded-full bg-amber-500" /> : null}
+              {plugin.error || plugin.servers.some((server) => server.status === "failed") ? <TooltipHint content="Has a problem"><span aria-label="Has a problem" className="ml-auto size-1.5 shrink-0 rounded-full bg-destructive" /></TooltipHint>
+                : plugin.servers.some((server) => server.status === "signin") ? <TooltipHint content="Needs sign-in"><span aria-label="Needs sign-in" className="ml-auto size-1.5 shrink-0 rounded-full bg-amber-500" /></TooltipHint> : null}
             </button>
           ))}
         </div>
@@ -274,9 +275,9 @@ function InstallButton({ entry, source }: { entry: CatalogEntry; source?: Catalo
         {busy ? <><Spinner className="size-3.5" /> Installing</> : <><Plus className="size-3.5" /> Install</>}
       </Button>
     ) : (
-      <Button aria-label={`Install ${entry.name}`} className="size-8 shrink-0 rounded-full" disabled={busy} onClick={() => void install()} size="icon" variant="ghost">
+      <TooltipHint content="Install"><Button aria-label={`Install ${entry.name}`} className="size-8 shrink-0 rounded-full" disabled={busy} onClick={() => void install()} size="icon" variant="ghost">
         {busy ? <Spinner className="size-4" /> : <Plus className="size-4" />}
-      </Button>
+      </Button></TooltipHint>
     )
   );
 }
@@ -382,7 +383,7 @@ function BrowsePage() {
             <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-3.5 text-muted-foreground" />
             <Input aria-label="Search plugins" className="h-8 rounded-full text-sm" style={{ paddingLeft: "2rem" }} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${catalog.length} plugins`} value={query} />
           </div>
-          <Button aria-label="Refresh" className="size-8" disabled={refreshing} onClick={() => void refresh()} size="icon" variant="ghost"><RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} /></Button>
+          <TooltipHint content="Check catalogs for updates"><Button aria-label="Refresh" className="size-8" disabled={refreshing} onClick={() => void refresh()} size="icon" variant="ghost"><RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} /></Button></TooltipHint>
           <AddMenu onAddCatalog={() => setAddingCatalog(true)} />
         </>}
         description={`Plugins for Codex and Claude Code work here.${working > 0 ? ` ${working} work in elastic today.` : ""}`}
@@ -579,9 +580,9 @@ function DetailPage({ plugin }: { plugin: PluginRecord }) {
             {plugin.enabled ? "On" : "Off"}
           </label>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <TooltipHint content="More options"><DropdownMenuTrigger asChild>
               <Button aria-label="More" className="size-7" size="icon" variant="ghost"><MoreHorizontal className="size-4" /></Button>
-            </DropdownMenuTrigger>
+            </DropdownMenuTrigger></TooltipHint>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(plugin.root)}><Link2 className="size-4" /> Copy folder path</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void act(() => window.workbench.plugins.refresh())}><RefreshCw className="size-4" /> Reload from disk</DropdownMenuItem>

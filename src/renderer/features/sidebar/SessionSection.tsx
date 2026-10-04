@@ -114,6 +114,7 @@ export function SessionSection({ section }: { section: SidebarSection }) {
            is always there. Search and the filters live in the panel's header: neither was
            ever about one project. */
         <DropdownMenu>
+          <TooltipHint content="Folder actions">
           <DropdownMenuTrigger asChild>
             <Button
               aria-label={`More for ${project.name}`}
@@ -124,6 +125,7 @@ export function SessionSection({ section }: { section: SidebarSection }) {
               <Ellipsis className="size-3" />
             </Button>
           </DropdownMenuTrigger>
+          </TooltipHint>
           <DropdownMenuContent align="end" className="w-48">
             <MenuKind.Provider value="dropdown">
               <ProjectMenuItems project={project} />
@@ -132,6 +134,7 @@ export function SessionSection({ section }: { section: SidebarSection }) {
         </DropdownMenu>
       ) : null}
       {project ? (
+        <TooltipHint content="New chat in this folder">
         <Button
           aria-label={`New session in ${project.name}`}
           className="size-5 shrink-0 text-muted-foreground"
@@ -141,6 +144,7 @@ export function SessionSection({ section }: { section: SidebarSection }) {
         >
           <Plus className="size-3" />
         </Button>
+        </TooltipHint>
       ) : null}
     </div>
   );

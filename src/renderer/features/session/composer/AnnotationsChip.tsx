@@ -74,6 +74,7 @@ export function AnnotationsChip({
               <span className="truncate">{label}</span>
             </button>
           </PopoverTrigger>
+          <TooltipHint content="Remove from the message">
           <button
             aria-label={`Remove ${label}`}
             className="flex size-6 items-center justify-center rounded-md opacity-60 hover:bg-muted hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -82,6 +83,7 @@ export function AnnotationsChip({
           >
             <X className="size-3" />
           </button>
+          </TooltipHint>
         </span>
         <PopoverContent align="start" className="w-96 p-2" side="top">
           {/* Scrolls past a few rows: a long list must not climb over the transcript. */}

@@ -70,6 +70,26 @@ beforeEach(() => {
   (window.workbench.explorer as unknown as Record<string, unknown>).exists = vi.fn(async () => ({ "models/x.step": "file" }));
 });
 
+/**
+ * Icon-only controls (an accessible name, no visible words) that carry no `TooltipHint`: a person
+ * pointing at one has nothing to read but the icon. `TooltipHint` marks its trigger `data-hint`.
+ */
+const HINT_EXCEPTIONS: Record<string, string> = {};
+const visibleText = (control: Element) => {
+  const copy = control.cloneNode(true) as Element;
+  copy.querySelectorAll("svg, .sr-only, [aria-hidden=true]").forEach((node) => node.remove());
+  return copy.textContent?.trim() ?? "";
+};
+const unhinted = () =>
+  [...document.querySelectorAll("button, a[href], [role=button]")]
+    .filter((control) => !control.closest("[role=menu], [role=listbox], [role=dialog] [data-radix-popper-content-wrapper]"))
+    .filter((control) => visibleText(control) === "" && (control.getAttribute("aria-label") ?? "").trim() !== "")
+    // A switch or checkbox is named by the label written beside it.
+    .filter((control) => !control.matches("[role=switch], [role=checkbox], [role=radio]"))
+    .filter((control) => !control.closest('[data-hint], [data-slot="tooltip-trigger"]'))
+    .map((control) => control.getAttribute("aria-label")!)
+    .filter((label) => !(label in HINT_EXCEPTIONS));
+
 const titled = () =>
   [...document.querySelectorAll("button, a, [role=button], [role=menuitem], [role=menuitemradio]")]
     .filter((control) => control.hasAttribute("title"))
@@ -117,6 +137,7 @@ it("no control in a session carries a native title", async () => {
   const controls = screen.getAllByRole("button");
   expect(controls.length).toBeGreaterThan(15);
   expect(titled()).toEqual([]);
+  expect(unhinted()).toEqual([]);
 });
 
 it("text the session shows in full elsewhere carries no native title either", () => {
@@ -149,6 +170,7 @@ it("no control in the sidebar carries a native title, a row with changes include
   expect(screen.getAllByRole("button", { name: /^Review changes: 2 files changed, 9 added, 1 removed/ })).toHaveLength(2);
   expect(screen.getByRole("button", { name: "Hinge" })).toBeInTheDocument();
   expect(titled()).toEqual([]);
+  expect(unhinted()).toEqual([]);
 
   // The project's folder the header's title used to give is a hint on its name, open or not.
   const header = screen.getByRole("button", { name: "p", expanded: true });
@@ -203,6 +225,7 @@ describe("Settings", () => {
       expect(remove).toHaveAccessibleDescription(/uncommitted changes or ignored files/);
     }
     expect([...document.querySelectorAll("[title]")].map((element) => element.outerHTML.slice(0, 120))).toEqual([]);
+    expect(unhinted()).toEqual([]);
   });
 
   it("nor does the agent drawer", async () => {
@@ -213,6 +236,7 @@ describe("Settings", () => {
     );
     expect(await screen.findByText("/Users/me/Library/skills/0.0.0")).toBeInTheDocument();
     expect([...document.querySelectorAll("[title]")].map((element) => element.outerHTML.slice(0, 120))).toEqual([]);
+    expect(unhinted()).toEqual([]);
   });
 });
 
@@ -229,6 +253,7 @@ describe("Explorer", () => {
     render(<TooltipProvider><TabStrip /></TooltipProvider>);
     expect(screen.getAllByRole("tab")).toHaveLength(2);
     expect(nativeTitles()).toEqual([]);
+    expect(unhinted()).toEqual([]);
     await userEvent.hover(screen.getAllByRole("tab")[0]!);
     expect(await screen.findByRole("tooltip", {}, { timeout: 2000 })).toHaveTextContent("models/deeply/nested/bracket.step");
   });
@@ -248,5 +273,6 @@ describe("Explorer", () => {
     await act(async () => useExplorer.setState({ fsRevision: useExplorer.getState().fsRevision + 1 }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not refresh: index.lock exists");
     expect(nativeTitles()).toEqual([]);
+    expect(unhinted()).toEqual([]);
   });
 });

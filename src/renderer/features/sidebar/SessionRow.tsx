@@ -209,6 +209,7 @@ export function SessionRow({
           />
           <GitGlyph session={session} />
           <DropdownMenu>
+            <TooltipHint content="Chat actions">
             <DropdownMenuTrigger asChild>
               <Button
                 aria-label={`${session.title} actions`}
@@ -219,6 +220,7 @@ export function SessionRow({
                 <MoreHorizontal className="size-3" />
               </Button>
             </DropdownMenuTrigger>
+            </TooltipHint>
             <DropdownMenuContent align="start" className="w-40">
               <MenuKind.Provider value="dropdown">{menuItems}</MenuKind.Provider>
             </DropdownMenuContent>

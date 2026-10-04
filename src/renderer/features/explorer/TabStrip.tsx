@@ -26,6 +26,7 @@ import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { EXPLORER_TABPANEL_ID, focusTabBody } from "./focus";
 import { preloadTerminal } from "./load-terminal";
+import { hintWith } from "@renderer/lib/shortcuts";
 
 /**
  * The one strip. No bottom panel (plan §3).
@@ -365,6 +366,7 @@ export function TabStrip() {
           data-new-tab
         >
           <DropdownMenu>
+            <TooltipHint content="New tab">
             <DropdownMenuTrigger asChild>
               <Button
                 aria-label="New tab"
@@ -377,6 +379,7 @@ export function TabStrip() {
                 <Plus className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
+            </TooltipHint>
             <DropdownMenuContent align="end" className="w-48">
               {KINDS.map(({ kind, label, shortcut }) => (
                 <DropdownMenuItem key={kind} onSelect={() => {
@@ -527,6 +530,7 @@ function TabButton({
       </TooltipHint>
       {/* Out of the Tab order and out of the accessibility tree: Delete on the tab is its
           keyboard twin, and a button a screen reader could reach would be a second stop per tab. */}
+      <TooltipHint content={hintWith("Close tab", "close-tab", isMac)}>
       <button
         aria-hidden
         aria-label={`Close ${title}`}
@@ -544,6 +548,7 @@ function TabButton({
       >
         <X className="size-3" />
       </button>
+      </TooltipHint>
     </div>
   );
 }

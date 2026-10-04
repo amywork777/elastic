@@ -17,6 +17,7 @@ import {
 import { unhideFolder } from "@renderer/state/hidden-folders";
 import { useProjects } from "@renderer/state/projects";
 import { useSettings, useSidebarSettings } from "@renderer/state/settings";
+import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import type {
   SidebarEnvironmentFilter,
   SidebarGroupBy,
@@ -52,6 +53,7 @@ export function SidebarFilterMenu() {
 
   return (
     <DropdownMenu>
+      <TooltipHint content="Filter and sort">
       <DropdownMenuTrigger asChild>
         <Button
           aria-label="Filters"
@@ -62,6 +64,7 @@ export function SidebarFilterMenu() {
           <SlidersHorizontal className="size-3.5" />
         </Button>
       </DropdownMenuTrigger>
+      </TooltipHint>
       {/* Anchored to the trigger's right edge: it is the last control in the
           panel's header, and a menu that opened rightward from there would
           be pushed back by the collision boundary every time. */}
