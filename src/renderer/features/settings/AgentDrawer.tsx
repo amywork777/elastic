@@ -12,7 +12,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, ExternalLink, Terminal } from "lucide-react";
 import { Spinner } from "@renderer/components/ui/spinner";
-import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
 import { Button } from "@renderer/components/ui/button";
 import { Input } from "@renderer/components/ui/input";
@@ -361,22 +360,10 @@ function SkillsSection({ agent }: { agent: AgentStatus }) {
       title="Skills"
     >
       <p className="text-xs text-muted-foreground">
-        <InlineCode
-          text={
-            count > 0
-              ? `Handed to every session ${native ? "as an extra directory" : "through a line in the first prompt"}. Nothing is installed into ${agent.name}'s own configuration.`
-              : "elastic hands its skills to every session. This build has none composed yet. Run `npm run build`."
-          }
-        />
+        {count > 0
+          ? `Given to every session ${native ? "as a folder" : "in its first prompt"}. ${agent.name}'s own setup is left alone.`
+          : "None in this build yet."}
       </p>
-      {skills?.root ? (
-        // The whole path when the line has cut it short.
-        <TooltipHint content={skills.root} overflowOnly side="top">
-          <p className="mt-2 truncate text-[11px] text-muted-foreground">
-            <span data-selectable>{skills.root}</span>
-          </p>
-        </TooltipHint>
-      ) : null}
     </Section>
   );
 }
@@ -386,9 +373,7 @@ function SkillsSection({ agent }: { agent: AgentStatus }) {
 function McpSection({ agent }: { agent: AgentStatus }) {
   return (
     <Section title="MCP servers">
-      <p className="text-xs text-muted-foreground">
-        elastic&apos;s own servers, beside {agent.name}&apos;s own configuration, which is left alone.
-      </p>
+      <p className="text-xs text-muted-foreground">Plugin servers, added beside {agent.name}&apos;s own.</p>
     </Section>
   );
 }
@@ -405,6 +390,7 @@ function McpSection({ agent }: { agent: AgentStatus }) {
  * corrected by removing what was added.
  */
 function AdvancedSection({ agent }: { agent: AgentStatus }) {
+  const skillsRoot = useSkills()?.root ?? null;
   const settings = useSettingsValue();
   const patch = useSettingsPatch();
   const override = settings.agentOverrides[agent.id];
@@ -446,6 +432,7 @@ function AdvancedSection({ agent }: { agent: AgentStatus }) {
       <summary className="cursor-default text-muted-foreground select-none hover:text-foreground">Command, arguments and environment</summary>
       <dl className="mt-3 space-y-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-[11px]">
         <Field label="Command" value={agent.launch.command} />
+        {skillsRoot ? <Field label="Skills folder" value={skillsRoot} /> : null}
         <Field label="Arguments" value={agent.launch.args.join(" ") || "—"} />
         <Field
           label="Environment"

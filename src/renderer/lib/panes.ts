@@ -157,3 +157,19 @@ export function dragOutcome({
   }
   return { width: clamp(requested, min, Math.max(min, max)), collapsed: false };
 }
+
+/**
+ * Below this width with the explorer open, the session is too squeezed beside two side panes,
+ * so the sidebar steps aside (`narrowedWithExplorer`).
+ */
+export const NARROW_WITH_EXPLORER_PX = 1000;
+
+/**
+ * Whether the window has just become narrow with the explorer open: the moment the sidebar
+ * collapses on its own. Only the edge counts, so a person who opens the sidebar again in a
+ * narrow window keeps it open; it closes again only after the window has been wide in between.
+ */
+export function narrowedWithExplorer(before: boolean, width: number, explorerOpen: boolean): { now: boolean; collapse: boolean } {
+  const now = width > 0 && width < NARROW_WITH_EXPLORER_PX && explorerOpen;
+  return { now, collapse: now && !before };
+}

@@ -88,7 +88,10 @@ export function SessionSection({ section }: { section: SidebarSection }) {
           {/* Codex's grammar: a project reads as a folder row, a group without one as a quiet label. */}
           <span className={cn("flex min-w-0 items-center gap-2 truncate", project ? "text-[13px] text-foreground/85" : "text-[11px] font-medium text-muted-foreground")}>
             {project ? <Folder aria-hidden className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} /> : null}
-            <span className="truncate">{section.name}</span>
+            <span className="min-w-0 shrink truncate">{section.name}</span>
+            {/* The folder it sits in, dimmed: two projects with one name tell apart, and it gives
+                way first when the row is narrow. The whole path is the hint. */}
+            {project ? <span aria-hidden className="min-w-0 shrink-[4] truncate text-[11px] text-muted-foreground/80" data-project-parent>{parentName(project.path)}</span> : null}
           </span>
         </TooltipHint>
         {collapsible ? (
@@ -162,4 +165,10 @@ export function SessionSection({ section }: { section: SidebarSection }) {
       )}
     </section>
   );
+}
+
+/** The last folder above a project's own: `~/code/text-to-cad` reads "code". */
+function parentName(projectPath: string): string {
+  const parts = projectPath.split(/[\\/]/).filter(Boolean);
+  return parts.length >= 2 ? parts[parts.length - 2]! : "";
 }

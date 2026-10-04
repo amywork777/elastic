@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PANEL_DEFAULT_WIDTH } from "@workbench/ui/navigation";
-import { dragOutcome, maxWidthOf, resolvePanes } from "@renderer/lib/panes";
+import { dragOutcome, maxWidthOf, narrowedWithExplorer, resolvePanes } from "@renderer/lib/panes";
 import { PANE_LIMITS, WindowStateSchema } from "@shared/types";
 
 /**
@@ -174,5 +174,20 @@ describe("dragOutcome", () => {
   it("clamps at the top and rounds to whole pixels", () => {
     expect(dragOutcome({ pane: "sidebar", requested: 10_000, remembered: 230, max: 480 }).width).toBe(480);
     expect(dragOutcome({ pane: "explorer", requested: 400.6, remembered: 560, max: 900 }).width).toBe(401);
+  });
+});
+
+describe("a window that narrows with the explorer open", () => {
+  it("collapses the sidebar once, on the crossing, and leaves a reopened sidebar open", () => {
+    expect(narrowedWithExplorer(false, 1200, true)).toEqual({ now: false, collapse: false });
+    expect(narrowedWithExplorer(false, 900, true)).toEqual({ now: true, collapse: true });
+    // Still narrow (the person opened the sidebar again): no second collapse.
+    expect(narrowedWithExplorer(true, 880, true)).toEqual({ now: true, collapse: false });
+    // Without the explorer, or before the first measure, nothing happens.
+    expect(narrowedWithExplorer(false, 900, false)).toEqual({ now: false, collapse: false });
+    expect(narrowedWithExplorer(false, 0, true)).toEqual({ now: false, collapse: false });
+    // Wide again, then narrow again: it collapses again.
+    expect(narrowedWithExplorer(true, 1100, true).now).toBe(false);
+    expect(narrowedWithExplorer(false, 950, true).collapse).toBe(true);
   });
 });

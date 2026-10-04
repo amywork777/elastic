@@ -5,7 +5,7 @@ import { PaneSeparator } from "@renderer/app/PaneSeparator";
 import { ExplorerPane, useExplorerShortcuts } from "@renderer/features/explorer/ExplorerPane";
 import { SessionPane } from "@renderer/features/session/SessionPane";
 import { Sidebar } from "@renderer/features/sidebar/Sidebar";
-import { maxWidthOf, resolvePanes } from "@renderer/lib/panes";
+import { maxWidthOf, narrowedWithExplorer, resolvePanes } from "@renderer/lib/panes";
 import type { SidePane } from "@renderer/lib/panes";
 import { isPrimaryModifier } from "@renderer/lib/platform";
 import { runUiCommand } from "@renderer/state/bridge";
@@ -125,6 +125,17 @@ export function Shell() {
       void setLayout({ sidebarCollapsed: true });
     }
   });
+
+  // A window that narrows with the explorer open gives the session the room: the sidebar
+  // collapses once, as the window crosses the width (`narrowedWithExplorer`), and a person who
+  // opens it again keeps it open.
+  const narrow = useRef(false);
+  useEffect(() => {
+    if (surface.kind !== "home" || rowWidth === 0) return;
+    const { now, collapse } = narrowedWithExplorer(narrow.current, rowWidth, hasSession && !explorerCollapsed);
+    narrow.current = now;
+    if (collapse && !sidebarCollapsed) void setLayout({ sidebarCollapsed: true });
+  }, [surface.kind, rowWidth, hasSession, explorerCollapsed, sidebarCollapsed, setLayout]);
 
   useFocusSurvivesCollapse(sidebarCollapsed, hasSession && explorerCollapsed);
 
