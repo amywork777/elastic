@@ -33,6 +33,7 @@ import { GIT_MODE_LABELS, gitModeAvailability, localGitMode } from "@renderer/li
 import { recentProjects } from "@renderer/lib/projects";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
+import { useUi } from "@renderer/state/ui";
 import { currentName, isFullAccessMode, type SelectOption } from "@shared/acp/options";
 import type { SessionMode } from "@shared/acp/types";
 import type { ProjectGitInfo } from "@shared/ipc/git";
@@ -71,6 +72,7 @@ export function Chip({
   maxWidth = 200,
   disabledReason,
   hintSide = "bottom",
+  openOn,
 }: {
   icon: React.ReactNode;
   maxWidth?: number;
@@ -95,6 +97,8 @@ export function Chip({
    * the top, and above those chips is send.
    */
   hintSide?: "top" | "bottom" | "left";
+  /** A count that opens the menu when it changes (the palette's Switch model); its first value does not. */
+  openOn?: number;
 }) {
   const reasonId = useId();
   // ONE button whether or not the chip can be used, so a keyboard user focused on it while the agent
@@ -111,6 +115,13 @@ export function Chip({
   // items would otherwise still run against an agent that is reconnecting.
   const [open, setOpen] = useState(false);
   const menuOpen = open && !disabledReason;
+  // A new request opens the menu: state adjusted while rendering, React's pattern for a prop
+  // change that should move state (an effect would render twice).
+  const [openedFor, setOpenedFor] = useState(openOn);
+  if (openOn !== openedFor) {
+    setOpenedFor(openOn);
+    if (menu && !disabledReason) setOpen(true);
+  }
   // The chip's hint is the kit's `TooltipHint`, never a native `title`; it stands aside while the
   // menu is open (`aria-expanded`), and while the chip is unavailable its reason is the description.
   const body = (
@@ -460,6 +471,7 @@ export function ModelChip({
 }) {
   const [query, setQuery] = useState("");
   const [typing, setTyping] = useState<string | null>(null);
+  const modelPickerRequest = useUi((state) => state.modelPickerRequest);
   const pickedGroup = picked ? (providerGroups.find((group) => group.providerId === picked.providerId) ?? null) : null;
   const current = providers.find((provider) => provider.agentId === agentId) ?? providers[0] ?? null;
   if (!current && !pickedGroup) {
@@ -476,6 +488,7 @@ export function ModelChip({
       disabledReason={disabledReason}
       icon={<ProviderGlyph icon={pickedGroup ? pickedGroup.icon : current?.icon} />}
       label={label}
+      openOn={modelPickerRequest}
       hintSide="left"
       maxWidth={220}
       menu={

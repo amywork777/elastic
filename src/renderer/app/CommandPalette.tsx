@@ -1,9 +1,13 @@
 import { defaultFilter } from "cmdk";
 import { useEffect } from "react";
 import {
+  Blocks,
   ChevronLeft,
   ChevronRight,
+  Cpu,
   FileText,
+  KeyRound,
+  Palette,
   FolderPlus,
   Folder,
   GitCompare,
@@ -35,6 +39,7 @@ import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import { useSettings } from "@renderer/state/settings";
 import { SETTINGS_SECTIONS, SETTINGS_SECTION_LABELS, useUi } from "@renderer/state/ui";
+import { COLOR_THEMES } from "@shared/color-themes";
 import type { ExplorerTabKind } from "@shared/types";
 
 /** One string for the box's placeholder and the dialog's description. */
@@ -95,6 +100,9 @@ export function CommandPalette() {
   const activeSessionId = useSessions((state) => state.activeId);
   const layout = useSettings((state) => state.settings?.layout);
   const setLayout = useSettings((state) => state.setLayout);
+  const setTheme = useSettings((state) => state.setTheme);
+  const patchSettings = useSettings((state) => state.patch);
+  const openPlugins = () => useUi.getState().setSurface({ kind: "plugins", view: "browse" });
   const reach = useHistoryReach();
   // No trigger (a chord, the menu, the sidebar's search): Escape gives focus back by hand.
   const returnFocus = useReturnFocus();
@@ -126,6 +134,9 @@ export function CommandPalette() {
   const leaveForShell = () => {
     closeSettings();
     leaveWelcome();
+    // A chat lives on Home: a session row picked from the Plugins page or a plugin's page goes
+    // there. A row that opens another surface (Plugins) sets it after this.
+    useUi.getState().setSurface({ kind: "home" });
   };
   const show = (action: () => void, leave: () => void = leaveForShell) => run(() => {
     leave();
@@ -227,6 +238,48 @@ export function CommandPalette() {
                 </CommandItem>
               ))
             : null}
+        </CommandGroup>
+
+        <CommandGroup heading="Models and plugins">
+          <CommandItem onSelect={show(openPlugins)} value="plugins store browse">
+            <Blocks className="size-4" />
+            Plugins
+          </CommandItem>
+          <CommandItem onSelect={show(openPlugins)} value="install a plugin add plugin store">
+            <Blocks className="size-4" />
+            Install a plugin…
+          </CommandItem>
+          {/* The model chip is the composer's: Switch model opens it where it is. */}
+          <CommandItem
+            onSelect={show(() => window.setTimeout(() => useUi.getState().requestModelPicker(), 0))}
+            value="switch model change model agent"
+          >
+            <Cpu className="size-4" />
+            Switch model
+          </CommandItem>
+          <CommandItem onSelect={run(() => openSettings("models"))} value="add a model api key provider openrouter ollama anthropic openai">
+            <KeyRound className="size-4" />
+            Add a model…
+          </CommandItem>
+        </CommandGroup>
+
+        <CommandGroup heading="Theme">
+          {(["system", "light", "dark"] as const).map((theme) => (
+            <CommandItem key={theme} onSelect={run(() => void setTheme(theme))} value={`theme appearance ${theme} mode`}>
+              <Palette className="size-4" />
+              {theme === "system" ? "Match system" : theme === "light" ? "Light mode" : "Dark mode"}
+            </CommandItem>
+          ))}
+          {COLOR_THEMES.map((colorTheme) => (
+            <CommandItem
+              key={colorTheme.id}
+              onSelect={run(() => void patchSettings({ colorTheme: colorTheme.id }))}
+              value={`theme colour color ${colorTheme.label}`}
+            >
+              <Palette className="size-4" />
+              {colorTheme.label} theme
+            </CommandItem>
+          ))}
         </CommandGroup>
 
         <CommandGroup heading="View">

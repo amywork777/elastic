@@ -60,6 +60,11 @@ type UiState = {
    * list, and it is the one the person can see the shape of.
    */
   commandPaletteQuery: string;
+  /**
+   * Bumped to ask the visible composer's model chip to open its menu (the palette's Switch
+   * model). A count, not a flag: the chip opens on a change and nothing has to reset it.
+   */
+  modelPickerRequest: number;
 
   openSettings: (section?: SettingsSection) => void;
   closeSettings: () => void;
@@ -67,6 +72,7 @@ type UiState = {
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
   setCommandPaletteQuery: (query: string) => void;
+  requestModelPicker: () => void;
 };
 
 export const useUi = create<UiState>((set) => ({
@@ -77,6 +83,7 @@ export const useUi = create<UiState>((set) => ({
   settingsSection: "general",
   commandPaletteOpen: false,
   commandPaletteQuery: "",
+  modelPickerRequest: 0,
 
   openSettings: (section) =>
     set((state) => ({
@@ -97,4 +104,5 @@ export const useUi = create<UiState>((set) => ({
         : { commandPaletteOpen: true },
     ),
   setCommandPaletteQuery: (commandPaletteQuery) => set({ commandPaletteQuery }),
+  requestModelPicker: () => set((state) => ({ modelPickerRequest: state.modelPickerRequest + 1 })),
 }));
