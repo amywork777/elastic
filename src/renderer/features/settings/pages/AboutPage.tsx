@@ -20,9 +20,39 @@ import { StatusLabel } from "@renderer/features/settings/StatusDot";
 import { useAppInfo } from "@renderer/features/settings/use-app-info";
 import { useSkills } from "@renderer/features/settings/use-skills";
 import { useUpdates } from "@renderer/state/updates";
-import { APP_NAME } from "@shared/brand";
+import { toast } from "sonner";
 
-const REPOSITORY = "https://github.com/amywork777/elastic";
+import { APP_NAME, APP_REPO, APP_STAGE } from "@shared/brand";
+
+const REPOSITORY = `https://github.com/${APP_REPO}`;
+
+/** A new issue with the version in the title and a place for the report. */
+export function issueUrl(version: string): string {
+  const title = `Problem in ${APP_NAME} ${version} ${APP_STAGE}`;
+  const body = [
+    "What happened, and what did you expect?",
+    "",
+    "",
+    "Steps to reproduce:",
+    "1. ",
+    "",
+    `Diagnostics (Settings › About › Copy diagnostics, then paste here):`,
+    "```",
+    "",
+    "```",
+  ].join("\n");
+  return `${REPOSITORY}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+}
+
+async function copyDiagnostics() {
+  try {
+    const { text } = await window.workbench.app.diagnostics();
+    await navigator.clipboard.writeText(text);
+    toast.success("Diagnostics copied. Paste them into your issue.");
+  } catch {
+    toast.error("Could not copy diagnostics.");
+  }
+}
 const LICENSES = `${REPOSITORY}/blob/main/LICENSE`;
 
 const PLATFORMS: Record<string, string> = {
@@ -45,7 +75,7 @@ export function AboutPage() {
           keywords="build number release"
           title="Version"
           tone="strong"
-          value={info?.version ?? "…"}
+          value={info ? `${info.version} ${APP_STAGE}` : "…"}
         />
         <ValueRow
           keywords="operating system os"
@@ -72,6 +102,23 @@ export function AboutPage() {
       </SettingCard>
 
       <SkillsCard />
+
+      <SettingCard title="Help">
+        <ActionRow
+          description="A plain-text report of versions, agents, plugins and recent errors, for an issue. Keys and tokens are left out, and nothing is sent anywhere."
+          keywords="diagnostics debug report logs support"
+          label="Copy diagnostics"
+          onClick={() => void copyDiagnostics()}
+          title="Diagnostics"
+        />
+        <ActionRow
+          description="Opens a new GitHub issue with the version filled in."
+          keywords="bug issue feedback support"
+          label="Report a problem"
+          onClick={openExternal(issueUrl(info?.version ?? "unknown"))}
+          title="Report a problem"
+        />
+      </SettingCard>
 
       <SettingCard title="Links">
         <ActionRow
@@ -128,10 +175,16 @@ function UpdateRow() {
       action: { label: "Check now", onClick: check },
     },
     checking: { description: "Checking GitHub Releases…", action: null },
-    available: {
-      description: `Version${version} is available.`,
-      action: { label: "Download", onClick: download },
-    },
+    available: status.manual
+      ? {
+          // An unsigned macOS build cannot install an update itself (src/main/updater.ts).
+          description: `Version${version} is out. Download opens it on GitHub; install it over this one.`,
+          action: { label: "Download", onClick: download },
+        }
+      : {
+          description: `Version${version} is available.`,
+          action: { label: "Download", onClick: download },
+        },
     downloading: {
       // No number here: this is a polite live region, and a percentage that
       // changes every second would be read out every second. The reading is the

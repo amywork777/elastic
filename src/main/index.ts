@@ -23,9 +23,13 @@ import { installMenu } from "./menu";
 import { armQuitDeadline } from "./quit-deadline";
 import { isQuitting, markQuitting } from "./quitting";
 import { disposeSettingsEffects } from "./settings-effects";
+import { captureMainErrors } from "./diagnostics";
 import { initUpdater, stopUpdater } from "./updater";
 import { TITLEBAR_HEIGHT, trafficLightPosition } from "../shared/titlebar";
 import { WINDOW_MIN, flushWindowStates, restoreWindowState, trackWindowState } from "./window-state";
+
+// Copy diagnostics keeps main's recent errors (redacted, capped); printing is unchanged.
+captureMainErrors();
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 

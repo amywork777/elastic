@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,11 +17,14 @@ const alias = {
   "@shared": path.join(appRoot, "src", "shared"),
 };
 
-// The Aptabase key is baked in at build time, not read from the environment at
-// run time: a packaged app has no build environment to read, and a key that
-// could be set by whoever launches the binary is a key anyone can point at
-// their own project. Absent (a checkout, a community build) it compiles to "",
-// which makes src/main/telemetry.ts inert — no init, no network call.
+/** The commit a build came from, for Copy diagnostics; "unknown" outside a git checkout. */
+function appCommit(): string {
+  try {
+    return execSync("git rev-parse --short HEAD", { cwd: appRoot, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 export default defineConfig({
   main: {
@@ -28,6 +32,7 @@ export default defineConfig({
     resolve: { alias },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion()),
+      __APP_COMMIT__: JSON.stringify(appCommit()),
     },
     build: {
       rollupOptions: {

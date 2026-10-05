@@ -15,6 +15,27 @@ The example plugins in `resources/plugins/` are the reference:
 | `memory` | an off-the-shelf server with tools only |
 | `mcp-app-demo` | the MCP Apps reference example (SDK v2), a view with no entrypoints (so a tab) |
 
+## Write a plugin in 10 minutes
+
+1. **Make a folder** with a manifest at `.codex-plugin/plugin.json` (the shape
+   is below). A Claude Code plugin's `.claude-plugin/plugin.json` works too.
+2. **Add an MCP server** that gives agents tools: a `server.mjs` using
+   `@modelcontextprotocol/sdk`'s `McpServer` over stdio, named in the
+   manifest's `mcpServers`. Any language works; elastic only runs the command.
+3. **Optionally add a view.** Give a tool a `ui://` resource served as
+   `text/html;profile=mcp-app`, and say where it shows with
+   `_meta["openai/ui"].entrypoints`: `thread` (a tab), `global` (a rail page)
+   or `file` with `extensions` (how those files open). See
+   [Views](#views-mcp-apps) below; the Tables example
+   (`resources/plugins/plugins/csv-table/`) does all three in one small file.
+4. **Optionally add a skill**: `skills/<name>/SKILL.md` telling agents when and
+   how to use your tools.
+5. **Try it:** Plugins › Add › Install a plugin folder, pick the folder, then
+   ask an agent to use it. After a change, turn the plugin off and on to
+   restart its server; a view reloads when its tab is reopened.
+6. **Share it:** push the folder to GitHub with a marketplace file, and anyone
+   can add it from Plugins › Add a catalog.
+
 ## Writing one
 
 ```

@@ -27,6 +27,35 @@ It started as the text-to-cad desktop app with the hardware parts taken out.
 CAD is back as a plugin: text-to-cad installs from its own marketplace,
 unchanged, the same plugin Codex runs.
 
+## Status: beta
+
+elastic is 0.1.0 beta. It works day to day, and rough edges are expected.
+
+**Known gaps**
+
+- The macOS build is not notarised yet. The first time, right-click the app and
+  choose Open. Updates are offered in Settings › About, and open the release
+  page to download until the build is signed.
+- macOS only, Apple Silicon and Intel. No Windows or Linux build yet.
+- Figma's plugin cannot sign in until Figma approves elastic; its skills work.
+- Language-server (LSP) plugins install but are not run.
+- Switching to another agent in the middle of a chat continues in a new, linked
+  chat that picks up from a summary.
+
+Something wrong? Settings › About › Report a problem, with Copy diagnostics.
+
+## Getting started
+
+1. Download the `.dmg` from [Releases](https://github.com/amywork777/elastic/releases),
+   drag elastic to Applications, and open it (right-click › Open the first time).
+2. Open a folder: your project.
+3. Pick a model. Sign in to Claude Code or Codex from the welcome screen, or add
+   a key or a local model in Settings › Models & keys.
+4. Install a plugin from the rail's Plugins page: the store lists Claude Code's,
+   Codex's and text-to-cad's catalogs in one place.
+5. Type `@` to mention a file. Messages you send while the agent works are
+   queued: edit or reorder them, or Send now to hand one over at once.
+
 ## What it looks like
 
 Every screenshot is the built app on a fresh profile with real output: the
@@ -78,7 +107,7 @@ Code Review comes built in: the pull requests waiting on you on a rail page, and
 any pull request in a tab with its checks, diff, comment threads and review
 buttons, through your own GitHub CLI sign-in (`gh auth login`).
 
-- How to write one, and how the pieces fit: [docs/plugins.md](docs/plugins.md)
+- Write one in ten minutes, and how the pieces fit: [docs/plugins.md](docs/plugins.md)
 - What Codex does, which this copies: a study of the Codex app's plugin format and UX, kept in a
   separate private research repository
 

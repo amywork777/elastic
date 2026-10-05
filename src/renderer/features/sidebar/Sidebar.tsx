@@ -1,4 +1,5 @@
 import { FolderOpen, Search, Settings, SquarePen } from "lucide-react";
+import { APP_STAGE } from "@shared/brand";
 import { cn } from "cn";
 
 import { HistoryNav, SidebarToggle } from "@renderer/app/PaneToggles";
@@ -145,7 +146,7 @@ export function Sidebar() {
           <Settings className="size-4" />
         </Button>
         </TooltipHint>
-        <span className="truncate text-xs text-muted-foreground">Local · v{__APP_VERSION__}</span>
+        <span className="truncate text-xs text-muted-foreground">Local · v{__APP_VERSION__} {APP_STAGE}</span>
       </footer>
     </div>
   );

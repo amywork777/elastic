@@ -41,6 +41,7 @@ describe("the contract", () => {
       "app.checkForUpdates",
       "app.downloadUpdate",
       "app.installUpdate",
+      "app.diagnostics",
       "projects.list",
       "projects.add",
       "sessions.list",
