@@ -33,10 +33,18 @@ extraResources:
 
 # One icon source, build/icon.png (scripts/make-icons.mjs renders it; committed). electron-builder derives the macOS .icns and Windows .ico from it.
 
-# No updater feed is configured: an unconfigured build never checks for
-# updates (src/main/updater.ts). To ship updates, add a `publish` block here
-# (for example `provider: github`, `owner`, `repo`) and the release workflow
-# that attaches installers to it.
+# The update feed: GitHub Releases of amywork777/elastic (APP_REPO in
+# src/shared/brand.ts). electron-builder bakes it into the app as
+# app-update.yml and writes latest-mac.yml beside the installers; the release
+# workflow uploads both (scripts/package.mjs passes --publish never, so a local
+# build never publishes). An unsigned macOS build cannot install an update
+# itself (Squirrel.Mac), so it offers the release page instead
+# (src/main/updater.ts, installsItself).
+publish:
+  provider: github
+  owner: amywork777
+  repo: elastic
+  releaseType: release
 
 # better-sqlite3 and node-pty are native. `npm run native:rebuild` runs
 # `electron-builder install-app-deps`, which rebuilds them against the Electron

@@ -9,12 +9,13 @@ const mocks = vi.hoisted(() => ({
   downloadUpdate: vi.fn(async () => undefined),
   settings: { checkUpdatesOnLaunch: true },
   native: null as unknown as EventEmitter,
+  openExternal: vi.fn(async (_url: string) => undefined),
 }));
 
 vi.mock("electron", async () => {
   const { EventEmitter: Emitter } = await import("node:events");
   mocks.native = new Emitter();
-  return { app: { isPackaged: true }, autoUpdater: mocks.native };
+  return { app: { isPackaged: true, getAppPath: () => "/nowhere" }, autoUpdater: mocks.native, shell: { openExternal: (url: string) => mocks.openExternal(url) } };
 });
 type FakeUpdater = EventEmitter & { autoDownload: boolean; autoInstallOnAppQuit: boolean; logger: unknown };
 let autoUpdater: FakeUpdater;
@@ -35,14 +36,14 @@ vi.mock("@main/db/repositories", () => ({ settings: { get: () => mocks.settings 
 
 const INSTALL_DEADLINE_MS = 60_000;
 
-async function load() {
+async function load(options: { selfInstall?: boolean } = { selfInstall: true }) {
   // The fake updaters outlive `resetModules`: without this, an earlier test's
   // module would still be listening to them.
   autoUpdater?.removeAllListeners();
   mocks.native?.removeAllListeners();
   vi.resetModules();
   const updater = await import("@main/updater");
-  updater.initUpdater();
+  updater.initUpdater(options);
   return updater;
 }
 
@@ -299,5 +300,26 @@ describe("updater", () => {
     expect(await updater.checkForUpdates()).toEqual({ state: "error", message: "Could not reach GitHub to check for updates." });
     warn.mockRestore();
     updater.stopUpdater();
+  });
+});
+
+describe("an unsigned macOS build", () => {
+  it("is the one platform that cannot install itself", async () => {
+    const updater = await load();
+    expect(updater.installsItself("darwin", false)).toBe(false);
+    expect(updater.installsItself("darwin", true)).toBe(true);
+    expect(updater.installsItself("win32", false)).toBe(true);
+    expect(updater.installsItself("linux", false)).toBe(true);
+  });
+
+  it("offers the release page: Download opens it and the offer stays", async () => {
+    const updater = await load({ selfInstall: false });
+    feedAnnounces("2.0.0");
+    await updater.checkForUpdates();
+    expect(updater.updateStatus()).toEqual({ state: "available", version: "2.0.0", manual: true });
+    const answer = await updater.downloadUpdate();
+    expect(mocks.openExternal).toHaveBeenCalledWith("https://github.com/amywork777/elastic/releases/tag/v2.0.0");
+    expect(mocks.downloadUpdate).not.toHaveBeenCalled();
+    expect(answer).toEqual({ state: "available", version: "2.0.0", manual: true });
   });
 });

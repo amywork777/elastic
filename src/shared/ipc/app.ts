@@ -53,6 +53,12 @@ export const UpdateStatusSchema = z.object({
   percent: z.number().min(0).max(100).optional(),
   /** Set on `error`, and on `unsupported` when the reason is not a development build. */
   message: z.string().optional(),
+  /**
+   * On `available`: this build cannot replace itself (an unsigned macOS build:
+   * Squirrel.Mac only installs an update signed like the running app), so
+   * Download opens the release page instead of downloading in the app.
+   */
+  manual: z.boolean().optional(),
 });
 export type UpdateStatus = z.infer<typeof UpdateStatusSchema>;
 
@@ -69,6 +75,8 @@ export const appIpc = {
   downloadUpdate: invoke(z.void(), UpdateStatusSchema),
   /** Quit and install what was downloaded. Never answers: the app is gone. */
   installUpdate: invoke(z.void(), z.void()),
+  /** A plain-text report for an issue (src/main/diagnostics.ts): versions, agents, plugins, recent errors; redacted. */
+  diagnostics: invoke(z.void(), z.object({ text: z.string() })),
 };
 
 /** Spread into `ipcEvents`. */

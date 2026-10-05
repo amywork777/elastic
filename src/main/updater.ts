@@ -40,13 +40,17 @@
  * release that lacks this platform's feed file is not a failure: the status
  * goes back to `idle`.
  */
-import { app, autoUpdater as nativeUpdater } from "electron";
+import fs from "node:fs";
+import path from "node:path";
+
+import { app, autoUpdater as nativeUpdater, shell } from "electron";
 import electronUpdater from "electron-updater";
 
 import { broadcast } from "./ipc";
 import { settings } from "./db/repositories";
 import { markQuittingForUpdate } from "./quitting";
 import type { UpdateStatus } from "../shared/ipc/app";
+import { APP_REPO } from "../shared/brand";
 
 const { autoUpdater } = electronUpdater;
 
@@ -67,6 +71,35 @@ let installDeadline: NodeJS.Timeout | undefined;
 /** The version `update-downloaded` staged: what a retried Restart installs. */
 let staged: string | undefined;
 
+/**
+ * Whether this build can install an update itself. macOS installs through
+ * Squirrel.Mac, which refuses an update whose code signature does not satisfy
+ * the running app's designated requirement, and an unsigned (or ad-hoc signed)
+ * app has none to satisfy: the download would succeed and Restart would fail.
+ * So an unsigned macOS build offers the release page instead
+ * (`manual`). `scripts/package.mjs` stamps `elasticSigned: true` into the
+ * packaged package.json when it signs; Windows and Linux install unsigned.
+ */
+let selfInstall = true;
+
+export function installsItself(platform: NodeJS.Platform = process.platform, signed: boolean = buildIsSigned()): boolean {
+  return platform !== "darwin" || signed;
+}
+
+function buildIsSigned(): boolean {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(app.getAppPath(), "package.json"), "utf8")) as { elasticSigned?: unknown };
+    return manifest.elasticSigned === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Where an update this build cannot install is downloaded from. */
+export function releasePage(version: string | undefined): string {
+  return version ? `https://github.com/${APP_REPO}/releases/tag/v${version}` : `https://github.com/${APP_REPO}/releases/latest`;
+}
+
 /** The last known status. Never asks the feed. */
 export function updateStatus(): UpdateStatus {
   return status;
@@ -85,11 +118,12 @@ function setStatus(next: UpdateStatus): UpdateStatus {
  * the manual ones below are not, because pressing a button that says "Check for
  * updates" is consent.
  */
-export function initUpdater() {
+export function initUpdater(options: { selfInstall?: boolean } = {}) {
   if (!app.isPackaged) {
     return;
   }
 
+  selfInstall = options.selfInstall ?? installsItself();
   status = { state: "idle" };
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
@@ -125,7 +159,7 @@ export function initUpdater() {
     if ((status.state === "downloaded" || status.state === "installing") && status.version === info.version) {
       return;
     }
-    setStatus({ state: "available", version: info.version });
+    setStatus(selfInstall ? { state: "available", version: info.version } : { state: "available", version: info.version, manual: true });
   });
   autoUpdater.on("update-not-available", () => {
     // A check that overlaps a download (the six-hourly one, answering after
@@ -259,6 +293,12 @@ function failed(error: unknown): UpdateStatus {
 /** Download the update that was found. A no-op unless one was. */
 export async function downloadUpdate(): Promise<UpdateStatus> {
   if (status.state !== "available") {
+    return status;
+  }
+  if (status.manual) {
+    // This build cannot install it (see `installsItself`): the person downloads
+    // it from the release, and the offer stays until a check says otherwise.
+    await shell.openExternal(releasePage(status.version));
     return status;
   }
   try {

@@ -175,10 +175,13 @@ export function signingLine(targets, { signed, notarize }) {
  * electron-builder, run by this Node from the package's own `cli.js` — not
  * `npx`, whose Windows shim Node refuses to spawn (scripts/node-bin.mjs).
  */
-export function electronBuilder(targets, { version, notarize }) {
+export function electronBuilder(targets, { version, notarize, signed = false }) {
   return nodeTool("electron-builder", [
     ...builderArgsFor(targets),
     `--config.extraMetadata.version=${version}`,
+    // Read by src/main/updater.ts (`installsItself`): Squirrel.Mac installs an
+    // update only into a signed app, so an unsigned build offers the release page.
+    ...(signed ? ["--config.extraMetadata.elasticSigned=true"] : []),
     ...(notarize ? ["--config.mac.notarize=true"] : []),
     // Publishing is the release workflow's job, never a local build's: it uploads
     // the artifacts to the GitHub Release it already tags.
@@ -209,7 +212,7 @@ function main(argv) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(2);
   }
-  const { env, notarize } = signing;
+  const { env, notarize, signed } = signing;
 
   console.info(`packaging ${APP_NAME} ${version} for ${targets.join(" ")}`);
   console.info(signingLine(targets, signing));
@@ -239,7 +242,7 @@ function main(argv) {
     );
     process.exit(2);
   }
-  run(...electronBuilder(targets, { version, notarize }));
+  run(...electronBuilder(targets, { version, notarize, signed }));
 }
 
 // Run only as a script: the tests import the functions above, and an import

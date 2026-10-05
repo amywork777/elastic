@@ -38,6 +38,13 @@ describe("the build scripts' commands", () => {
     ]);
   });
 
+  it("stamp elasticSigned only into a signed build, for the updater's install check", () => {
+    const [, signed] = electronBuilder(["--mac"], { version: "1.2.3", notarize: false, signed: true });
+    const [, unsigned] = electronBuilder(["--mac"], { version: "1.2.3", notarize: false });
+    expect(signed).toContain("--config.extraMetadata.elasticSigned=true");
+    expect(unsigned.some((arg) => arg.includes("elasticSigned"))).toBe(false);
+  });
+
   it("never name npx, a .cmd/.bat shim, or a shell", () => {
     const offenders = fs
       .readdirSync(scripts)

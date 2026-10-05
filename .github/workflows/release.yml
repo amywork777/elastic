@@ -49,4 +49,6 @@ jobs:
         run: |
           tag="v$(cat VERSION)"
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --title "elastic $tag" --notes "elastic $tag"
-          gh release upload "$tag" release/*.dmg release/*.zip release/*.blockmap --clobber
+          # latest-mac.yml is the update feed electron-updater reads; without it a
+          # published release is invisible to installed apps.
+          gh release upload "$tag" release/*.dmg release/*.zip release/*.blockmap release/latest-mac.yml --clobber
