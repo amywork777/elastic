@@ -127,6 +127,14 @@ export function signingEnv(targets, source = process.env) {
     throw new Error("CSC_LINK is the macOS certificate: package --mac on its own when signing, not together with --win or --linux");
   }
   const env = { ...source };
+  // A workflow passes every secret it names, so a repository without the
+  // certificate hands CSC_LINK="" and friends to the build. electron-builder
+  // reads an empty CSC_LINK as a path, resolves it to the working directory
+  // and stops with "<repo> not a file": an empty one is no certificate, so it
+  // is not passed on.
+  for (const name of [...MAC_SIGNING, "WIN_CSC_LINK", "WIN_CSC_KEY_PASSWORD"]) {
+    if (env[name] === "") delete env[name];
+  }
   if (!mac) {
     for (const name of MAC_SIGNING) {
       delete env[name];

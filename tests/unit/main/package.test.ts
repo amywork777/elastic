@@ -58,6 +58,15 @@ describe("package.mjs", () => {
       APPLE_TEAM_ID: "TEAM",
     };
 
+    it("treats empty signing secrets as absent, as a workflow without them passes them", async () => {
+      const { signingEnv } = await import("../../../scripts/package.mjs");
+      const empty = { CSC_LINK: "", CSC_KEY_PASSWORD: "", APPLE_ID: "", APPLE_APP_SPECIFIC_PASSWORD: "", APPLE_TEAM_ID: "", GITHUB_ACTIONS: "true" };
+      const { env, signed, notarize } = signingEnv(["--mac", "--arm64", "--x64"], empty);
+      expect([signed, notarize]).toEqual([false, false]);
+      expect(Object.keys(env).filter((name) => name.startsWith("CSC_LINK") || name.startsWith("APPLE_") || name === "CSC_KEY_PASSWORD")).toEqual([]);
+      expect(env.CSC_IDENTITY_AUTO_DISCOVERY).toBe("false");
+    });
+
     it("signs and notarises the Mac with the Apple credentials", async () => {
       const { signingEnv } = await import("../../../scripts/package.mjs");
       const { env, signed, notarize } = signingEnv(["--mac"], { PATH: "/bin", ...APPLE });
