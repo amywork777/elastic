@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { Sidebar } from "@renderer/features/sidebar/Sidebar";
-import { SESSION_GLYPH_LABELS, folderGroupLabel, listedSessions, sessionGlyphFor, sidebarSections } from "@renderer/lib/sidebar";
+import { RECENTS_LIMIT, SESSION_GLYPH_LABELS, folderGroupLabel, isUnread, listedSessions, recentsSections, sessionGlyphFor, sidebarSections, statusTag } from "@renderer/lib/sidebar";
 import { runUiCommand } from "@renderer/state/bridge";
 import { useExplorer } from "@renderer/state/explorer";
 import { useProjects } from "@renderer/state/projects";
@@ -46,12 +46,13 @@ const session = (overrides: Partial<Session> & { id: string; title: string }): S
   archived: false,
   pinned: false,
   sessionHead: null,
-  turnHead: null,
+  turnHead: null, lastViewedAt: null, statusOverride: null,
   ...overrides,
 });
 
+/** Folders unless a test asks for Recents: most tests here are about the folder sections. */
 const filters = (overrides: Partial<SidebarSettings> = {}): SidebarSettings =>
-  SidebarSettingsSchema.parse(overrides);
+  SidebarSettingsSchema.parse({ groupBy: "project", ...overrides });
 
 /* -------------------------------------------------------------------------- */
 /* The selector                                                                */
@@ -314,7 +315,7 @@ describe("Sidebar", () => {
   beforeEach(() => {
     useProjects.setState({ projects: [], ready: true, activeId: null, draft: null });
     useSessions.setState({ sessions: [], ready: true, activeId: null });
-    useSettings.setState({ settings: defaultSettings(), ready: true });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters() }, ready: true });
     useUi.setState({
       route: "app",
       settingsSection: "general",
@@ -743,5 +744,165 @@ describe("Running now and the Agents panel", () => {
     expect(screen.getByText("Spare codex")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
+  });
+});
+
+describe("recents", () => {
+  const projects = [project("p1", "elastic"), project("p2", "vizcom")];
+  const at = (minutes: number) => 1_000_000 + minutes * 60_000;
+
+  it("tags a chat from what is happening, and a hand-set tag only once it is finished", () => {
+    expect(statusTag(session({ id: "a", title: "A", status: "running" })).tag).toBe("working");
+    expect(statusTag(session({ id: "a", title: "A", status: "waiting" })).tag).toBe("waiting");
+    expect(statusTag(session({ id: "a", title: "A", status: "error" })).tag).toBe("failed");
+    expect(statusTag(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(1), changedFiles: 2 })).tag).toBe("review");
+    expect(statusTag(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(9), changedFiles: 2 })).tag).toBe("done");
+    expect(statusTag(session({ id: "a", title: "A", status: "running", statusOverride: "done" }))).toEqual({ tag: "working", manual: false });
+    expect(statusTag(session({ id: "a", title: "A", statusOverride: "review" }))).toEqual({ tag: "review", manual: true });
+  });
+
+  it("reads a never-viewed chat as read, and activity after the last view as unread", () => {
+    expect(isUnread(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: null }))).toBe(false);
+    expect(isUnread(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(1) }))).toBe(true);
+    expect(isUnread(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(6) }))).toBe(false);
+  });
+
+  it("orders pinned, then live chats, then by activity, Done last, and cuts at ten", () => {
+    const rows = [
+      session({ id: "pin", title: "Pinned", pinned: true, updatedAt: at(1) }),
+      session({ id: "run", title: "Running", status: "running", updatedAt: at(2) }),
+      session({ id: "done-new", title: "Done new", updatedAt: at(50), lastViewedAt: at(51) }),
+      session({ id: "review", title: "Review", updatedAt: at(30), lastViewedAt: at(1), changedFiles: 1 }),
+      ...Array.from({ length: 10 }, (_, index) => session({ id: `old${index}`, title: `Old ${index}`, updatedAt: at(3 + index), lastViewedAt: at(1), changedFiles: 1 })),
+      session({ id: "archived", title: "Archived", archived: true, updatedAt: at(99) }),
+    ];
+    const sections = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), expanded: false });
+    expect(sections[0]!.sessions.map((row) => row.id)).toEqual(["pin"]);
+    const recents = sections.find((section) => section.kind === "recents")!;
+    expect(recents.sessions.map((row) => row.id).slice(0, 3)).toEqual(["run", "review", "old9"]);
+    expect(recents.sessions).toHaveLength(RECENTS_LIMIT);
+    expect(recents.more).toBe(3);
+    const all = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), expanded: true });
+    const expandedIds = all.find((section) => section.kind === "recents")!.sessions.map((row) => row.id);
+    expect(expandedIds.at(-1)).toBe("done-new");
+    expect(expandedIds).not.toContain("archived");
+    expect(expandedIds).not.toContain("pin");
+  });
+
+  it("applies hidden folders and the Environment filter to Recents", () => {
+    const rows = [session({ id: "a", title: "A", projectId: "p1" }), session({ id: "b", title: "B", projectId: "p2", gitMode: "worktree" })];
+    const hidden = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), hidden: ["p2"], expanded: true });
+    expect(hidden.find((s) => s.kind === "recents")!.sessions.map((r) => r.id)).toEqual(["a"]);
+    const local = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents", environment: "local" }), expanded: true });
+    expect(local.find((s) => s.kind === "recents")!.sessions.map((r) => r.id)).toEqual(["a"]);
+  });
+
+  it("numbers Mod+1..9 by the rows on screen, folded Folders left out", () => {
+    const rows = Array.from({ length: 12 }, (_, index) => session({ id: `s${index}`, title: `S${index}`, updatedAt: at(index) }));
+    const sections = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), expanded: false });
+    const listed = listedSessions(sections, [], { foldersCollapsed: true });
+    expect(listed).toHaveLength(RECENTS_LIMIT);
+    expect(listed[0]!.id).toBe("s11");
+  });
+});
+
+describe("Recents sidebar", () => {
+  beforeEach(() => {
+    useProjects.setState({ projects: [project("p1", "elastic")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ groupBy: "recents" }) }, ready: true });
+    useSessions.setState({ recentsExpanded: false });
+    vi.mocked(window.workbench.sessions.setTag).mockClear();
+  });
+
+  it("lists chats by recency with their tags and an unread mark, folders folded below", () => {
+    useSessions.setState({
+      ready: true, activeId: null,
+      sessions: [
+        session({ id: "a", title: "Alpha", updatedAt: 50, lastViewedAt: 10, changedFiles: 3 }),
+        session({ id: "b", title: "Beta", status: "running", updatedAt: 20 }),
+        session({ id: "c", title: "Gamma", updatedAt: 40, lastViewedAt: 45 }),
+      ],
+    });
+    const view = wrap(<Sidebar />);
+    const rows = [...view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")];
+    expect(rows.map((row) => row.getAttribute("data-session-row"))).toEqual(["b", "a", "c"]);
+    expect(rows.map((row) => row.getAttribute("data-status-tag"))).toEqual(["working", "review", "done"]);
+    expect(rows[1]!.hasAttribute("data-unread")).toBe(true);
+    expect(rows[2]!.hasAttribute("data-unread")).toBe(false);
+    expect(screen.getByText("Needs review")).toBeInTheDocument();
+    expect(view.container.querySelector("[data-sidebar-folders]")).not.toBeNull();
+    expect(view.container.querySelector("[data-sidebar-section]")).toBeNull();
+    expect(view.container.querySelector("[data-sidebar-running]")).toBeNull();
+  });
+
+  it("shows ten and offers the rest", async () => {
+    const user = userEvent.setup();
+    useSessions.setState({ ready: true, activeId: null, sessions: Array.from({ length: 13 }, (_, i) => session({ id: `s${i}`, title: `Chat ${i}`, updatedAt: i })) });
+    const view = wrap(<Sidebar />);
+    expect(view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")).toHaveLength(10);
+    await user.click(screen.getByRole("button", { name: "Show 3 more" }));
+    expect(view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")).toHaveLength(13);
+  });
+
+  it("opens the folders on demand", async () => {
+    const user = userEvent.setup();
+    vi.mocked(window.workbench.settings.set).mockImplementationOnce(async (patch) => ({ ...useSettings.getState().settings!, ...(patch as Partial<Settings>) }));
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    const view = wrap(<Sidebar />);
+    await user.click(screen.getByRole("button", { name: /Folders/ }));
+    await vi.waitFor(() => expect(view.container.querySelector("[data-sidebar-section=p1]")).not.toBeNull());
+  });
+
+  it("sets a tag by hand from the row's menu", async () => {
+    const user = userEvent.setup();
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    wrap(<Sidebar />);
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByText("Alpha") });
+    await user.click(await screen.findByRole("menuitem", { name: "Mark as Needs review" }));
+    expect(window.workbench.sessions.setTag).toHaveBeenCalledWith({ id: "a", tag: "review" });
+  });
+});
+
+describe("Recents row layout", () => {
+  it("lets the folder name give way before the title when a tag shares the row", () => {
+    useProjects.setState({ projects: [project("p1", "a-very-long-folder-name-for-the-row")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ groupBy: "recents" }) }, ready: true });
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha", updatedAt: 9, lastViewedAt: 1, changedFiles: 1 })] });
+    const view = wrap(<Sidebar />);
+    const row = view.container.querySelector('[data-sidebar-recents] [data-session-row="a"]')!;
+    expect(row.querySelector("[data-session-row-title]")!.className).toContain("min-w-16");
+    expect(row.querySelector("[data-session-row-title]")!.className).toContain("flex-auto");
+    expect(row.querySelector("[data-session-project]")!.className).toContain("shrink-[100]");
+    expect(row.querySelector("[data-session-project]")!.className).not.toContain("shrink-0");
+  });
+});
+
+describe("a row's click target", () => {
+  it("opens the chat from anywhere on the row, the folder name and tag included", async () => {
+    const user = userEvent.setup();
+    useProjects.setState({ projects: [project("p1", "elastic")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ groupBy: "recents" }) }, ready: true });
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    const view = wrap(<Sidebar />);
+    await user.click(view.container.querySelector('[data-sidebar-recents] [data-session-row="a"] [data-session-project]')!);
+    expect(useSessions.getState().activeId).toBe("a");
+  });
+});
+
+describe("Recents review fixes", () => {
+  it("keeps a reopening chat in its place: connecting with a past turn is not Working", () => {
+    expect(statusTag(session({ id: "a", title: "A", status: "connecting", acpSessionId: "acp", updatedAt: 5, lastViewedAt: 9 })).tag).toBe("done");
+    expect(statusTag(session({ id: "a", title: "A", status: "connecting", acpSessionId: null })).tag).toBe("working");
+  });
+
+  it("offers the Tag items only on Recents rows", async () => {
+    const user = userEvent.setup();
+    useProjects.setState({ projects: [project("p1", "elastic")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters() }, ready: true });
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    wrap(<Sidebar />);
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByText("Alpha") });
+    await screen.findByRole("menuitem", { name: "Rename" });
+    expect(screen.queryByRole("menuitem", { name: "Mark as Done" })).toBeNull();
   });
 });

@@ -67,6 +67,10 @@ export type SessionStatus = z.infer<typeof SessionStatusSchema>;
  * index entry the app keeps so the sidebar can list threads without loading
  * them.
  */
+/** A tag the person set on a chat by hand (the sidebar's right-click Tag items). */
+export const SessionTagSchema = z.enum(["done", "review", "waiting"]);
+export type SessionTag = z.infer<typeof SessionTagSchema>;
+
 export const SessionSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -97,6 +101,10 @@ export const SessionSchema = z.object({
   titleSource: z.enum(["prompt", "agent", "user"]).default("prompt"),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
+  /** When the person last saw this chat with the window focused; null before the first time. */
+  lastViewedAt: z.number().int().nullable().default(null),
+  /** The tag set by hand, until the chat's next turn starts; null when automatic. */
+  statusOverride: SessionTagSchema.nullable().catch(null).default(null),
   status: SessionStatusSchema,
   /**
    * The agent's own id for this session, set by `session/new` and used by
@@ -545,7 +553,7 @@ export const SidebarEnvironmentFilterSchema = z.enum(["all", "local", "worktree"
 export type SidebarEnvironmentFilter = z.infer<typeof SidebarEnvironmentFilterSchema>;
 
 /** A section per project, or one flat list. */
-export const SidebarGroupBySchema = z.enum(["project", "none"]);
+export const SidebarGroupBySchema = z.enum(["recents", "project", "none"]);
 export type SidebarGroupBy = z.infer<typeof SidebarGroupBySchema>;
 
 /** The order inside a section. */
@@ -569,7 +577,7 @@ export type SidebarSortBy = z.infer<typeof SidebarSortBySchema>;
 export const SidebarSettingsSchema = z.object({
   status: SidebarStatusFilterSchema.default("active"),
   environment: SidebarEnvironmentFilterSchema.default("all"),
-  groupBy: SidebarGroupBySchema.default("project"),
+  groupBy: SidebarGroupBySchema.default("recents"),
   sortBy: SidebarSortBySchema.default("activity"),
   /** A faint branch (or worktree) name after a session's title. */
   showBranch: z.boolean().default(false),
@@ -580,6 +588,8 @@ export const SidebarSettingsSchema = z.object({
    * stays listed when none of its sessions match, so it is always there to start one in.
    */
   pinnedProjects: z.array(z.string()).default([]),
+  /** In Recents, the Folders section below the list: folded until opened. */
+  foldersCollapsed: z.boolean().default(true),
 });
 export type SidebarSettings = z.infer<typeof SidebarSettingsSchema>;
 

@@ -68,3 +68,17 @@ it("reads a colour theme this build does not have as the default one", () => {
   expect(settings.get().colorTheme).toBe("nord");
   expect(settings.fallbacks()).toEqual({});
 });
+
+it("moves a stored Project grouping to Recents once, and leaves a later choice alone", () => {
+  settings.set({ sidebar: { ...settings.get().sidebar, groupBy: "project" } });
+  settings.defaultSidebarToRecentsOnce();
+  expect(settings.get().sidebar.groupBy).toBe("recents");
+  settings.set({ sidebar: { ...settings.get().sidebar, groupBy: "project" } });
+  settings.defaultSidebarToRecentsOnce();
+  expect(settings.get().sidebar.groupBy).toBe("project");
+  expect(settings.get().sidebar.foldersCollapsed).toBe(true);
+});
+
+it("starts a new install on Recents", () => {
+  expect(defaultSettings().sidebar.groupBy).toBe("recents");
+});

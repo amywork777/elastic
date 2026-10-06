@@ -68,6 +68,8 @@ Object.defineProperty(window, "workbench", {
       rename: vi.fn(async () => undefined),
       archive: vi.fn(async () => undefined),
       setPinned: vi.fn(async () => undefined),
+      markViewed: vi.fn(async () => undefined),
+      setTag: vi.fn(async () => undefined),
       delete: vi.fn(async () => undefined),
       activity: vi.fn(async () => ({ processes: [], keepAlive: 4 })),
     },

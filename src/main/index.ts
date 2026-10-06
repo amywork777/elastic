@@ -285,6 +285,8 @@ if (!app.requestSingleInstanceLock()) {
     // "my projects are gone" report can be checked against the file that was
     // actually written.
     db();
+    // Recents is the sidebar's main list from this version: moved to once (repositories.ts).
+    settingsRepository.defaultSidebarToRecentsOnce();
     mark("db");
     startupStep = "services";
     console.info(`[db] ${databaseFile()}`);

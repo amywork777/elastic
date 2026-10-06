@@ -60,6 +60,8 @@ describe("the contract", () => {
       "sessions.rename",
       "sessions.archive",
       "sessions.setPinned",
+      "sessions.markViewed",
+      "sessions.setTag",
       "sessions.activity",
       "sessions.close",
       "sessions.delete",

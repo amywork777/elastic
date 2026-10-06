@@ -126,6 +126,8 @@ type SessionRow = {
   turn_head: string | null;
   provider: string | null;
   links: string | null;
+  last_viewed_at: number | null;
+  status_override: string | null;
 };
 
 /** A JSON column that parses or is left out (its schema default then applies). */
@@ -139,7 +141,8 @@ function json(text: string | null): unknown {
 const SESSION_COLUMNS =
   "id, project_id, agent_id, cwd, git_mode, branch, title, created_at, updated_at, status, " +
   "acp_session_id, changed_files, insertions, deletions, archived, pinned, " +
-  "worktree_path, worktree_owned, session_head, turn_head, title_source, provider, links";
+  "worktree_path, worktree_owned, session_head, turn_head, title_source, provider, links, " +
+  "last_viewed_at, status_override";
 
 const toSession = (row: SessionRow): Session =>
   SessionSchema.parse({
@@ -155,6 +158,8 @@ const toSession = (row: SessionRow): Session =>
     titleSource: row.title_source,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    lastViewedAt: row.last_viewed_at,
+    statusOverride: row.status_override,
     status: row.status,
     acpSessionId: row.acp_session_id,
     changedFiles: row.changed_files,
@@ -203,7 +208,8 @@ export const sessions = {
         `INSERT INTO sessions (${SESSION_COLUMNS})
          VALUES (@id, @projectId, @agentId, @cwd, @gitMode, @branch, @title, @createdAt, @updatedAt, @status,
                  @acpSessionId, @changedFiles, @insertions, @deletions, @archived, @pinned,
-                 @worktreePath, @worktreeOwned, @sessionHead, @turnHead, @titleSource, @provider, @links)
+                 @worktreePath, @worktreeOwned, @sessionHead, @turnHead, @titleSource, @provider, @links,
+                 @lastViewedAt, @statusOverride)
          ON CONFLICT(id) DO UPDATE SET
            agent_id = excluded.agent_id,
            cwd = excluded.cwd,
@@ -224,7 +230,9 @@ export const sessions = {
            session_head = excluded.session_head,
            turn_head = excluded.turn_head,
            provider = excluded.provider,
-           links = excluded.links`,
+           links = excluded.links,
+           last_viewed_at = excluded.last_viewed_at,
+           status_override = excluded.status_override`,
       )
       .run({
         ...parsed,
@@ -235,6 +243,8 @@ export const sessions = {
         worktreeOwned: parsed.worktreeOwned ? 1 : 0,
         provider: parsed.provider ? JSON.stringify(parsed.provider) : null,
         links: parsed.links && Object.keys(parsed.links).length > 0 ? JSON.stringify(parsed.links) : null,
+        lastViewedAt: parsed.lastViewedAt ?? null,
+        statusOverride: parsed.statusOverride ?? null,
       });
     return parsed;
   },
@@ -501,6 +511,8 @@ const WINDOW_STATE_KEY = "__window";
 const AGENTS_CACHE_KEY = "__agents";
 /** Each chat's queued prompts (`src/shared/ipc/queues.ts`), by session id, under the same terms. */
 const QUEUES_KEY = "__queues";
+/** Set once the sidebar has been moved to Recents (`settings.defaultSidebarToRecentsOnce`). */
+const RECENTS_DEFAULTED_KEY = "__recentsDefaulted";
 
 function readRaw(): Record<string, unknown> {
   const rows = db().prepare("SELECT key, value FROM settings").all() as {
@@ -602,6 +614,18 @@ export const settings = {
 
   fallbacks(): Record<string, string> {
     return fallbacksOf(readRaw());
+  },
+
+  /**
+   * Recents arrives as the sidebar's main list. Installs before it stored `groupBy: "project"`
+   * (the old default), so that one value moves to Recents, once; a person who goes back to
+   * Folders afterwards stays there.
+   */
+  defaultSidebarToRecentsOnce(): void {
+    if (readRaw()[RECENTS_DEFAULTED_KEY]) return;
+    const sidebar = settings.get().sidebar;
+    if (sidebar.groupBy === "project") settings.set({ sidebar: { ...sidebar, groupBy: "recents" } });
+    writeRaw({ [RECENTS_DEFAULTED_KEY]: true });
   },
 
   windowState(): WindowState {

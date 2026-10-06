@@ -15,6 +15,7 @@ import { useAgentOptions } from "./agent-options";
 import { useAgents } from "./agents";
 import { persistQueues, restoreQueues, useComposer } from "./composer";
 import { networkTurnEvent, watchNetwork } from "./network-resume";
+import { trackViewed } from "./viewed";
 import { performIntegrationCommand } from "./integration-commands";
 import { useExplorer } from "./explorer";
 import { attachHistory, useHistory } from "./history";
@@ -300,6 +301,7 @@ function toggleLayout(key: "sidebarCollapsed") {
 /** First read of everything the shell needs. */
 let stopTracking: (() => void) | null = null;
 let stopSavingQueues: (() => void) | null = null;
+let stopViewed: (() => void) | null = null;
 let stopWatchingNetwork: (() => void) | null = null;
 let stopUnhiding: (() => void) | null = null;
 
@@ -319,6 +321,8 @@ export async function hydrate(): Promise<void> {
   // Open where the person was (the session and the rail's page), then keep that current.
   restoreWhereYouWere();
   stopTracking ??= trackWhereYouWere();
+  // The open chat counts as seen while the window has focus (Recents' unread dot).
+  stopViewed ??= trackViewed();
   // The prompts queued before the last quit, paused; then every change is saved as it happens.
   await restoreQueues();
   stopSavingQueues ??= persistQueues();

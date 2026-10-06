@@ -34,11 +34,6 @@ const ALLOWED: { file: string; snippet: string; count?: number; reason: string }
     count: 2,
     reason: "the grid and inline remove buttons are overridden at Composer.tsx (opacity-60, focus-visible:opacity-100 and a ring)",
   },
-  {
-    file: "features/explorer/TabStrip.tsx",
-    snippet: "aria-label={`Close ${title}`}",
-    reason: "the tab's close button is aria-hidden and outside the Tab order (Delete on the tab is its keyboard twin), so keyboard focus never lands on it",
-  },
 ];
 
 const allowed = (site: Site) => ALLOWED.some((entry) => entry.file === site.file && site.text.includes(entry.snippet));
@@ -111,7 +106,8 @@ const drawsFocus = (text: string) =>
  * A ring drawn by a parent around a button it holds (`has-[:focus-visible]:ring-2`). The scan
  * cannot say which button the parent holds, so a file with one excuses the file's outline-less buttons.
  */
-const PARENT_RING = /has-\[[^\]\s]*focus-visible[^\]\s]*\]:(?:ring|outline|shadow)/;
+// The selector inside `has-[…]` may hold a bracketed attribute of its own: `has-[[data-x]:focus-visible]`.
+const PARENT_RING = /has-\[(?:\[[^\]]*\])?[^\]\s]*focus-visible[^\]\s]*\]:(?:ring|outline|shadow)/;
 
 function ringlessButtons(path: string, source: string): Site[] {
   const found: Site[] = [];
@@ -139,6 +135,9 @@ describe("keyboard focus is visible (source scan of src/renderer)", () => {
   const at = (sites: Site[]) => sites.map((found) => found.at);
 
   it("the scan itself sees the patterns it is looking for", () => {
+    expect(PARENT_RING.test('className="has-[[data-title]:focus-visible]:ring-2"')).toBe(true);
+    expect(PARENT_RING.test('className="has-[:focus-visible]:ring-2"')).toBe(true);
+    expect(PARENT_RING.test('className="has-[[data-title]]:bg-accent"')).toBe(false);
     expect(at(hoverOnlyReveals("a.tsx", '<i className="opacity-0 group-hover:opacity-100" />'))).toEqual(["a.tsx:1"]);
     expect(at(hoverOnlyReveals("a.tsx", '<i className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" />'))).toEqual([]);
     // Named groups are groups too, and their twin is a named one or the element's own.

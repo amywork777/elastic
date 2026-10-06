@@ -36,13 +36,15 @@ import type {
 export type SidebarSection = {
   /** Stable across renders: the project's id, or the kind for the other two. */
   id: string;
-  kind: "pinned" | "project" | "all";
+  kind: "pinned" | "project" | "all" | "recents";
   /** The header's text. */
   name: string;
   project: Project | null;
   sessions: Session[];
   /** A pinned folder: listed at the top of the folders, and even with no sessions to show. */
   pinned: boolean;
+  /** Recents: how many rows are past the cut (`RECENTS_LIMIT`); 0 when expanded. */
+  more?: number;
 };
 
 /**
@@ -131,11 +133,90 @@ export function sidebarSections(input: {
  * project's. Mod+1..9 counts in this order, so the number is the row the
  * person sees.
  */
-export function listedSessions(sections: readonly SidebarSection[], collapsedProjects: readonly string[]): Session[] {
+export function listedSessions(
+  sections: readonly SidebarSection[],
+  collapsedProjects: readonly string[],
+  { foldersCollapsed = false }: { foldersCollapsed?: boolean } = {},
+): Session[] {
+  // In Recents a chat is listed once, in Recents; the folders below it repeat what is there.
+  const recents = sections.some((section) => section.kind === "recents");
   const collapsed = new Set(collapsedProjects);
-  return sections.flatMap((section) =>
-    section.kind === "project" && collapsed.has(section.id) ? [] : section.sessions,
-  );
+  return sections.flatMap((section) => {
+    if (section.kind !== "project") return section.sessions;
+    if (recents && foldersCollapsed) return [];
+    return collapsed.has(section.id) ? [] : section.sessions;
+  });
+}
+
+export type StatusTag = "working" | "waiting" | "review" | "failed" | "done";
+
+export const STATUS_TAG_LABELS: Record<StatusTag, string> = {
+  working: "Working",
+  waiting: "Waiting on you",
+  review: "Needs review",
+  failed: "Failed",
+  done: "Done",
+};
+
+/** How many Recents rows show before **Show N more**. */
+export const RECENTS_LIMIT = 10;
+
+/** Activity since the person last saw the chat. A chat never seen since Recents arrived reads as read. */
+export function isUnread(session: Session): boolean {
+  return session.lastViewedAt !== null && session.updatedAt > session.lastViewedAt;
+}
+
+/**
+ * A chat's tag: what is happening wins (a turn going, a question, a failure); a finished chat
+ * takes the person's own tag if they set one, else Needs review when it changed files they have
+ * not seen, else Done.
+ */
+export function statusTag(session: Session): { tag: StatusTag; manual: boolean } {
+  // `connecting` is Working only for a chat that has never answered (being created); a chat that
+  // has (`acpSessionId`) is reopening, which is housekeeping: it keeps its tag and its place.
+  if (session.status === "running" || (session.status === "connecting" && !session.acpSessionId)) return { tag: "working", manual: false };
+  if (session.status === "waiting") return { tag: "waiting", manual: false };
+  if (session.status === "error") return { tag: "failed", manual: false };
+  if (session.statusOverride) return { tag: session.statusOverride, manual: true };
+  return { tag: isUnread(session) && session.changedFiles > 0 ? "review" : "done", manual: false };
+}
+
+const LIVE: ReadonlySet<StatusTag> = new Set(["working", "waiting"]);
+
+/**
+ * Recents: pinned chats, then every other listed chat, what is live first, the rest by activity
+ * and Done after them, cut at `RECENTS_LIMIT` unless expanded; then the folder sections. The
+ * filters, hidden folders and the archived rule are `sidebarSections`' own, so a chat Recents
+ * leaves out is one the folders leave out too, and a pinned chat is listed once.
+ */
+export function recentsSections(input: {
+  sessions: readonly Session[];
+  projects: readonly Project[];
+  filters: SidebarSettings;
+  hidden?: readonly string[];
+  expanded: boolean;
+}): SidebarSection[] {
+  const byFolder = sidebarSections({
+    sessions: input.sessions,
+    projects: input.projects,
+    filters: { ...input.filters, groupBy: "project" },
+    ...(input.hidden ? { hidden: input.hidden } : {}),
+  });
+  const pinned = byFolder.filter((section) => section.kind === "pinned");
+  const folders = byFolder.filter((section) => section.kind === "project");
+  const rank = (session: Session) => {
+    const { tag } = statusTag(session);
+    return LIVE.has(tag) ? 0 : tag === "done" ? 2 : 1;
+  };
+  const ordered = folders
+    .flatMap((section) => section.sessions)
+    .sort((a, b) => rank(a) - rank(b) || b.updatedAt - a.updatedAt);
+  const shown = input.expanded ? ordered : ordered.slice(0, RECENTS_LIMIT);
+  return [
+    ...pinned,
+    { id: "recents", kind: "recents", name: "Recents", project: null, sessions: shown, pinned: false, more: ordered.length - shown.length },
+    ...folders,
+  ];
 }
 
 /**

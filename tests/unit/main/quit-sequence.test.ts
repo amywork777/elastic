@@ -117,6 +117,7 @@ vi.mock("@main/db/repositories", async () => {
   return {
     settings: {
       get: () => ({ theme: "system" }),
+      defaultSidebarToRecentsOnce: () => {},
       windowState: () => ({ width: 900, height: 600 }),
       setWindowState: () => {
         db();

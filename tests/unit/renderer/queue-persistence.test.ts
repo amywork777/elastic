@@ -8,7 +8,7 @@ import type { Session } from "@shared/types";
 const row = (id: string): Session => ({
   id, projectId: "p1", titleSource: "prompt", agentId: "claude-code", cwd: "/repo", gitMode: "none", title: id,
   createdAt: 0, updatedAt: 0, status: "idle", acpSessionId: "acp", changedFiles: 0, insertions: 0, deletions: 0,
-  archived: false, pinned: false, sessionHead: null, turnHead: null,
+  archived: false, pinned: false, sessionHead: null, turnHead: null, lastViewedAt: null, statusOverride: null,
 });
 const prompt = (id: string, text: string) => ({ id, text, content: [{ type: "text" as const, text }] });
 

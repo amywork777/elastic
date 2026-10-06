@@ -16,7 +16,7 @@ import {
   SessionEventSchema,
   SessionStateSchema,
 } from "../acp/types";
-import { GitModeSchema, SessionSchema, SessionStatusSchema } from "../types";
+import { GitModeSchema, SessionSchema, SessionStatusSchema, SessionTagSchema } from "../types";
 import { invoke } from "./define";
 
 const Id = z.object({ id: z.string().min(1) });
@@ -156,6 +156,10 @@ export const acpContract = {
      * `updatedAt`, so pinning does not reorder a list sorted by activity.
      */
     setPinned: invoke(Id.extend({ pinned: z.boolean() }), SessionSchema),
+    /** The person saw this chat; `updatedAt` stays (Recents' unread dot is activity after it). */
+    markViewed: invoke(Id, SessionSchema),
+    /** A Recents tag set by hand, null for automatic; cleared when the next turn starts. */
+    setTag: invoke(Id.extend({ tag: SessionTagSchema.nullable() }), SessionSchema),
     /**
      * Every adapter process running now, chats first (most recently used first), then the
      * spares, and how many idle chats the app keeps alive before closing the oldest.

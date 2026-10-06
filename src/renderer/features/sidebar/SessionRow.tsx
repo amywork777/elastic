@@ -4,7 +4,9 @@ import {
   ArchiveRestore,
   Circle,
   CircleDot,
+  CircleCheck,
   Copy,
+  Eye,
   GitBranch,
   GitFork,
   MoreHorizontal,
@@ -32,7 +34,8 @@ import {
 import { MenuItem, MenuKind, MenuSeparator } from "@renderer/features/sidebar/menu";
 import { openSessionReview } from "@renderer/features/sidebar/open-review";
 import { gitGlyphFor, gitGlyphLabel, useProjectGitInfo } from "@renderer/lib/git-mode";
-import { SESSION_GLYPH_LABELS, sessionGlyphFor } from "@renderer/lib/sidebar";
+import { SESSION_GLYPH_LABELS, STATUS_TAG_LABELS, isUnread, sessionGlyphFor, statusTag } from "@renderer/lib/sidebar";
+import { StatusTag } from "@renderer/features/sidebar/StatusTag";
 import { useSessions } from "@renderer/state/sessions";
 import type { Session, SessionStatus } from "@shared/types";
 
@@ -55,6 +58,7 @@ export function SessionRow({
   projectName,
   showBranch,
   onSelect,
+  recents = false,
 }: {
   session: Session;
   selected: boolean;
@@ -63,6 +67,8 @@ export function SessionRow({
   /** `Show branch` in the filter menu: the branch, faint, after the title. */
   showBranch: boolean;
   onSelect: () => void;
+  /** A Recents row: its tag, an unread dot and bold title, no change counts (the tag says it). */
+  recents?: boolean;
 }) {
   const rename = useSessions((state) => state.rename);
   const archive = useSessions((state) => state.archive);
@@ -72,7 +78,12 @@ export function SessionRow({
   const [draft, setDraft] = useState(session.title);
   const statusId = useId();
   // Idle is the absence of news; saying it on every quiet row would be noise.
-  const statusText = sessionGlyphFor(session.status) === "idle" ? null : SESSION_GLYPH_LABELS[sessionGlyphFor(session.status)];
+  const tagged = recents ? statusTag(session) : null;
+  const unread = recents && isUnread(session);
+  const setTag = useSessions((state) => state.setTag);
+  const statusText = tagged
+    ? `${STATUS_TAG_LABELS[tagged.tag]}${tagged.manual ? ", set by hand" : ""}${unread ? ", unread" : ""}`
+    : sessionGlyphFor(session.status) === "idle" ? null : SESSION_GLYPH_LABELS[sessionGlyphFor(session.status)];
 
   // Enter and Escape end the edit by unmounting the box that had focus, which left it on the page;
   // the title button takes it back. A blur that ends the edit (a click elsewhere) must not.
@@ -104,6 +115,17 @@ export function SessionRow({
         onSelect={() => void setPinned(session.id, !session.pinned)}
       />
       <MenuItem icon={<Pencil />} label="Rename" onSelect={startRename} />
+      {/* Tags show only in Recents, so they are only offered there. */}
+      {recents ? (
+        <>
+          <MenuSeparator />
+          <MenuItem icon={<CircleCheck />} label="Mark as Done" onSelect={() => void setTag(session.id, "done")} />
+          <MenuItem icon={<Eye />} label="Mark as Needs review" onSelect={() => void setTag(session.id, "review")} />
+          <MenuItem icon={<CircleDot />} label="Mark as Waiting on you" onSelect={() => void setTag(session.id, "waiting")} />
+          {session.statusOverride ? <MenuItem icon={<Circle />} label="Tag automatically" onSelect={() => void setTag(session.id, null)} /> : null}
+          <MenuSeparator />
+        </>
+      ) : null}
       <MenuItem
         icon={session.archived ? <ArchiveRestore /> : <Archive />}
         label={session.archived ? "Unarchive" : "Archive"}
@@ -139,8 +161,23 @@ export function SessionRow({
           data-pinned={session.pinned ? "" : undefined}
           data-session-row={session.id}
           data-status={session.status}
+          data-status-tag={tagged?.tag}
+          data-unread={unread ? "" : undefined}
+          // The whole row opens the chat, not only its title: the folder name and the tag beside
+          // it are part of what is clicked. Controls in the row keep their own clicks. The keyboard's
+          // way in is the title button, so this pointer-only handler adds no second tab stop.
+          onClick={(event) => {
+            if (editing || (event.target as HTMLElement).closest("button, input, a, [role=menuitem]")) return;
+            onSelect();
+          }}
         >
-          <StateGlyph status={session.status} />
+          {unread && sessionGlyphFor(session.status) === "idle" ? (
+            <span className="flex size-4 shrink-0 items-center justify-center self-center leading-none" data-session-glyph="unread">
+              <span aria-hidden className="size-1.5 rounded-full bg-info" />
+            </span>
+          ) : (
+            <StateGlyph status={session.status} />
+          )}
           {statusText ? (
             <span className="sr-only" id={statusId}>
               {statusText}
@@ -176,7 +213,14 @@ export function SessionRow({
                 // The state glyph sits before this button and is not a tab stop, so its word rides
                 // here: read as the row's description, it is heard from the one place focus lands.
                 aria-describedby={statusText ? statusId : undefined}
-                className="min-w-0 flex-1 truncate text-left text-[13px] focus-visible:outline-none"
+                className={cn(
+                  "min-w-0 truncate text-left text-[13px] focus-visible:outline-none",
+                  // With a tag beside it the title is what must stay readable: it claims its own width
+                  // (basis auto, not flex-1's zero) and the folder name gives way first.
+                  tagged ? "min-w-16 flex-auto" : "flex-1",
+                  unread && "font-semibold",
+                  tagged?.tag === "done" && !selected && "text-sidebar-foreground/75",
+                )}
                 data-session-row-title
                 ref={titleButton}
                 onClick={onSelect}
@@ -194,19 +238,26 @@ export function SessionRow({
           )}
           {projectName ? (
             <span
-              className="max-w-[40%] shrink-0 truncate text-[11px] text-muted-foreground"
+              className={cn(
+                "truncate text-[11px] text-muted-foreground",
+                tagged ? "min-w-0 max-w-[30%] shrink-[100]" : "max-w-[40%] shrink-0",
+              )}
               data-session-project
             >
               {projectName}
             </span>
           ) : null}
-          <ChangeCounts
-            onOpen={() => {
-              onSelect();
-              openSessionReview(session.id);
-            }}
-            session={session}
-          />
+          {tagged ? (
+            <StatusTag manual={tagged.manual} tag={tagged.tag} />
+          ) : (
+            <ChangeCounts
+              onOpen={() => {
+                onSelect();
+                openSessionReview(session.id);
+              }}
+              session={session}
+            />
+          )}
           <GitGlyph session={session} />
           <DropdownMenu>
             <TooltipHint content="Chat actions">

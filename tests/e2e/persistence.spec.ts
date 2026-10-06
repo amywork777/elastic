@@ -146,7 +146,12 @@ test("the second launch comes back to all of it, and opening its sessions is che
 
     // The project, its rows, and chips drawn from the cache — no probe, no spawn — on all three
     // choices, with both models' levels.
-    await expect(page.getByText(path.basename(project)).first()).toBeVisible();
+    // Recents lists the chats; the project is under Folders, folded until opened (and folded
+    // again here, so each chat is one row for the clicks below).
+    await expect(page.locator("[data-sidebar-recents] [data-session-row]")).toHaveCount(2);
+    await page.locator("[data-sidebar-folders]").click();
+    await expect(page.locator("[data-sidebar-section]").getByText(path.basename(project)).first()).toBeVisible();
+    await page.locator("[data-sidebar-folders]").click();
     await expect(page.locator("[data-session-row]")).toHaveCount(2);
     expect((await page.evaluate(() => window.workbench.sessions.list({}))).map((session) => session.id).sort()).toEqual(launchedIds);
     const strip = page.locator("[data-new-session] [data-composer-row]");

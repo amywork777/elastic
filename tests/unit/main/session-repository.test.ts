@@ -57,4 +57,19 @@ describe("sessions repository on a real sqlite", () => {
     sessions.upsert({ ...sessions.get("cut")!, worktreeOwned: false });
     expect(sessions.get("cut")?.worktreeOwned).toBeUndefined();
   });
+
+  it("stores when a chat was last viewed and its manual tag; a v13 row and an unknown tag read as none", async () => {
+    const { sessions } = await import("@main/db/repositories");
+    runMigrations(adapt(raw), MIGRATIONS.slice(0, 13));
+    raw.exec(`INSERT INTO sessions (id, project_id, agent_id, cwd, git_mode, title, created_at, updated_at, status)
+              VALUES ('v13', '/x', 'claude-code', '/x', 'worktree', 't', 1, 2, 'closed')`);
+    runMigrations(adapt(raw), MIGRATIONS);
+
+    expect(sessions.get("v13")).toMatchObject({ lastViewedAt: null, statusOverride: null });
+    const row = sessions.upsert({ ...base, id: "r1", lastViewedAt: 1234, statusOverride: "review" } as Session);
+    expect(row.lastViewedAt).toBe(1234);
+    expect(sessions.get("r1")).toMatchObject({ lastViewedAt: 1234, statusOverride: "review" });
+    raw.exec("UPDATE sessions SET status_override = 'later' WHERE id = 'r1'");
+    expect(sessions.get("r1")?.statusOverride).toBeNull();
+  });
 });

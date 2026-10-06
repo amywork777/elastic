@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 import { create } from "zustand";
 
-import { listedSessions, sidebarSections, type SidebarSection } from "@renderer/lib/sidebar";
+import { listedSessions, recentsSections, sidebarSections, type SidebarSection } from "@renderer/lib/sidebar";
 import { errorMessage } from "@shared/ipc/errors";
-import type { GitMode, Session } from "@shared/types";
+import type { GitMode, Session, SessionTag } from "@shared/types";
 
 import { useAgents } from "./agents";
 import { useProjects } from "./projects";
@@ -37,6 +37,13 @@ type SessionsState = {
   archive: (id: string, archived: boolean) => Promise<void>;
   /** Move the row into the sidebar's `Pinned` section, or back to its project. */
   setPinned: (id: string, pinned: boolean) => Promise<void>;
+  /** The person saw this chat (`state/viewed.ts`); main keeps `updatedAt` as it was. */
+  markViewed: (id: string) => Promise<void>;
+  /** A Recents tag set by hand, or null for automatic. */
+  setTag: (id: string, tag: SessionTag | null) => Promise<void>;
+  /** Recents past its first `RECENTS_LIMIT` rows, for this launch. */
+  recentsExpanded: boolean;
+  setRecentsExpanded: (expanded: boolean) => void;
   remove: (id: string) => Promise<void>;
   /**
    * Main's whole list — `load`, and every `sessions.changed`. Only this
@@ -126,6 +133,19 @@ export const useSessions = create<SessionsState>((set, get) => ({
   setPinned: async (id, pinned) => {
     await window.workbench.sessions.setPinned({ id, pinned });
   },
+
+  markViewed: async (id) => {
+    await window.workbench.sessions.markViewed({ id });
+  },
+
+  setTag: async (id, tag) => {
+    // Optimistic, as rename is: the row says it at once; `sessions.changed` confirms it.
+    set((state) => ({ sessions: state.sessions.map((session) => (session.id === id ? { ...session, statusOverride: tag } : session)) }));
+    await window.workbench.sessions.setTag({ id, tag });
+  },
+
+  recentsExpanded: false,
+  setRecentsExpanded: (recentsExpanded) => set({ recentsExpanded }),
 
   remove: async (id) => {
     await window.workbench.sessions.delete({ id });
@@ -217,9 +237,12 @@ export function useSidebarSections(): SidebarSection[] {
   const projects = useProjects((state) => state.projects);
   const filters = useSidebarSettings();
   const hidden = useSettings((state) => state.settings?.hiddenProjects ?? NO_HIDDEN);
+  const expanded = useSessions((state) => state.recentsExpanded);
   return useMemo(
-    () => sidebarSections({ sessions, projects, filters, hidden }),
-    [sessions, projects, filters, hidden],
+    () => filters.groupBy === "recents"
+      ? recentsSections({ sessions, projects, filters, hidden, expanded })
+      : sidebarSections({ sessions, projects, filters, hidden }),
+    [sessions, projects, filters, hidden, expanded],
   );
 }
 
@@ -229,14 +252,18 @@ export function useSidebarSections(): SidebarSection[] {
  */
 export function listedSessionAt(index: number): Session | null {
   const sidebar = useSettings.getState().settings?.sidebar ?? DEFAULT_SIDEBAR;
+  const input = {
+    sessions: useSessions.getState().sessions,
+    projects: useProjects.getState().projects,
+    filters: sidebar,
+    hidden: useSettings.getState().settings?.hiddenProjects ?? NO_HIDDEN,
+  };
   const rows = listedSessions(
-    sidebarSections({
-      sessions: useSessions.getState().sessions,
-      projects: useProjects.getState().projects,
-      filters: sidebar,
-      hidden: useSettings.getState().settings?.hiddenProjects ?? NO_HIDDEN,
-    }),
+    sidebar.groupBy === "recents"
+      ? recentsSections({ ...input, expanded: useSessions.getState().recentsExpanded })
+      : sidebarSections(input),
     sidebar.collapsedProjects,
+    { foldersCollapsed: sidebar.foldersCollapsed },
   );
   return (index === 9 ? rows.at(-1) : rows[index - 1]) ?? null;
 }
