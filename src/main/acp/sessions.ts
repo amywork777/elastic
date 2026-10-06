@@ -603,7 +603,8 @@ export class SessionManager {
         // On its own, before the preferences and the marks: the row is what
         // `boot` purges when it has no agent session id, and a crash while
         // the marks are pending must not take a connected session with it.
-        this.update(session.id, { acpSessionId: connection.acpSessionId });
+        // Setup, not activity: the person who just created it has seen it (`lastViewedAt`).
+        this.update(session.id, { acpSessionId: connection.acpSessionId }, { touch: false });
         console.info(
           `[acp] create ${session.id.slice(0, 8)} ${session.agentId} warm=${warmed ? "yes" : "no"} ${timer.format()}`,
         );
@@ -629,6 +630,7 @@ export class SessionManager {
         const updated = this.update(
           session.id,
           stillConnecting ? { status: "idle", sessionHead, turnHead } : { sessionHead, turnHead },
+          { touch: false },
         );
         if (stillConnecting) {
           this.deps.broadcast("session.state", { sessionId: session.id, state: connection.state });
@@ -1321,7 +1323,8 @@ export class SessionManager {
 
   rename(id: string, title: string): Session {
     this.require(id);
-    return this.update(id, { title: title.trim(), titleSource: "user" });
+    // The person's own act on the chat: not news to them, so neither unread nor a jump in Recents.
+    return this.update(id, { title: title.trim(), titleSource: "user" }, { touch: false });
   }
 
   /**
@@ -1345,13 +1348,14 @@ export class SessionManager {
         // stood.
         console.warn(`[acp] archive ${id.slice(0, 8)}: create still running after ${ARCHIVE_WAIT_MS / 1000} s, abandoning it`);
         this.close(id);
-        return this.deps.repo.get(id) ? this.update(id, { archived }) : { ...session, archived, status: "closed" };
+        return this.deps.repo.get(id) ? this.update(id, { archived }, { touch: false }) : { ...session, archived, status: "closed" };
       }
       // A create that failed took the row with it: there is nothing left to archive.
       this.require(id);
       this.close(id);
     }
-    return this.update(id, { archived });
+    // Archiving and unarchiving are the person's own acts, not activity (see `rename`).
+    return this.update(id, { archived }, { touch: false });
   }
 
   /** Whether `work` settled (either way) before `ms` passed. */

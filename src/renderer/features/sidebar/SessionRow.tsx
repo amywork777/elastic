@@ -115,12 +115,17 @@ export function SessionRow({
         onSelect={() => void setPinned(session.id, !session.pinned)}
       />
       <MenuItem icon={<Pencil />} label="Rename" onSelect={startRename} />
-      <MenuSeparator />
-      <MenuItem icon={<CircleCheck />} label="Mark as Done" onSelect={() => void setTag(session.id, "done")} />
-      <MenuItem icon={<Eye />} label="Mark as Needs review" onSelect={() => void setTag(session.id, "review")} />
-      <MenuItem icon={<CircleDot />} label="Mark as Waiting on you" onSelect={() => void setTag(session.id, "waiting")} />
-      {session.statusOverride ? <MenuItem icon={<Circle />} label="Tag automatically" onSelect={() => void setTag(session.id, null)} /> : null}
-      <MenuSeparator />
+      {/* Tags show only in Recents, so they are only offered there. */}
+      {recents ? (
+        <>
+          <MenuSeparator />
+          <MenuItem icon={<CircleCheck />} label="Mark as Done" onSelect={() => void setTag(session.id, "done")} />
+          <MenuItem icon={<Eye />} label="Mark as Needs review" onSelect={() => void setTag(session.id, "review")} />
+          <MenuItem icon={<CircleDot />} label="Mark as Waiting on you" onSelect={() => void setTag(session.id, "waiting")} />
+          {session.statusOverride ? <MenuItem icon={<Circle />} label="Tag automatically" onSelect={() => void setTag(session.id, null)} /> : null}
+          <MenuSeparator />
+        </>
+      ) : null}
       <MenuItem
         icon={session.archived ? <ArchiveRestore /> : <Archive />}
         label={session.archived ? "Unarchive" : "Archive"}

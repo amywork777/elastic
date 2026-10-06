@@ -172,7 +172,9 @@ export function isUnread(session: Session): boolean {
  * not seen, else Done.
  */
 export function statusTag(session: Session): { tag: StatusTag; manual: boolean } {
-  if (session.status === "running" || session.status === "connecting") return { tag: "working", manual: false };
+  // `connecting` is Working only for a chat that has never answered (being created); a chat that
+  // has (`acpSessionId`) is reopening, which is housekeeping: it keeps its tag and its place.
+  if (session.status === "running" || (session.status === "connecting" && !session.acpSessionId)) return { tag: "working", manual: false };
   if (session.status === "waiting") return { tag: "waiting", manual: false };
   if (session.status === "error") return { tag: "failed", manual: false };
   if (session.statusOverride) return { tag: session.statusOverride, manual: true };

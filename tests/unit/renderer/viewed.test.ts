@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { trackViewed } from "@renderer/state/viewed";
 import { useSessions } from "@renderer/state/sessions";
+import { useUi } from "@renderer/state/ui";
 import type { Session } from "@shared/types";
 
 /** The open chat counts as seen while the window has focus (the Recents unread dot). */
@@ -18,6 +19,7 @@ beforeEach(() => {
   vi.spyOn(document, "hasFocus").mockImplementation(() => focused);
   vi.mocked(window.workbench.sessions.markViewed).mockClear();
   useSessions.setState({ sessions: [row({})], ready: true, activeId: null });
+  useUi.setState({ surface: { kind: "home" } });
   stop = trackViewed();
 });
 afterEach(() => {
@@ -51,5 +53,15 @@ describe("marking the open chat viewed", () => {
   it("does not mark a chat that is not open", () => {
     useSessions.setState({ sessions: [row({ updatedAt: 30, lastViewedAt: 10 })] });
     expect(window.workbench.sessions.markViewed).not.toHaveBeenCalled();
+  });
+
+  it("does not count a chat as seen while another page covers it, and does on coming back", () => {
+    useSessions.setState({ activeId: "s1", sessions: [row({ lastViewedAt: 10 })] });
+    vi.mocked(window.workbench.sessions.markViewed).mockClear();
+    useUi.setState({ surface: { kind: "plugins", view: "browse" } });
+    useSessions.setState({ sessions: [row({ updatedAt: 30, lastViewedAt: 10 })] });
+    expect(window.workbench.sessions.markViewed).not.toHaveBeenCalled();
+    useUi.setState({ surface: { kind: "home" } });
+    expect(window.workbench.sessions.markViewed).toHaveBeenCalledWith({ id: "s1" });
   });
 });

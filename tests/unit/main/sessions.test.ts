@@ -1128,6 +1128,18 @@ describe("SessionManager", () => {
     expect(manager.get(session.id)!.statusOverride).toBeNull();
   });
 
+  it("does not count the person's own rename, archive or unarchive as activity, nor a create's setup", async () => {
+    const { manager, cwd } = await setup();
+    const session = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });
+    const created = manager.get(session.id)!;
+    expect(created.updatedAt).toBeLessThanOrEqual(created.lastViewedAt!);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    manager.rename(session.id, "Renamed");
+    await manager.archive(session.id, true);
+    await manager.archive(session.id, false);
+    expect(manager.get(session.id)!.updatedAt).toBe(created.updatedAt);
+  });
+
   it("does not count a reconnect or an eviction as activity", async () => {
     const { manager, cwd } = await setup({ snapshots: memorySnapshots() });
     const session = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });

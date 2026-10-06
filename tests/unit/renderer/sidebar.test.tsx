@@ -888,3 +888,21 @@ describe("a row's click target", () => {
     expect(useSessions.getState().activeId).toBe("a");
   });
 });
+
+describe("Recents review fixes", () => {
+  it("keeps a reopening chat in its place: connecting with a past turn is not Working", () => {
+    expect(statusTag(session({ id: "a", title: "A", status: "connecting", acpSessionId: "acp", updatedAt: 5, lastViewedAt: 9 })).tag).toBe("done");
+    expect(statusTag(session({ id: "a", title: "A", status: "connecting", acpSessionId: null })).tag).toBe("working");
+  });
+
+  it("offers the Tag items only on Recents rows", async () => {
+    const user = userEvent.setup();
+    useProjects.setState({ projects: [project("p1", "elastic")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters() }, ready: true });
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    wrap(<Sidebar />);
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByText("Alpha") });
+    await screen.findByRole("menuitem", { name: "Rename" });
+    expect(screen.queryByRole("menuitem", { name: "Mark as Done" })).toBeNull();
+  });
+});

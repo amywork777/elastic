@@ -1,6 +1,7 @@
 import { isUnread } from "@renderer/lib/sidebar";
 
 import { useSessions } from "./sessions";
+import { useUi } from "./ui";
 
 /**
  * The open chat counts as seen while the window has focus: when it is opened, when the window
@@ -13,7 +14,8 @@ export function trackViewed(): () => void {
   let opened: string | null = null;
   const check = () => {
     const { activeId, sessions, markViewed } = useSessions.getState();
-    if (!activeId || !document.hasFocus()) return;
+    // On screen means the chat pane is showing: a plugin's page or the plugin store covers it.
+    if (!activeId || !document.hasFocus() || useUi.getState().surface.kind !== "home") return;
     const session = sessions.find((candidate) => candidate.id === activeId);
     if (!session) return;
     if (opened === activeId || session.lastViewedAt === null || isUnread(session)) {
@@ -25,9 +27,13 @@ export function trackViewed(): () => void {
     if (state.activeId !== previous.activeId) opened = state.activeId;
     if (state.activeId !== previous.activeId || state.sessions !== previous.sessions) check();
   });
+  const unsurface = useUi.subscribe((state, previous) => {
+    if (state.surface !== previous.surface) check();
+  });
   window.addEventListener("focus", check);
   return () => {
     unsubscribe();
+    unsurface();
     window.removeEventListener("focus", check);
   };
 }
