@@ -159,7 +159,8 @@ it("text the session shows in full elsewhere carries no native title either", ()
 
 it("no control in the sidebar carries a native title, a row with changes included", async () => {
   const changed = { ...SESSION, gitMode: "none", pinned: false, changedFiles: 2, insertions: 9, deletions: 1 } as Session;
-  useSettings.setState({ settings: defaultSettings(), ready: true });
+  // The folder view: Recents rows show a tag where these rows show their change counts.
+  useSettings.setState({ settings: { ...defaultSettings(), sidebar: { ...defaultSettings().sidebar, groupBy: "project" } }, ready: true });
   // One pinned, so its row in Pinned also draws its project's name.
   useSessions.setState({ sessions: [changed, { ...changed, id: "s2", title: "Hinge", pinned: true }], ready: true, activeId: "s1" });
   render(
@@ -176,6 +177,21 @@ it("no control in the sidebar carries a native title, a row with changes include
   const header = screen.getByRole("button", { name: "p", expanded: true });
   await userEvent.hover(within(header).getByText("p"));
   expect(await screen.findByRole("tooltip", {}, { timeout: 2000 })).toHaveTextContent("/p");
+});
+
+it("no control in the Recents sidebar carries a native title, tags and Show more included", () => {
+  const rows = Array.from({ length: 12 }, (_, index) => ({ ...SESSION, id: `r${index}`, title: `Chat ${index}`, updatedAt: index, lastViewedAt: 0, changedFiles: 1 }) as Session);
+  useSettings.setState({ settings: { ...defaultSettings(), sidebar: { ...defaultSettings().sidebar, groupBy: "recents" } }, ready: true });
+  useSessions.setState({ sessions: rows, ready: true, activeId: "r0" });
+  render(
+    <TooltipProvider>
+      <Sidebar />
+    </TooltipProvider>,
+  );
+  expect(screen.getByRole("button", { name: "Show 2 more" })).toBeInTheDocument();
+  expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
+  expect(titled()).toEqual([]);
+  expect(unhinted()).toEqual([]);
 });
 
 describe("Settings", () => {

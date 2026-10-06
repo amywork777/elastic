@@ -805,3 +805,60 @@ describe("recents", () => {
     expect(listed[0]!.id).toBe("s11");
   });
 });
+
+describe("Recents sidebar", () => {
+  beforeEach(() => {
+    useProjects.setState({ projects: [project("p1", "elastic")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ groupBy: "recents" }) }, ready: true });
+    useSessions.setState({ recentsExpanded: false });
+    vi.mocked(window.workbench.sessions.setTag).mockClear();
+  });
+
+  it("lists chats by recency with their tags and an unread mark, folders folded below", () => {
+    useSessions.setState({
+      ready: true, activeId: null,
+      sessions: [
+        session({ id: "a", title: "Alpha", updatedAt: 50, lastViewedAt: 10, changedFiles: 3 }),
+        session({ id: "b", title: "Beta", status: "running", updatedAt: 20 }),
+        session({ id: "c", title: "Gamma", updatedAt: 40, lastViewedAt: 45 }),
+      ],
+    });
+    const view = wrap(<Sidebar />);
+    const rows = [...view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")];
+    expect(rows.map((row) => row.getAttribute("data-session-row"))).toEqual(["b", "a", "c"]);
+    expect(rows.map((row) => row.getAttribute("data-status-tag"))).toEqual(["working", "review", "done"]);
+    expect(rows[1]!.hasAttribute("data-unread")).toBe(true);
+    expect(rows[2]!.hasAttribute("data-unread")).toBe(false);
+    expect(screen.getByText("Needs review")).toBeInTheDocument();
+    expect(view.container.querySelector("[data-sidebar-folders]")).not.toBeNull();
+    expect(view.container.querySelector("[data-sidebar-section]")).toBeNull();
+    expect(view.container.querySelector("[data-sidebar-running]")).toBeNull();
+  });
+
+  it("shows ten and offers the rest", async () => {
+    const user = userEvent.setup();
+    useSessions.setState({ ready: true, activeId: null, sessions: Array.from({ length: 13 }, (_, i) => session({ id: `s${i}`, title: `Chat ${i}`, updatedAt: i })) });
+    const view = wrap(<Sidebar />);
+    expect(view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")).toHaveLength(10);
+    await user.click(screen.getByRole("button", { name: "Show 3 more" }));
+    expect(view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")).toHaveLength(13);
+  });
+
+  it("opens the folders on demand", async () => {
+    const user = userEvent.setup();
+    vi.mocked(window.workbench.settings.set).mockImplementationOnce(async (patch) => ({ ...useSettings.getState().settings!, ...(patch as Partial<Settings>) }));
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    const view = wrap(<Sidebar />);
+    await user.click(screen.getByRole("button", { name: /Folders/ }));
+    await vi.waitFor(() => expect(view.container.querySelector("[data-sidebar-section=p1]")).not.toBeNull());
+  });
+
+  it("sets a tag by hand from the row's menu", async () => {
+    const user = userEvent.setup();
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    wrap(<Sidebar />);
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByText("Alpha") });
+    await user.click(await screen.findByRole("menuitem", { name: "Mark as Needs review" }));
+    expect(window.workbench.sessions.setTag).toHaveBeenCalledWith({ id: "a", tag: "review" });
+  });
+});

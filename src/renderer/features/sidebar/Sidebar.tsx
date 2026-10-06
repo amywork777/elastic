@@ -1,4 +1,4 @@
-import { FolderOpen, Search, Settings, SquarePen } from "lucide-react";
+import { ChevronRight, FolderOpen, Search, Settings, SquarePen } from "lucide-react";
 import { APP_STAGE } from "@shared/brand";
 import { Fragment } from "react";
 import { cn } from "cn";
@@ -10,6 +10,7 @@ import { SessionSection } from "@renderer/features/sidebar/SessionSection";
 import { SidebarFilterMenu } from "@renderer/features/sidebar/SidebarFilterMenu";
 import { AgentsPanel } from "@renderer/features/sidebar/AgentsPanel";
 import { RunningNow } from "@renderer/features/sidebar/RunningNow";
+import { RecentsSection } from "@renderer/features/sidebar/RecentsSection";
 import { Wordmark } from "@renderer/features/sidebar/Wordmark";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions, useSidebarSections } from "@renderer/state/sessions";
@@ -55,8 +56,12 @@ export function Sidebar() {
   // Status and Environment narrow *which* sessions are listed; grouping and
   // sorting only rearrange them, so only those two can empty the list.
   const narrowed = filters.status !== "active" || filters.environment !== "all";
+  // Recents: the main list, with the folder sections folded under one header below it.
+  const recentsMode = filters.groupBy === "recents";
+  const folderSections = recentsMode ? sections.filter((section) => section.kind === "project") : [];
   // A pinned folder with nothing in it is still a row on screen, so the list is not empty.
   const empty = sections.every((section) => section.sessions.length === 0 && !section.pinned);
+  // (In Recents the folder sections repeat Recents' chats, so they never make the list non-empty alone.)
   // A folder picked for a session not yet created has no group of its own
   // (projects are derived from sessions) — but the centre is already asking
   // what to build in it, so the list says so rather than "no sessions".
@@ -117,7 +122,7 @@ export function Sidebar() {
           scrolling the list sideways when a rename input takes focus. */}
       <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:!block">
         <div className="min-w-0 px-2 pb-2">
-          <RunningNow />
+          {recentsMode ? null : <RunningNow />}
           {pending ? (
             <PendingGroup
               name={pending.name}
@@ -127,15 +132,42 @@ export function Sidebar() {
               }}
             />
           ) : null}
-          {sections.map((section, index) => {
-            const label = folderGroupLabel(sections, index);
-            return (
-              <Fragment key={section.id}>
-                {label ? <FolderGroupLabel divided={label === "Folders"} text={label} /> : null}
-                <SessionSection section={section} />
-              </Fragment>
-            );
-          })}
+          {recentsMode ? (
+            <>
+              {sections.filter((section) => section.kind === "pinned").map((section) => (
+                <SessionSection key={section.id} section={section} />
+              ))}
+              {sections.filter((section) => section.kind === "recents").map((section) => (
+                <RecentsSection key={section.id} section={section} />
+              ))}
+              <FoldersHeader
+                count={folderSections.length}
+                onToggle={() => void setSidebar({ foldersCollapsed: !filters.foldersCollapsed })}
+                open={!filters.foldersCollapsed}
+              />
+              {filters.foldersCollapsed
+                ? null
+                : folderSections.map((section, index) => {
+                    const label = folderGroupLabel(folderSections, index);
+                    return (
+                      <Fragment key={section.id}>
+                        {label ? <FolderGroupLabel divided={label === "Folders"} text={label} /> : null}
+                        <SessionSection section={section} />
+                      </Fragment>
+                    );
+                  })}
+            </>
+          ) : (
+            sections.map((section, index) => {
+              const label = folderGroupLabel(sections, index);
+              return (
+                <Fragment key={section.id}>
+                  {label ? <FolderGroupLabel divided={label === "Folders"} text={label} /> : null}
+                  <SessionSection section={section} />
+                </Fragment>
+              );
+            })
+          )}
           {ready && empty && !pending ? (
             narrowed && hasSessions ? (
               <NoMatches onClear={() => void setSidebar({ status: "active", environment: "all" })} />
@@ -239,5 +271,23 @@ function FolderGroupLabel({ text, divided }: { text: string; divided: boolean })
     <div className={cn("px-2 pb-0.5", divided ? "mt-3 border-t border-sidebar-border pt-3" : "mt-2")} data-folder-group={text}>
       <span className="text-[11px] font-medium text-muted-foreground">{text}</span>
     </div>
+  );
+}
+
+/** Recents' Folders header: the folder sections, folded until opened (`foldersCollapsed`). */
+function FoldersHeader({ count, open, onToggle }: { count: number; open: boolean; onToggle: () => void }) {
+  if (count === 0) return null;
+  return (
+    <button
+      aria-expanded={open}
+      className="mt-2 flex h-7 w-full items-center gap-1.5 rounded-md border-t border-sidebar-border px-2 pt-0.5 text-left text-[11px] font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      data-sidebar-folders
+      onClick={onToggle}
+      type="button"
+    >
+      <ChevronRight aria-hidden className={cn("size-3 transition-transform", open && "rotate-90")} />
+      Folders
+      <span className="ml-auto font-normal tabular-nums text-muted-foreground/70">{count}</span>
+    </button>
   );
 }
