@@ -19,6 +19,7 @@ import { BrowserWindow, dialog, shell, type WebContents } from "electron";
 
 import { explorerTabs, projects, sessions, settings } from "../db/repositories";
 import {
+  DEFAULT_WATCH_LIMITS,
   FileWatchers,
   FsError,
   FsConflictError,
@@ -71,7 +72,8 @@ export function initExplorerServices(broadcast: Broadcast) {
     if (owner) {
       broadcast("files.changed", { projectId: owner.project.id, root: owner.root, changes });
     }
-  });
+    // One recursive watch per root where the system has one (`WatchLimits.native`).
+  }, undefined, { ...DEFAULT_WATCH_LIMITS, native: process.platform === "darwin" || process.platform === "win32" });
   terminals ??= new Terminals((event) => {
     if (event.type === "data") {
       broadcast("terminal.data", { id: event.id, data: event.data, seq: event.seq });

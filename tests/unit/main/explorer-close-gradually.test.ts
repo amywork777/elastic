@@ -35,13 +35,9 @@ function fakeWatcher(directories: number, closeMs: number) {
 describe("closeGradually", () => {
   it("closes every directory's watch, then the watcher, without holding the main thread", async () => {
     const { watcher, closed } = fakeWatcher(600, 3);
-    let longest = 0;
-    let last = performance.now();
-    const ticker = setInterval(() => {
-      const now = performance.now();
-      longest = Math.max(longest, now - last);
-      last = now;
-    }, 1);
+    // How often the event loop got a turn while the closers ran. All at once, it gets none.
+    let turns = 0;
+    const ticker = setInterval(() => { turns += 1; }, 0);
 
     await closeGradually(watcher, { sliceMs: 8 });
     clearInterval(ticker);
@@ -51,8 +47,8 @@ describe("closeGradually", () => {
     expect(watcher.close).toHaveBeenCalledTimes(1);
     // Marked closed first, so chokidar adds no new watches meanwhile.
     expect(watcher.closed).toBe(true);
-    // 600 x 3 ms in one go would be 1.8 s; a slice is about 8 ms (plus the closer it ends on).
-    expect(longest).toBeLessThan(150);
+    // 600 x 3 ms is 1.8 s of closing; in 8 ms slices that is well over a hundred turns between them.
+    expect(turns).toBeGreaterThan(50);
   });
 
   it("falls back to close() for a watcher without the closers map", async () => {

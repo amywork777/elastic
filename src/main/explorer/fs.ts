@@ -956,8 +956,21 @@ const timer: Schedule = (run, ms) => startTimer(ms, run);
  * not started at all; listed directories and opened files keep their direct
  * watches, so what is on screen stays live.
  */
-export type WatchLimits = { backgroundDirectories: number };
+export type WatchLimits = {
+  backgroundDirectories: number;
+  /**
+   * One recursive `fs.watch` per root instead of chokidar's watch per folder: what macOS
+   * (FSEvents) and Windows do natively. Nothing per directory to open, to run out of, or to close
+   * one by one when a chat switch leaves the folder (`closeGradually`), so no folder cap either.
+   * On for those two in the app (`ipc/explorer.ts`); Linux's recursive watch is Node's own
+   * per-folder emulation, so it keeps chokidar.
+   */
+  native?: boolean;
+};
 export const DEFAULT_WATCH_LIMITS: WatchLimits = { backgroundDirectories: 5_000 };
+
+/** What a path known only by name is taken to be when its ancestors are checked against the ignores. */
+const AS_DIRECTORY = { isDirectory: () => true } as Stats;
 
 /**
  * Whether the root has at most `cap` folders the background watcher would
@@ -1057,6 +1070,13 @@ export class FileWatchers {
     const realRoot = await realRootOf(root);
     const ignoredInBackground = await readBackgroundWatchExclusions(realRoot);
     if (this.watchers.get(root) !== owner) return;
+    if (this.limits.native) {
+      owner.watcher = this.watchNatively(root, realRoot, ignoredInBackground, owner);
+      await Promise.all([...(this.listedDirectories.get(root) ?? [])].map((directory) =>
+        this.watchListedDirectory(root, directory),
+      ));
+      return;
+    }
     if (!(await fitsUnder(realRoot, ignoredInBackground, this.limits.backgroundDirectories))) {
       if (this.watchers.get(root) !== owner) return;
       console.info(`[explorer] ${root} has more than ${this.limits.backgroundDirectories} folders: watching open folders and files only`);
@@ -1114,6 +1134,54 @@ export class FileWatchers {
     await Promise.all([...(this.listedDirectories.get(root) ?? [])].map((directory) =>
       this.watchListedDirectory(root, directory),
     ));
+  }
+
+  /**
+   * The background watcher as one recursive `fs.watch` (`WatchLimits.native`). An event names a
+   * path, not what happened to it, so it is read the way the listed directories' own watches read
+   * theirs: the path is there (`changed`, which the tree takes as new when it did not have it) or
+   * it is not (`removed`). A move is a removal and an arrival, paired by inode downstream
+   * (`pairMoves`), and the batch window folds an atomic save's flurry into one change. A path
+   * under a folder the background watch skips (node_modules, git-ignored outputs) is dropped by
+   * its name before anything is read for it.
+   */
+  private watchNatively(
+    root: string,
+    realRoot: string,
+    ignored: (relative: string, stats?: Stats) => boolean,
+    owner: WatchedRoot,
+  ): Watcher | null {
+    const skipped = (relative: string) => {
+      const segments = relative.split("/");
+      for (let depth = 1; depth < segments.length; depth += 1) {
+        if (ignored(segments.slice(0, depth).join("/"), AS_DIRECTORY)) return true;
+      }
+      return false;
+    };
+    let handle: FSWatcher;
+    try {
+      handle = watchDirectory(realRoot, { recursive: true }, (_event, filename) => {
+        if (this.watchers.get(root) !== owner || !filename) return;
+        const relative = filename.toString().split(path.sep).join("/");
+        if (!relative || relative === "." || skipped(relative)) return;
+        void fs.lstat(path.join(realRoot, relative)).catch(() => null).then((stats) => {
+          if (this.watchers.get(root) !== owner) return;
+          if (ignored(relative, stats ?? undefined)) return;
+          this.queue(root, { path: relative, kind: stats ? "changed" : "removed", directory: stats?.isDirectory() ?? false });
+        });
+      });
+    } catch (error) {
+      // A root the system will not watch: the listed folders keep their own watches.
+      console.error(`[explorer] watch ${root}`, error);
+      return null;
+    }
+    handle.on("error", (error: unknown) => {
+      console.error(`[explorer] watch ${root}`, error);
+      if (owner.watcher === watcher) owner.watcher = null;
+      handle.close();
+    });
+    const watcher: Watcher = { close: async () => handle.close() };
+    return watcher;
   }
 
   /** An opened file stays live even when its parent has never been expanded. */
