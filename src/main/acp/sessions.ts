@@ -543,6 +543,9 @@ export class SessionManager {
       titleSource: "prompt",
       createdAt: now,
       updatedAt: now,
+      // The person is starting it: it is seen, not news.
+      lastViewedAt: now,
+      statusOverride: null,
       status: "connecting",
       acpSessionId: null,
       changedFiles: 0,

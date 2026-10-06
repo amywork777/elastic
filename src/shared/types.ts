@@ -67,6 +67,10 @@ export type SessionStatus = z.infer<typeof SessionStatusSchema>;
  * index entry the app keeps so the sidebar can list threads without loading
  * them.
  */
+/** A tag the person set on a chat by hand (the sidebar's right-click Tag items). */
+export const SessionTagSchema = z.enum(["done", "review", "waiting"]);
+export type SessionTag = z.infer<typeof SessionTagSchema>;
+
 export const SessionSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -97,6 +101,10 @@ export const SessionSchema = z.object({
   titleSource: z.enum(["prompt", "agent", "user"]).default("prompt"),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
+  /** When the person last saw this chat with the window focused; null before the first time. */
+  lastViewedAt: z.number().int().nullable().default(null),
+  /** The tag set by hand, until the chat's next turn starts; null when automatic. */
+  statusOverride: SessionTagSchema.nullable().catch(null).default(null),
   status: SessionStatusSchema,
   /**
    * The agent's own id for this session, set by `session/new` and used by

@@ -340,6 +340,16 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE sessions ADD COLUMN links TEXT;
     `,
   },
+  {
+    version: 14,
+    name: "session-recents",
+    // The Recents sidebar: when the person last saw the chat (unread is activity after it),
+    // and the tag they set by hand ("done" | "review" | "waiting"), cleared by the next turn.
+    up: `
+      ALTER TABLE sessions ADD COLUMN last_viewed_at INTEGER;
+      ALTER TABLE sessions ADD COLUMN status_override TEXT;
+    `,
+  },
 ];
 
 /**

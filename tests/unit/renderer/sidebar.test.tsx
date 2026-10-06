@@ -46,7 +46,7 @@ const session = (overrides: Partial<Session> & { id: string; title: string }): S
   archived: false,
   pinned: false,
   sessionHead: null,
-  turnHead: null,
+  turnHead: null, lastViewedAt: null, statusOverride: null,
   ...overrides,
 });
 
