@@ -76,6 +76,9 @@ test("Copy under a reply puts it on the clipboard as formatted text and as markd
 
 test("the microphone dictates into the composer, on device", async () => {
   test.skip(!speech, "needs macOS 26, `say`, and a build with the dictation helper");
+  // A CI runner has the SDK and `say`, but no speech model installed and nobody to grant the
+  // microphone: the listening state never comes. The release still requires the helper to build.
+  test.skip(Boolean(process.env.CI), "on device only: a CI runner cannot listen");
   // The microphone: the sentence, looped, as the stream `getUserMedia` answers with.
   await page.evaluate(async (base64) => {
     const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));

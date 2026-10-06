@@ -100,7 +100,7 @@ test("explorer tabs", async () => {
     await page.getByRole("button", { name: "Toggle explorer" }).click();
   }
   await page.waitForTimeout(600);
-  const filter = page.getByLabel("Filter files");
+  const filter = page.locator("#explorer-tabpanel [data-tab-body]:not([inert])").getByLabel("Filter files");
   if (!(await filter.isVisible().catch(() => false))) {
     await page.keyboard.press(`${mod}+t`);
     await page.waitForTimeout(600);

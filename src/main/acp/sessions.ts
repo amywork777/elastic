@@ -47,7 +47,7 @@ import { startTimer } from "../timer";
 import { PROBE_WAIT_MS, type AgentDetector } from "../agents/detect";
 import { agentProvider } from "../agents/registry";
 import { adapterOptionsKey, SessionConnection, type SessionConnectionOptions } from "./connection";
-import { KEEP_ALIVE_LIMIT, LiveConnections } from "./live";
+import { IDLE_CLOSE_MS, KEEP_ALIVE_LIMIT, LiveConnections } from "./live";
 import { readProcessTable, treeBytes } from "./process-memory";
 import { SessionSnapshotWriter, type SnapshotStore } from "./snapshots";
 import type { SpawnTerminal } from "./terminals";
@@ -267,6 +267,9 @@ const ACTIVE: ReadonlySet<SessionStatus> = new Set(["running", "waiting", "conne
 /** How long an archive waits for a create still running before it abandons that create. */
 const ARCHIVE_WAIT_MS = 10_000;
 
+/** How often the idle adapters are looked over for one unused past `IDLE_CLOSE_MS`. */
+const IDLE_SWEEP_MS = 60_000;
+
 /** How long a config-option probe may take before it is abandoned. */
 const PROBE_TIMEOUT_MS = 60_000;
 
@@ -405,11 +408,16 @@ export class SessionManager {
    * and the worktree it cut (`worktreeOwned`) is released with it.
    */
   private booted = false;
+  private idleSweep: ReturnType<typeof setInterval> | null = null;
   private boot(): void {
     if (this.booted) {
       return;
     }
     this.booted = true;
+    // Idle adapters are closed after a while unused (`./live.ts`, `closeIdle`): each one kept
+    // holds most of a gigabyte, and one nobody has opened in ten minutes is not about to be.
+    this.idleSweep = setInterval(() => this.live.closeIdle(IDLE_CLOSE_MS), IDLE_SWEEP_MS);
+    this.idleSweep.unref?.();
     for (const session of this.deps.repo.list()) {
       if (!session.acpSessionId && !this.creating.has(session.id)) {
         this.deps.repo.remove(session.id);
@@ -943,7 +951,7 @@ export class SessionManager {
         const plan = connection.state.modes.find((mode) => mode.id === "plan");
         if (plan) await connection.setMode(plan.id).catch(() => undefined);
       } else {
-        await connection.newSession();
+        await connection.newSession({ ephemeral: true });
       }
       await connection.prompt([{ type: "text", text: input.text }]);
       const turn = [...connection.state.turns].reverse().find((candidate) => candidate.role === "agent");
@@ -1434,6 +1442,7 @@ export class SessionManager {
     // in-flight prompt's rejection arriving as `prompt/error` after its
     // process was killed — must not write a status through it.
     this.shuttingDown = true;
+    if (this.idleSweep) clearInterval(this.idleSweep);
     this.warm.closeAll();
     for (const id of this.live.keys()) {
       this.close(id);

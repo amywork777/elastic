@@ -468,14 +468,22 @@ export class SessionConnection {
     await this.agent.authenticate({ methodId });
   }
 
-  async newSession(): Promise<NewSessionResponse> {
+  /**
+   * `ephemeral`: a session nobody will resume (a quick command's, `SessionManager.aside`). Claude
+   * Code is asked not to write it to disk (`_meta.claudeCode.options.persistSession`), so a
+   * `/usage` does not become a chat in its own resume list; other agents ignore the key.
+   */
+  async newSession({ ephemeral = false }: { ephemeral?: boolean } = {}): Promise<NewSessionResponse> {
     await this.initialize();
     let response: NewSessionResponse;
     try {
+      const roots = this.sessionRoots();
+      const rootsMeta = "_meta" in roots ? roots._meta : {};
       response = await this.agent.newSession({
         cwd: this.options.cwd,
         mcpServers: this.options.mcpServers ?? [],
-        ...this.sessionRoots(),
+        ...roots,
+        ...(ephemeral ? { _meta: { ...rootsMeta, claudeCode: { options: { persistSession: false } } } } : {}),
       });
     } catch (error) {
       throw this.describe(error, "session/new");

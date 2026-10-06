@@ -148,4 +148,49 @@ describe("LiveConnections", () => {
     }
     expect(connections.size).toBe(KEEP_ALIVE_LIMIT);
   });
+
+  it("closes one unused past the idle time, never the one in use or a busy one", () => {
+    let now = 0;
+    const evicted: string[] = [];
+    const connections = new LiveConnections<FakeConnection>({
+      limit: 10,
+      busy: (connection) => connection.busy,
+      onEvict: (sessionId) => evicted.push(sessionId),
+      now: () => now,
+    });
+    const a = new FakeConnection("a");
+    const b = new FakeConnection("b");
+    const c = new FakeConnection("c");
+    connections.set("a", a);
+    connections.set("b", b);
+    b.busy = true;
+    now = 5;
+    connections.set("c", c);
+
+    now = 20;
+    // a is idle past 10; b is busy (and counts as used now); c is the one in use.
+    expect(connections.closeIdle(10)).toEqual(["a"]);
+    expect(a.closed).toBe(1);
+    expect(evicted).toEqual(["a"]);
+
+    b.busy = false;
+    now = 25;
+    expect(connections.closeIdle(10)).toEqual([]);
+    now = 31;
+    expect(connections.closeIdle(10)).toEqual(["b"]);
+    expect(c.closed).toBe(0);
+    expect(connections.keys()).toEqual(["c"]);
+  });
+
+  it("restarts the idle clock when a connection is touched", () => {
+    let now = 0;
+    const connections = new LiveConnections<FakeConnection>({ limit: 10, now: () => now });
+    connections.set("a", new FakeConnection("a"));
+    connections.set("b", new FakeConnection("b"));
+    now = 8;
+    connections.touch("a");
+    connections.touch("b");
+    now = 15;
+    expect(connections.closeIdle(10)).toEqual([]);
+  });
 });

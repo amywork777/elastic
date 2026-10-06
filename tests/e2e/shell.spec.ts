@@ -393,7 +393,8 @@ test("a session owns the explorer: its toggles, its strip and its shortcuts", as
   const tabDigit = process.platform === "darwin" ? "Control" : "Alt";
   for (const name of ["one.md", "two.md", "three.md"]) {
     await newTab("File");
-    await page.getByLabel("Filter files").fill(name);
+    // The tab on screen's: recently used tabs stay mounted behind it, hidden and inert (`KEEP_ALIVE`).
+    await page.locator("#explorer-tabpanel [data-tab-body]:not([inert])").getByLabel("Filter files").fill(name);
     await page.getByRole("option", { name, exact: false }).first().click();
     await expect(page.getByRole("tab", { name: new RegExp(name.replace(".", "\\.")) })).toBeVisible();
   }

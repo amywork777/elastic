@@ -1951,10 +1951,13 @@ beside `sessions.ts`:
   anything the agent is told. A session created before this migration has no
   snapshot and still waits behind "Connecting to …".
 - **The keep-alive** (`acp/live.ts`). Selecting another session closes
-  nothing: four adapters stay alive behind the sessions that are not on
+  nothing: three adapters stay alive behind the sessions that are not on
   screen, so switching back is a paint with no load at all. The oldest
-  beyond four is closed and its row goes to `closed`, which is what makes
-  the next click on it reconnect. A busy connection is never evicted — the
+  beyond three is closed and its row goes to `closed`, which is what makes
+  the next click on it reconnect. One unused for ten minutes is closed the
+  same way (`IDLE_CLOSE_MS`, swept every minute): a live Claude Code adapter
+  is 0.7 to 0.85 GB of processes, so the keep-alive bounds how long as well
+  as how many. A busy connection is never evicted — the
   limit is exceeded until it is not: a turn in flight (`running`, `waiting`),
   one still `connecting`, and anything in `held` — a create from its spawn
   until it returns, a prompt from its refusal check until its turn ends (idle

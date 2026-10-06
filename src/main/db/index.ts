@@ -74,6 +74,35 @@ export function db(): Db {
   return handle;
 }
 
+/**
+ * Give the free pages back when most of the file is free. A snapshot row is rewritten whole on
+ * every quiet moment of a turn (`acp/snapshots.ts`, up to half a megabyte), so the file grows to
+ * its high-water mark and stays there: measured, 21 MB with 86% of its pages on the freelist.
+ * `VACUUM` rewrites it at its live size. Synchronous, so it runs once, off the launch path
+ * (`index.ts` schedules it), and only past both thresholds; a failure is a log line.
+ */
+export function compactIfMostlyFree(
+  database: Db,
+  { minFreeBytes = 8 * 1024 * 1024, minFreeRatio = 0.5 }: { minFreeBytes?: number; minFreeRatio?: number } = {},
+): { compacted: boolean; freedBytes: number } {
+  try {
+    const pageSize = Number(database.pragma("page_size", { simple: true }));
+    const pages = Number(database.pragma("page_count", { simple: true }));
+    const free = Number(database.pragma("freelist_count", { simple: true }));
+    const freeBytes = free * pageSize;
+    if (pages === 0 || free / pages < minFreeRatio || freeBytes < minFreeBytes) {
+      return { compacted: false, freedBytes: 0 };
+    }
+    database.exec("VACUUM");
+    // The WAL holds the rewrite until a checkpoint; truncate it so the space is given back now.
+    database.pragma("wal_checkpoint(TRUNCATE)");
+    return { compacted: true, freedBytes: freeBytes };
+  } catch (error) {
+    console.warn("[database] compaction skipped:", error);
+    return { compacted: false, freedBytes: 0 };
+  }
+}
+
 /** Close the connection. Called on quit; safe to call twice. */
 export function closeDb() {
   closed = true;

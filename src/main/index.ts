@@ -13,7 +13,7 @@ import { APP_NAME, APP_SLUG } from "../shared/brand";
 import { oklchToHex, paletteOf, type ColorThemeId } from "../shared/color-themes";
 import { browserService } from "./browser/service";
 import { endTrackedChildren, killTrackedChildren } from "./children";
-import { closeDb, databaseFile, db, startupFailureMessage } from "./db";
+import { closeDb, compactIfMostlyFree, databaseFile, db, startupFailureMessage } from "./db";
 import { settings as settingsRepository } from "./db/repositories";
 import { broadcast, registerIpcHandlers } from "./ipc";
 import { prewarmAgents, shutdownAcp } from "./ipc/acp";
@@ -36,6 +36,9 @@ import { WINDOW_MIN, flushWindowStates, restoreWindowState, trackWindowState } f
 captureMainErrors();
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** How long after launch the database is looked at for compaction (`compactIfMostlyFree`). */
+const DB_COMPACT_DELAY_MS = 30_000;
 
 /** electron-vite sets this in `dev`; it is absent in every built app. */
 const RENDERER_DEV_URL = process.env.ELECTRON_RENDERER_URL;
@@ -303,6 +306,14 @@ if (!app.requestSingleInstanceLock()) {
     // first session opened then costs a `session/load` and not a spawn
     // (src/main/acp/warm.ts).
     prewarmAgents();
+    // Free pages back, once, well after the first paint and the agents' warm-up: a VACUUM holds
+    // the main thread for as long as it takes (a 21 MB file, a fraction of a second).
+    const compaction = setTimeout(() => {
+      if (isQuitting()) return;
+      const { compacted, freedBytes } = compactIfMostlyFree(db());
+      if (compacted) console.info(`[database] compacted, ${Math.round(freedBytes / 1024 / 1024)} MB given back`);
+    }, DB_COMPACT_DELAY_MS);
+    compaction.unref?.();
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
