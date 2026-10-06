@@ -129,6 +129,18 @@ describe("what the acp store lets go of", () => {
     expect(useAcp.getState().sessions).toEqual({});
   });
 
+  it("keeps a closed chat that is on screen beside the focused one", () => {
+    const closed = { type: "status", status: "closed", error: null, at: 1 } as const;
+    useSessions.getState().openBeside("s1");
+    useAcp.getState().receiveEvent("s2", closed);
+    expect(Object.keys(useAcp.getState().sessions).sort()).toEqual(["s1", "s2"]);
+    useSessions.getState().focusSide("right");
+    useSessions.getState().focusSide("left");
+    expect(Object.keys(useAcp.getState().sessions).sort()).toEqual(["s1", "s2"]);
+    useSessions.getState().closeSide("left");
+    useSessions.setState({ split: null });
+  });
+
   describe("a session archived while it loads", () => {
     const sessionsApi = window.workbench.sessions as unknown as Record<string, unknown>;
     const deferred = <T,>() => {

@@ -5,6 +5,7 @@ import {
   Circle,
   CircleDot,
   CircleCheck,
+  Columns2,
   Copy,
   Eye,
   GitBranch,
@@ -36,7 +37,8 @@ import { openSessionReview } from "@renderer/features/sidebar/open-review";
 import { gitGlyphFor, gitGlyphLabel, useProjectGitInfo } from "@renderer/lib/git-mode";
 import { SESSION_GLYPH_LABELS, STATUS_TAG_LABELS, isUnread, sessionGlyphFor, statusTag } from "@renderer/lib/sidebar";
 import { StatusTag } from "@renderer/features/sidebar/StatusTag";
-import { useSessions } from "@renderer/state/sessions";
+import { isPrimaryModifier } from "@renderer/lib/platform";
+import { sessionsOnScreen, useSessions } from "@renderer/state/sessions";
 import type { Session, SessionStatus } from "@shared/types";
 
 /**
@@ -74,6 +76,11 @@ export function SessionRow({
   const archive = useSessions((state) => state.archive);
   const setPinned = useSessions((state) => state.setPinned);
   const remove = useSessions((state) => state.remove);
+  const openBeside = useSessions((state) => state.openBeside);
+  // Two chats side by side: the other one on screen is current too, less strongly than the focused.
+  const beside = useSessions((state) => !selected && state.split !== null && sessionsOnScreen(state).includes(session.id));
+  // Cmd-click (Ctrl elsewhere) opens the chat beside the current one; a plain click opens it here.
+  const choose = (event: { metaKey: boolean; ctrlKey: boolean }) => (isPrimaryModifier(event) ? openBeside(session.id) : onSelect());
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(session.title);
   const statusId = useId();
@@ -109,6 +116,7 @@ export function SessionRow({
 
   const menuItems = (
     <>
+      <MenuItem icon={<Columns2 />} label="Open beside" onSelect={() => openBeside(session.id)} />
       <MenuItem
         icon={session.pinned ? <PinOff /> : <Pin />}
         label={session.pinned ? "Unpin" : "Pin"}
@@ -156,7 +164,9 @@ export function SessionRow({
             "has-[[data-session-row-title]:focus-visible]:ring-2 has-[[data-session-row-title]:focus-visible]:ring-inset has-[[data-session-row-title]:focus-visible]:ring-ring",
             selected
               ? "bg-sidebar-accent text-sidebar-accent-foreground"
-              : "hover:bg-sidebar-accent/60",
+              : beside
+                ? "bg-sidebar-accent/50 hover:bg-sidebar-accent/60"
+                : "hover:bg-sidebar-accent/60",
           )}
           data-pinned={session.pinned ? "" : undefined}
           data-session-row={session.id}
@@ -168,7 +178,7 @@ export function SessionRow({
           // way in is the title button, so this pointer-only handler adds no second tab stop.
           onClick={(event) => {
             if (editing || (event.target as HTMLElement).closest("button, input, a, [role=menuitem]")) return;
-            onSelect();
+            choose(event);
           }}
         >
           {unread && sessionGlyphFor(session.status) === "idle" ? (
@@ -209,7 +219,7 @@ export function SessionRow({
             <TooltipHint content={projectName ? `${session.title} · ${projectName}` : session.title} overflowOnly>
               <button
                 // The session on screen, said as well as tinted.
-                aria-current={selected ? "page" : undefined}
+                aria-current={selected ? "page" : beside ? "true" : undefined}
                 // The state glyph sits before this button and is not a tab stop, so its word rides
                 // here: read as the row's description, it is heard from the one place focus lands.
                 aria-describedby={statusText ? statusId : undefined}
@@ -223,7 +233,7 @@ export function SessionRow({
                 )}
                 data-session-row-title
                 ref={titleButton}
-                onClick={onSelect}
+                onClick={choose}
                 onDoubleClick={startRename}
                 type="button"
               >

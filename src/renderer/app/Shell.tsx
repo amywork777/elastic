@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { PANE_HOMES, TABBABLE } from "@renderer/app/pane-focus";
+import { PANE_HOMES, TABBABLE, focusComposerOf } from "@renderer/app/pane-focus";
+import { useSessions } from "@renderer/state/sessions";
 import { PaneSeparator } from "@renderer/app/PaneSeparator";
 import { ExplorerPane, useExplorerShortcuts } from "@renderer/features/explorer/ExplorerPane";
 import { SessionPane } from "@renderer/features/session/SessionPane";
@@ -61,6 +62,7 @@ export function Shell() {
   const rowRef = useRef<HTMLDivElement | null>(null);
 
   useShellShortcuts();
+  useSplitShortcuts();
   useExplorerShortcuts();
   usePaneCycling();
 
@@ -261,6 +263,31 @@ function useShellShortcuts(): void {
         event.preventDefault();
         runUiCommand({ command: "select-session", index: Number(key) });
       }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+}
+
+/**
+ * Two chats side by side: Mod+\\ moves focus to the other side, Mod+Alt+Left/Right to that side,
+ * and the keyboard goes into its composer.
+ */
+export function useSplitShortcuts(): void {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const { split, focusSide } = useSessions.getState();
+      if (!split || !isPrimaryModifier(event) || event.shiftKey) return;
+      const side = event.key === "\\" && !event.altKey
+        ? (split.focus === "left" ? "right" : "left")
+        : event.altKey && event.key === "ArrowLeft" ? "left"
+        : event.altKey && event.key === "ArrowRight" ? "right"
+        : null;
+      if (!side) return;
+      event.preventDefault();
+      focusSide(side);
+      const id = useSessions.getState().activeId;
+      if (id) focusComposerOf(id);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

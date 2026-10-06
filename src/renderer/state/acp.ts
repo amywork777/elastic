@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { useSessions } from "./sessions";
+import { sessionsOnScreen, useSessions } from "./sessions";
 
 import { allToolCalls, reduce } from "@shared/acp/reduce";
 import { errorMessage } from "@shared/ipc/errors";
@@ -370,9 +370,9 @@ function without(current: AcpState, sessionId: string): Partial<AcpState> {
   return { sessions, loadErrors, setupNotes, reconnecting, terminalOutput, coldTerminals };
 }
 
-/** Whether a closed session's state is still wanted: it is on screen, or a load is bringing it back. */
+/** Whether a closed session's state is still wanted: it is on screen (either side of a split), or a load is bringing it back. */
 function stillWanted(sessionId: string, current: AcpState): boolean {
-  return useSessions.getState().activeId === sessionId || Boolean(current.loading[sessionId]);
+  return sessionsOnScreen(useSessions.getState()).includes(sessionId) || Boolean(current.loading[sessionId]);
 }
 
 /**
