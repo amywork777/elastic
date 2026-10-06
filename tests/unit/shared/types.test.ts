@@ -98,11 +98,12 @@ describe("Settings", () => {
     expect(patched.sidebar).toEqual({
       status: "archived",
       environment: "all",
-      groupBy: "project",
+      groupBy: "recents",
       sortBy: "activity",
       showBranch: false,
       collapsedProjects: [],
       pinnedProjects: [],
+      foldersCollapsed: true,
     });
   });
 

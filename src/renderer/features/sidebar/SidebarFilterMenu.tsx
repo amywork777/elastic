@@ -175,7 +175,8 @@ const ENVIRONMENT: readonly { value: SidebarEnvironmentFilter; label: string }[]
 ];
 
 const GROUP_BY: readonly { value: SidebarGroupBy; label: string }[] = [
-  { value: "project", label: "Project" },
+  { value: "recents", label: "Recents" },
+  { value: "project", label: "Folders" },
   { value: "none", label: "None" },
 ];
 

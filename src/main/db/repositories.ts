@@ -511,6 +511,8 @@ const WINDOW_STATE_KEY = "__window";
 const AGENTS_CACHE_KEY = "__agents";
 /** Each chat's queued prompts (`src/shared/ipc/queues.ts`), by session id, under the same terms. */
 const QUEUES_KEY = "__queues";
+/** Set once the sidebar has been moved to Recents (`settings.defaultSidebarToRecentsOnce`). */
+const RECENTS_DEFAULTED_KEY = "__recentsDefaulted";
 
 function readRaw(): Record<string, unknown> {
   const rows = db().prepare("SELECT key, value FROM settings").all() as {
@@ -612,6 +614,18 @@ export const settings = {
 
   fallbacks(): Record<string, string> {
     return fallbacksOf(readRaw());
+  },
+
+  /**
+   * Recents arrives as the sidebar's main list. Installs before it stored `groupBy: "project"`
+   * (the old default), so that one value moves to Recents, once; a person who goes back to
+   * Folders afterwards stays there.
+   */
+  defaultSidebarToRecentsOnce(): void {
+    if (readRaw()[RECENTS_DEFAULTED_KEY]) return;
+    const sidebar = settings.get().sidebar;
+    if (sidebar.groupBy === "project") settings.set({ sidebar: { ...sidebar, groupBy: "recents" } });
+    writeRaw({ [RECENTS_DEFAULTED_KEY]: true });
   },
 
   windowState(): WindowState {
