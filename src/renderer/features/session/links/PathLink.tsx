@@ -1,8 +1,10 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { Box, FileText, Folder } from "lucide-react";
-import { createContext, useContext, useEffect, type AnchorHTMLAttributes, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from "react";
 
 import { cn } from "@renderer/lib/utils";
+import { opensInApp } from "@renderer/lib/in-app-links";
+import { isMac } from "@renderer/lib/platform";
 import { useExplorer } from "@renderer/state/explorer";
 import { usePathKind, usePathLinks } from "@renderer/state/path-links";
 import { isReferenceFile, isFragment } from "@shared/file-refs";
@@ -76,9 +78,31 @@ export function PathLink({
     // label is the agent's words and one click opens it, so the hint says
     // where it really goes — broken anywhere, since a URL has no spaces to
     // wrap at and a long one ran out of the hint's box.
+    // What an agent just started on this machine, and Claude's and ChatGPT's pages, open in the
+    // chat's own browser tab (`lib/in-app-links.ts`); ⌘-click (Ctrl elsewhere) is the way out.
+    const inApp = opensInApp(href);
+    const openInApp = (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!inApp || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      const explorer = useExplorer.getState();
+      const showing = explorer.tabs.find((tab) => tab.kind === "browser" && tab.url === href);
+      if (showing) {
+        event.preventDefault();
+        explorer.setActive(showing.id);
+        return;
+      }
+      // No strip bound yet (still restoring): the system browser, as before.
+      if (explorer.open("browser", { url: href })) event.preventDefault();
+    };
     return (
-      <TooltipHint content={<span className="break-all" data-link-hint>{href}</span>}>
-        <a className={cn("font-medium text-primary underline", className)} href={href} rel="noreferrer" target="_blank" {...rest}>
+      <TooltipHint
+        content={
+          <span className="break-all" data-link-hint>
+            {href}
+            {inApp ? <span className="mt-0.5 block text-muted-foreground">Opens in elastic. {isMac ? "⌘" : "Ctrl"}-click for your browser.</span> : null}
+          </span>
+        }
+      >
+        <a className={cn("font-medium text-primary underline", className)} href={href} onClick={openInApp} rel="noreferrer" target="_blank" {...rest}>
           {children}
         </a>
       </TooltipHint>

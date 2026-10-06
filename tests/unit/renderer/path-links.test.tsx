@@ -203,3 +203,40 @@ describe("PathLink", () => {
     expect(hint).toHaveClass("break-all");
   });
 });
+
+describe("a link that belongs in the app", () => {
+  it("opens localhost in elastic's browser tab, and leaves a ⌘-click to the system browser", async () => {
+    const user = userEvent.setup();
+    const open = vi.fn(() => ({ id: "t" }) as never);
+    useExplorer.setState({ open, tabs: [] } as never);
+    render(<PathLink href="http://localhost:5173/">the app</PathLink>);
+    await user.click(screen.getByRole("link", { name: "the app" }));
+    expect(open).toHaveBeenCalledWith("browser", { url: "http://localhost:5173/" });
+
+    open.mockClear();
+    await user.keyboard("{Meta>}");
+    await user.click(screen.getByRole("link", { name: "the app" }));
+    await user.keyboard("{/Meta}");
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("brings forward a browser tab already showing the page", async () => {
+    const user = userEvent.setup();
+    const open = vi.fn();
+    const setActive = vi.fn();
+    useExplorer.setState({ open, setActive, tabs: [{ id: "b1", kind: "browser", url: "https://claude.ai/public/artifacts/x" }] } as never);
+    render(<PathLink href="https://claude.ai/public/artifacts/x">artifact</PathLink>);
+    await user.click(screen.getByRole("link", { name: "artifact" }));
+    expect(setActive).toHaveBeenCalledWith("b1");
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("leaves the rest of the web to the system browser", async () => {
+    const user = userEvent.setup();
+    const open = vi.fn();
+    useExplorer.setState({ open, tabs: [] } as never);
+    render(<PathLink href="https://github.com/x">github</PathLink>);
+    await user.click(screen.getByRole("link", { name: "github" }));
+    expect(open).not.toHaveBeenCalled();
+  });
+});
