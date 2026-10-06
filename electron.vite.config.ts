@@ -103,6 +103,10 @@ export default defineConfig({
       // Vite gzips every chunk to print its compressed size: ~900 of them here,
       // for a number nothing reads. Off, it is a tenth of the renderer build.
       reportCompressedSize: false,
+      // electron-vite leaves the renderer unminified by default: the window parsed a 5.3 MB entry
+      // chunk of indented source on every launch and reload. Minified, startup measured faster
+      // (docs/design.md, "Opening a session").
+      minify: "esbuild",
       rollupOptions: {
         input: { index: path.join(appRoot, "src", "renderer", "index.html") },
       },

@@ -3,7 +3,8 @@
  *
  *   1. electron-vite build — main, preload, renderer into out/;
  *   2. bundle the MCP server into out/app-mcp (build-mcp.mjs), after
- *      electron-vite because it empties its output directories first.
+ *      electron-vite because it empties its output directories first;
+ *   3. on a Mac, the dictation helper into out/native (build-dictation.mjs).
  *
  * `scripts/package.mjs` runs this before electron-builder, so a packaged app
  * and the app the e2e suite launches are built the same way.
@@ -13,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { appVersion } from "./app-version.mjs";
+import { buildDictation } from "./build-dictation.mjs";
 import { buildMcpServer } from "./build-mcp.mjs";
 import { nodeTool } from "./node-bin.mjs";
 
@@ -57,6 +59,8 @@ export function buildAll({ env = process.env } = {}) {
 
   return buildMcpServer({ version }).then((mcp) => {
     console.info(`bundled app-mcp ${mcp.version} -> ${path.relative(appRoot, mcp.out)}`);
+    const dictation = buildDictation({ env });
+    if (dictation) console.info(`built dictation helper -> ${path.relative(appRoot, dictation)}`);
   });
 }
 

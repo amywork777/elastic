@@ -1,5 +1,6 @@
 import { FolderOpen, Search, Settings, SquarePen } from "lucide-react";
 import { APP_STAGE } from "@shared/brand";
+import { Fragment } from "react";
 import { cn } from "cn";
 
 import { HistoryNav, SidebarToggle } from "@renderer/app/PaneToggles";
@@ -7,9 +8,12 @@ import { Button } from "@renderer/components/ui/button";
 import { ScrollArea } from "@renderer/components/ui/scroll-area";
 import { SessionSection } from "@renderer/features/sidebar/SessionSection";
 import { SidebarFilterMenu } from "@renderer/features/sidebar/SidebarFilterMenu";
+import { AgentsPanel } from "@renderer/features/sidebar/AgentsPanel";
+import { RunningNow } from "@renderer/features/sidebar/RunningNow";
 import { Wordmark } from "@renderer/features/sidebar/Wordmark";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions, useSidebarSections } from "@renderer/state/sessions";
+import { folderGroupLabel } from "@renderer/lib/sidebar";
 import { useSettings, useSidebarSettings } from "@renderer/state/settings";
 import { useUi } from "@renderer/state/ui";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
@@ -21,7 +25,7 @@ import { isMac } from "@renderer/lib/platform";
  * a grey section header per project with a flat list of sessions under it.
  *
  * There is no tree. A project is a **section**, not a row with children —
- * a header in muted text with a chevron for its collapse, `+` for a thread in
+ * a header that collapses the section when clicked anywhere, `+` for a thread in
  * that project, and the sliders for the filter menu — and a session is one
  * flat row with its state as a leading glyph. `Pinned` is the first section
  * when anything is pinned, and a pinned thread lives *only* there. What each
@@ -51,7 +55,8 @@ export function Sidebar() {
   // Status and Environment narrow *which* sessions are listed; grouping and
   // sorting only rearrange them, so only those two can empty the list.
   const narrowed = filters.status !== "active" || filters.environment !== "all";
-  const empty = sections.every((section) => section.sessions.length === 0);
+  // A pinned folder with nothing in it is still a row on screen, so the list is not empty.
+  const empty = sections.every((section) => section.sessions.length === 0 && !section.pinned);
   // A folder picked for a session not yet created has no group of its own
   // (projects are derived from sessions) — but the centre is already asking
   // what to build in it, so the list says so rather than "no sessions".
@@ -112,6 +117,7 @@ export function Sidebar() {
           scrolling the list sideways when a rename input takes focus. */}
       <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:!block">
         <div className="min-w-0 px-2 pb-2">
+          <RunningNow />
           {pending ? (
             <PendingGroup
               name={pending.name}
@@ -121,9 +127,15 @@ export function Sidebar() {
               }}
             />
           ) : null}
-          {sections.map((section) => (
-            <SessionSection key={section.id} section={section} />
-          ))}
+          {sections.map((section, index) => {
+            const label = folderGroupLabel(sections, index);
+            return (
+              <Fragment key={section.id}>
+                {label ? <FolderGroupLabel divided={label === "Folders"} text={label} /> : null}
+                <SessionSection section={section} />
+              </Fragment>
+            );
+          })}
           {ready && empty && !pending ? (
             narrowed && hasSessions ? (
               <NoMatches onClear={() => void setSidebar({ status: "active", environment: "all" })} />
@@ -146,6 +158,7 @@ export function Sidebar() {
           <Settings className="size-4" />
         </Button>
         </TooltipHint>
+        <AgentsPanel />
         <span className="truncate text-xs text-muted-foreground">Local · v{__APP_VERSION__} {APP_STAGE}</span>
       </footer>
     </div>
@@ -217,6 +230,14 @@ function NoProjects() {
   return (
     <div className="mt-2 rounded-lg border border-dashed border-sidebar-border px-3 py-4 text-center" data-sidebar-empty>
       <p className="text-xs text-muted-foreground">No sessions yet</p>
+    </div>
+  );
+}
+
+function FolderGroupLabel({ text, divided }: { text: string; divided: boolean }) {
+  return (
+    <div className={cn("px-2 pb-0.5", divided ? "mt-3 border-t border-sidebar-border pt-3" : "mt-2")} data-folder-group={text}>
+      <span className="text-[11px] font-medium text-muted-foreground">{text}</span>
     </div>
   );
 }

@@ -25,8 +25,8 @@ const service = {
   metadata: () => ({ tabId: "tab", title: "Page", url: "https://example.com/" }),
   contents: () => showing,
   list: () => [{ tabId: "tab" }],
-  noteAutomatedInput: vi.fn(),
-} as unknown as BrowserService & { noteAutomatedInput: ReturnType<typeof vi.fn> };
+  agentInput: vi.fn(),
+} as unknown as BrowserService & { agentInput: ReturnType<typeof vi.fn> };
 const tabs = { open: vi.fn(), show: vi.fn(), close: vi.fn() };
 let endpoint: ScopedBrowserCdp | undefined;
 afterEach(async () => { showing = contents; await endpoint?.dispose(); });
@@ -53,10 +53,12 @@ it("refuses Page.setDownloadBehavior as well as Browser.setDownloadBehavior on a
   // Ordinary page commands still reach the owned page.
   expect((await call("Page.enable", {}, sessionId)).error).toBeUndefined();
   expect(sendCommand).toHaveBeenCalledWith("Page.enable", {}, "native-session");
-  expect(service.noteAutomatedInput).not.toHaveBeenCalled();
-  // Agent input marks the page, so a download it triggers is not the person's gesture.
-  await call("Input.dispatchMouseEvent", { type: "mousePressed", x: 1, y: 1, button: "left", clickCount: 1 }, sessionId);
-  expect(service.noteAutomatedInput).toHaveBeenCalledWith(scope, "tab");
+  expect(service.agentInput).not.toHaveBeenCalled();
+  // Agent input marks the page (a download it triggers is not the person's gesture), and is
+  // drawn and announced: the service gets the method and its parameters before it is sent.
+  const press = { type: "mousePressed", x: 1, y: 1, button: "left", clickCount: 1 };
+  await call("Input.dispatchMouseEvent", press, sessionId);
+  expect(service.agentInput).toHaveBeenCalledWith(scope, "tab", "Input.dispatchMouseEvent", press);
   socket.close();
 });
 

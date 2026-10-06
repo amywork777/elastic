@@ -354,7 +354,10 @@ export class SessionConnection {
     return this.stateValue.acpSessionId;
   }
 
-  /** Where this adapter was spawned. Fixed for its life; the warm pool matches on it. */
+  /**
+   * The session's folder: where the adapter was spawned, until an adopting session in another
+   * folder re-points it (`adopt`). The warm pool matches idle adapters on it.
+   */
   get cwd(): string {
     return this.options.cwd;
   }
@@ -385,12 +388,20 @@ export class SessionConnection {
       | "onTerminalOutput"
       | "onFilesChanged"
       | "onStderr"
-    >,
+    > & {
+      /**
+       * The session's folder, when it is not where this adapter was spawned. Only for an agent that
+       * takes the folder from `session/new` and `session/load` (`capabilities.sessionCwd`): the
+       * requests carry it, and elastic's own file confinement and terminals follow it here.
+       */
+      cwd?: string;
+    },
   ): void {
     if (this.stateValue.acpSessionId) {
       throw new Error("this adapter already holds a session");
     }
     Object.assign(this.options, options);
+    if (options.cwd) this.client.retarget(options.cwd);
     this.stateValue = initialSessionState(options.sessionId, this.options.agentId);
   }
 
@@ -486,6 +497,42 @@ export class SessionConnection {
       at: Date.now(),
     });
     return response;
+  }
+
+  /**
+   * `session/fork` (unstable in ACP; claude-agent-acp offers it): a copy of another session's
+   * conversation, which this connection then owns. The original, and the connection running it,
+   * are not touched. Quick commands run on one (`SessionManager.aside`).
+   */
+  async forkSession(sourceAcpSessionId: string): Promise<string> {
+    await this.initialize();
+    const params = { cwd: this.options.cwd, mcpServers: this.options.mcpServers ?? [] };
+    let forkId: string;
+    try {
+      // The fork is made from the conversation on disk, so the source need not be open in this
+      // process; the copy comes back closed.
+      forkId = (await this.agent.unstable_forkSession({ sessionId: sourceAcpSessionId, ...params })).sessionId;
+    } catch (error) {
+      throw this.describe(error, "session/fork");
+    }
+    let response: Awaited<ReturnType<ClientSideConnection["resumeSession"]>>;
+    try {
+      // Opened without a replay: nothing here draws its history.
+      response = await this.agent.resumeSession({ sessionId: forkId, ...params });
+    } catch (error) {
+      throw this.describe(error, "session/resume");
+    }
+    this.dispatch({
+      type: "session/connected",
+      acpSessionId: forkId,
+      modes: response.modes
+        ? { currentModeId: response.modes.currentModeId, availableModes: sessionModes(response.modes.availableModes) }
+        : null,
+      configOptions: response.configOptions ? configOptions(response.configOptions) : null,
+      loading: false,
+      at: Date.now(),
+    });
+    return forkId;
   }
 
   /**

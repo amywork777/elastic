@@ -39,6 +39,7 @@ import type {
 } from "../../shared/acp/types";
 import type { IpcEventChannel, IpcEventPayload } from "../../shared/ipc";
 import { DELETED_WHILE_STARTING } from "../../shared/ipc/errors";
+import type { AgentProcess } from "../../shared/ipc/acp";
 import type { Launch } from "../../shared/agents";
 import type { ProviderSet } from "../../shared/providers";
 import type { GitMode, Session, SessionStatus } from "../../shared/types";
@@ -46,7 +47,8 @@ import { startTimer } from "../timer";
 import { PROBE_WAIT_MS, type AgentDetector } from "../agents/detect";
 import { agentProvider } from "../agents/registry";
 import { adapterOptionsKey, SessionConnection, type SessionConnectionOptions } from "./connection";
-import { LiveConnections } from "./live";
+import { KEEP_ALIVE_LIMIT, LiveConnections } from "./live";
+import { readProcessTable, treeBytes } from "./process-memory";
 import { SessionSnapshotWriter, type SnapshotStore } from "./snapshots";
 import type { SpawnTerminal } from "./terminals";
 import { createTimer, loadTimer } from "./timing";
@@ -80,7 +82,7 @@ export type SessionManagerDeps = {
    * it when it is done: the adapter is spawned exactly as a real session's
    * would be, or the options it reports are not the options it would have.
    */
-  mcpServers?: (session: Pick<Session, "id" | "projectId" | "cwd">) => McpServer[];
+  mcpServers?: (session: Pick<Session, "id" | "projectId" | "cwd" | "agentId">) => McpServer[];
   /** Called when a probe's connection is closed, so its bridge token can be revoked. */
   forgetProbe?: (probeId: string) => void;
 
@@ -268,11 +270,18 @@ const ARCHIVE_WAIT_MS = 10_000;
 /** How long a config-option probe may take before it is abandoned. */
 const PROBE_TIMEOUT_MS = 60_000;
 
-function rejectAfter(ms: number, agentId: string): Promise<never> {
+function rejectAfter(ms: number, agentId: string, method = "session/new"): Promise<never> {
   return new Promise((_resolve, reject) => {
-    setTimeout(() => reject(new Error(`${agentId} did not answer session/new in ${ms}ms`)), ms).unref?.();
+    setTimeout(() => reject(new Error(`${agentId} did not answer ${method} in ${ms}ms`)), ms).unref?.();
   });
 }
+
+/** How long a quick command beside the chat may take, start to answer. */
+export const ASIDE_TIMEOUT_MS = 120_000;
+
+/** What `/btw` puts in front of the question: Claude Code's side question, answered and dropped. */
+export const BTW_PREAMBLE =
+  "[A side question, asked beside the main conversation. Answer it briefly from what you already know of this conversation. Do not use tools and do not change anything; the answer is shown once and not kept.]";
 
 export class SessionManager {
   /**
@@ -340,6 +349,39 @@ export class SessionManager {
   list(projectId?: string): Session[] {
     this.boot();
     return this.deps.repo.list(projectId);
+  }
+
+  /**
+   * The adapters running now, for the Agents panel: every live chat's, most recently used
+   * first, then the idle spares, each with the memory its process tree holds. A chat's
+   * status is its connection's, which is the truth for a live one.
+   */
+  async activity(): Promise<{ processes: AgentProcess[]; keepAlive: number }> {
+    const table = await readProcessTable();
+    const memory = (pid: number | undefined) => (table && pid ? treeBytes(table, pid) : null);
+    const chats: AgentProcess[] = this.live
+      .entries()
+      .filter(([, connection]) => connection.alive)
+      .reverse()
+      .map(([sessionId, connection]) => ({
+        kind: "session",
+        sessionId,
+        agentId: connection.state.agentId,
+        cwd: connection.cwd,
+        status: connection.state.status,
+        pid: connection.process.pid ?? null,
+        memoryBytes: memory(connection.process.pid),
+      }));
+    const spares: AgentProcess[] = this.warm.entries().map(([agentId, adapter]) => ({
+      kind: "spare",
+      sessionId: null,
+      agentId,
+      cwd: adapter.cwd,
+      status: "idle",
+      pid: adapter.process.pid ?? null,
+      memoryBytes: memory(adapter.process.pid),
+    }));
+    return { processes: [...chats, ...spares], keepAlive: this.deps.keepAlive ?? KEEP_ALIVE_LIMIT };
   }
 
   get(id: string): Session | null {
@@ -832,7 +874,7 @@ export class SessionManager {
       env: await this.environment(),
       cwd: input.cwd,
       mcpServers:
-        this.deps.mcpServers?.({ id: probeId, projectId: input.projectId ?? "", cwd: input.cwd }) ?? [],
+        this.deps.mcpServers?.({ id: probeId, projectId: input.projectId ?? "", cwd: input.cwd, agentId: input.agentId }) ?? [],
       skillsRoot: this.deps.skills?.root() ?? null,
       spawnTerminal: this.deps.spawnTerminal,
       clientVersion: this.deps.clientVersion,
@@ -847,6 +889,74 @@ export class SessionManager {
     } finally {
       connection.close();
       this.deps.forgetProbe?.(probeId);
+    }
+  }
+
+  /**
+   * A quick command beside the chat (`/usage`, `/context`, `/btw`): run on an adapter process of
+   * its own, so it neither waits behind the chat's running turn nor lands in its transcript.
+   * With `forkOf`, a fork of that session's conversation (`session/fork`), read-only (the agent's
+   * plan mode, when it has one); without, a session of its own, as `probeOptions` makes. Nothing
+   * is answered on the person's behalf: a permission or a question the agent asks is cancelled.
+   * Resolves with the agent's reply as markdown; the process is closed either way.
+   */
+  async aside(input: {
+    agentId: string;
+    cwd: string;
+    projectId: string | null;
+    /** The chat whose conversation the command needs (`/context`, `/btw`). */
+    forkOf: string | null;
+    text: string;
+  }): Promise<{ markdown: string }> {
+    const provider = agentProvider(input.agentId);
+    if (!provider) throw new Error(`unknown agent: ${input.agentId}`);
+    if (!provider.capabilities.asides) throw new Error(`${provider.name} has no quick commands beside the chat.`);
+    let source: string | null = null;
+    let cwd = input.cwd;
+    if (input.forkOf) {
+      const row = this.deps.repo.get(input.forkOf);
+      if (!row?.acpSessionId) throw new Error("This chat has not started yet: send it a message first.");
+      source = row.acpSessionId;
+      cwd = row.cwd;
+    }
+    if (!existsSync(cwd)) throw new Error(`${cwd} does not exist`);
+    const asideId = `aside:${input.agentId}:${this.deps.newId()}`;
+    const connection: SessionConnection = new SessionConnection({
+      sessionId: asideId,
+      agentId: input.agentId,
+      launch: this.deps.launchOverride?.(provider.id) ?? provider.launch,
+      env: await this.environment(),
+      cwd,
+      // No tools beyond the agent's own: an aside answers, it does not act.
+      mcpServers: [],
+      skillsRoot: null,
+      spawnTerminal: this.deps.spawnTerminal,
+      clientVersion: this.deps.clientVersion,
+      onStderr: () => undefined,
+      onEvent: (event) => {
+        if (event.type === "permission/request") connection.client.cancelPendingPermissions();
+      },
+    });
+    const run = async () => {
+      if (source) {
+        await connection.forkSession(source);
+        const plan = connection.state.modes.find((mode) => mode.id === "plan");
+        if (plan) await connection.setMode(plan.id).catch(() => undefined);
+      } else {
+        await connection.newSession();
+      }
+      await connection.prompt([{ type: "text", text: input.text }]);
+      const turn = [...connection.state.turns].reverse().find((candidate) => candidate.role === "agent");
+      const markdown = (turn?.parts ?? [])
+        .flatMap((part) => (part.type === "text" && part.text.trim() ? [part.text.trim()] : []))
+        .join("\n\n");
+      if (!markdown) throw new Error(`${provider.name} answered with nothing.`);
+      return { markdown };
+    };
+    try {
+      return await Promise.race([run(), rejectAfter(ASIDE_TIMEOUT_MS, input.agentId, "the quick command")]);
+    } finally {
+      connection.close();
     }
   }
 
@@ -1715,9 +1825,10 @@ export class SessionManager {
       throw new Error("this session was deleted");
     }
     stop();
-    const warm = this.warm.take(session.agentId, session.cwd, adapterOptionsKey(adapterOptions));
+    const portable = agentProvider(session.agentId)?.capabilities.sessionCwd === true;
+    const warm = this.warm.take(session.agentId, session.cwd, adapterOptionsKey(adapterOptions), portable);
     if (warm) {
-      warm.adopt(sessionOptions);
+      warm.adopt({ ...sessionOptions, ...(warm.cwd === session.cwd ? {} : { cwd: session.cwd }) });
       owner.connection = warm;
       hooks.onWarm?.();
       this.live.set(session.id, warm);

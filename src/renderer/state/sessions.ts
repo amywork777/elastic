@@ -2,14 +2,14 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 import { create } from "zustand";
 
-import { sidebarSections, type SidebarSection } from "@renderer/lib/sidebar";
+import { listedSessions, sidebarSections, type SidebarSection } from "@renderer/lib/sidebar";
 import { errorMessage } from "@shared/ipc/errors";
 import type { GitMode, Session } from "@shared/types";
 
 import { useAgents } from "./agents";
 import { useProjects } from "./projects";
 import { flushSessionTabs, pruneSessionStorage, useExplorer } from "./explorer";
-import { useSettings, useSidebarSettings } from "./settings";
+import { DEFAULT_SIDEBAR, useSettings, useSidebarSettings } from "./settings";
 
 /**
  * The session index — id, title, status, cwd, the files-changed counters.
@@ -221,6 +221,24 @@ export function useSidebarSections(): SidebarSection[] {
     () => sidebarSections({ sessions, projects, filters, hidden }),
     [sessions, projects, filters, hidden],
   );
+}
+
+/**
+ * The sidebar's `index`th row as it is drawn, 1-based, outside React: what
+ * Mod+1..9 opens. 9 is the last row, the way a browser's ⌘9 is its last tab.
+ */
+export function listedSessionAt(index: number): Session | null {
+  const sidebar = useSettings.getState().settings?.sidebar ?? DEFAULT_SIDEBAR;
+  const rows = listedSessions(
+    sidebarSections({
+      sessions: useSessions.getState().sessions,
+      projects: useProjects.getState().projects,
+      filters: sidebar,
+      hidden: useSettings.getState().settings?.hiddenProjects ?? NO_HIDDEN,
+    }),
+    sidebar.collapsedProjects,
+  );
+  return (index === 9 ? rows.at(-1) : rows[index - 1]) ?? null;
 }
 
 /** The active session's index row, or null in the new-session state. */

@@ -242,7 +242,7 @@ export function SessionRow({
  * turn failed (`lib/sidebar.ts` owns the mapping). Drawn only; the row's title
  * button says the same in words (`aria-describedby`), so the two are not both read.
  */
-function StateGlyph({ status }: { status: SessionStatus }) {
+export function StateGlyph({ status }: { status: SessionStatus }) {
   const glyph = sessionGlyphFor(status);
   // A 16px box the row centres; `leading-none` so the SVG has no line box to
   // sit low in — the glyphs are small, and a pixel off centre shows.

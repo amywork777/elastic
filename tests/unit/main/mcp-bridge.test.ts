@@ -521,3 +521,83 @@ describe("the actions", () => {
     }
   });
 });
+
+/**
+ * `/mcp`: the app's servers over Streamable HTTP on the bridge, for the agents that reach HTTP
+ * MCP servers. No process per server, and the same token, method and schema checks as `/rpc`.
+ */
+describe("McpBridge over HTTP", () => {
+  async function httpBridge(recorded = recordingActions()) {
+    const { calls: _calls, ...actions } = recorded;
+    const { createServer, createPluginProxy } = await import("../../../resources/app-mcp/servers.mjs");
+    const { pluginTarget } = await import("@main/integrations/mcp-bridge");
+    const plugin = vi.fn(async (_session: BridgeSession, _target: unknown, request: { method: string }) =>
+      request.method === "tools/list" ? { tools: [{ name: "echo", inputSchema: { type: "object" } }] } : { content: [{ type: "text", text: "echoed" }] });
+    const bridge = new McpBridge(actions, () => ({ command: "/electron", args: ["/server.mjs"], env: {} }), undefined, plugin as never,
+      (integration, name, call) => pluginTarget(integration) ? createPluginProxy(call, { name }) : createServer(call, { integration, skillsRoot: null }));
+    bridges.push(bridge);
+    await bridge.start();
+    return { bridge, plugin, recorded };
+  }
+  async function client(entry: { url?: string; headers?: Array<{ name: string; value: string }> }) {
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+    const headers = Object.fromEntries((entry.headers ?? []).map((header) => [header.name, header.value]));
+    const instance = new Client({ name: "test", version: "0" });
+    await instance.connect(new StreamableHTTPClientTransport(new URL(entry.url!), { requestInit: { headers } }));
+    return instance;
+  }
+
+  it("names an HTTP entry for an agent that can reach one, and keeps the browser and other agents on stdio", async () => {
+    const { bridge } = await httpBridge();
+    const entry = bridge.serverFor(SESSION, "workspace", "app-workspace", true) as { type?: string; url?: string; headers?: Array<{ name: string; value: string }> };
+    expect(entry).toMatchObject({ type: "http", name: "app-workspace", url: `${bridge.address()}/mcp` });
+    expect(entry.headers?.[0]?.value).toMatch(/^Bearer /);
+    // The browser's Playwright runtime is a process of its own either way.
+    expect(bridge.serverFor(SESSION, "browser", "app-browser", true)).toHaveProperty("command");
+    expect(bridge.serverFor(SESSION, "workspace", "app-workspace", false)).toHaveProperty("command");
+  });
+
+  it("lists and calls the integration's tools in-process, through the same checks", async () => {
+    const { bridge, recorded } = await httpBridge();
+    const entry = bridge.serverFor(SESSION, "workspace", "app-workspace", true) as { url: string; headers: Array<{ name: string; value: string }> };
+    const mcp = await client(entry);
+    const tools = (await mcp.listTools()).tools.map((tool) => tool.name);
+    expect(tools).toContain("open_file");
+    // Another integration's tool is not this server's to list.
+    expect(tools).not.toContain("read_document");
+    const result = await mcp.callTool({ name: "open_file", arguments: { path: "README.md" } });
+    expect(result.isError).not.toBe(true);
+    expect(recorded.calls.at(-1)).toMatchObject({ method: "open_file", session: SESSION });
+    // A schema the tool refuses is the tool's error, and nothing is called.
+    const before = recorded.calls.length;
+    const refused = await mcp.callTool({ name: "open_file", arguments: { path: 7 } });
+    expect(refused.isError).toBe(true);
+    expect(recorded.calls).toHaveLength(before);
+    await mcp.close();
+  });
+
+  it("refuses an unknown or revoked token, and a GET for a stream", async () => {
+    const { bridge } = await httpBridge();
+    const entry = bridge.serverFor(SESSION, "workspace", "app-workspace", true) as { url: string; headers: Array<{ name: string; value: string }> };
+    const post = (authorization: string) => fetch(entry.url, { method: "POST", headers: { authorization, "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }) });
+    expect((await post("Bearer nope")).status).toBe(401);
+    expect((await fetch(entry.url, { headers: { authorization: entry.headers[0]!.value } })).status).toBe(405);
+    const mcp = await client(entry);
+    bridge.revoke(SESSION.sessionId);
+    expect((await post(entry.headers[0]!.value)).status).toBe(401);
+    await mcp.close().catch(() => {});
+  });
+
+  it("forwards a plugin server's requests as plugin_rpc", async () => {
+    const { bridge, plugin } = await httpBridge();
+    const entry = bridge.serverFor(SESSION, "plugin:tables/tables", "tables", true) as { url: string; headers: Array<{ name: string; value: string }> };
+    const mcp = await client(entry);
+    expect((await mcp.listTools()).tools.map((tool) => tool.name)).toEqual(["echo"]);
+    const result = await mcp.callTool({ name: "echo", arguments: {} });
+    expect(result.content).toEqual([{ type: "text", text: "echoed" }]);
+    expect(plugin).toHaveBeenCalledWith(SESSION, { pluginId: "tables", server: "tables" }, expect.objectContaining({ method: "tools/call" }), expect.anything());
+    await mcp.close();
+  });
+});

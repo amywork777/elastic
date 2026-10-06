@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { AgentDetector, e2eAssumedAgents, nodeProbes, parseVersion, which, type DetectorProbes } from "@main/agents/detect";
 import type { AgentStatus } from "@shared/agents";
 import { CLAUDE_ADAPTER, CODEX_ADAPTER, agentProvider } from "@main/agents/registry";
-import { parseEnv, stripHostSession } from "@main/agents/shell-env";
+import { parseEnv, stripBuildTool, stripHostSession } from "@main/agents/shell-env";
 
 /** A fake machine: which files are executable, what each prints, which credential files exist. */
 function machine(options: {
@@ -333,6 +333,14 @@ describe("the login shell environment", () => {
     expect(nested).toEqual({ ANTHROPIC_API_KEY: "sk", PATH: "/a" });
     const plain = { ANTHROPIC_BASE_URL: "http://proxy", PATH: "/a" };
     expect(stripHostSession(plain)).toBe(plain);
+  });
+
+  it("drops the NODE_ENV that `npm run dev` gave the app, and keeps the person's own", () => {
+    // electron-vite's: an agent's `npm run build` must not inherit "development".
+    expect(stripBuildTool({ NODE_ENV: "development", NODE_ENV_ELECTRON_VITE: "development", PATH: "/a" })).toEqual({ PATH: "/a" });
+    // Without electron-vite's marker it is the person's, exported in their own environment.
+    const own = { NODE_ENV: "production", PATH: "/a" };
+    expect(stripBuildTool(own)).toBe(own);
   });
 
   it("strips the host session's scratch and plugin directories too", () => {

@@ -142,7 +142,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
  * would each have to guard. Frozen once, because it is compared by identity:
  * a fresh object per call would re-render every row on every keystroke.
  */
-const DEFAULT_SIDEBAR: SidebarSettings = SidebarSettingsSchema.parse({});
+export const DEFAULT_SIDEBAR: SidebarSettings = SidebarSettingsSchema.parse({});
 
 export function useSidebarSettings(): SidebarSettings {
   return useSettings((state) => state.settings?.sidebar ?? DEFAULT_SIDEBAR);

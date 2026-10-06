@@ -10,6 +10,8 @@ import { Button } from "@renderer/components/ui/button";
 import { cn } from "@renderer/lib/utils";
 import { useBrowser } from "@renderer/state/browser";
 
+import { AgentControlBar } from "./AgentControlBar";
+
 import { EmptyState } from "@workbench/ui/navigation";
 import { createPromptContext } from "@workbench/core/prompt";
 import { createDesktopPromptContext } from "./host/promptContext";
@@ -146,6 +148,7 @@ export function BrowserTab({ sessionId, projectId, root, tabId, url }: { session
         </WebPreviewNavigationButton>
       </WebPreviewNavigation>
 
+      <AgentControlBar at={{ sessionId, projectId, root, tabId }} />
       {promptStatus ? <p className="px-3 py-1 text-xs text-muted-foreground" role="status">{promptStatus}</p> : null}
       {failure ? <p className="px-3 py-1 text-xs text-destructive" role="alert">{failure}</p> : null}
       <div className="relative min-h-0 flex-1 overflow-hidden border-t bg-background" data-browser-target={tabId} ref={viewRef}>

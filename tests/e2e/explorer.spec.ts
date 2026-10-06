@@ -68,7 +68,7 @@ test.afterAll(async () => {
 
 test("opens a markdown file as a preview, then as source", async () => {
   await newTab("File");
-  await page.getByLabel("Filter files").fill(MARKDOWN);
+  await shownBody().getByLabel("Filter files").fill(MARKDOWN);
   await page.getByRole("option", { name: MARKDOWN, exact: false }).first().click();
   // Rendered: the heading is an H1, not a line beginning with `#`.
   await expect(page.getByRole("heading", { level: 1, name: "AGENTS.md" })).toBeVisible();
@@ -84,7 +84,7 @@ test("opens a markdown file as a preview, then as source", async () => {
 
 test("expands three levels of the tree, and keeps them across the remount a new tab is", async () => {
   await newTab("File");
-  const folder = (relative: string) => page.locator(`[role="treeitem"][data-path="${relative}"]`);
+  const folder = (relative: string) => shownBody().locator(`[role="treeitem"][data-path="${relative}"]`);
   // Each level is a lazy `explorer.list`, and each used to be a click that shut the tree
   // instead of opening it once a file was open under any of them.
   await folder("src").click();
@@ -92,7 +92,7 @@ test("expands three levels of the tree, and keeps them across the remount a new 
   await folder("src/main/integrations").click();
   await expect(folder("src/main/integrations/browser")).toBeVisible();
   await folder("src/main/integrations/pdf").click();
-  await page.locator(`[role="treeitem"][data-path="src/main/integrations/pdf/module.mjs"]`).click();
+  await shownBody().locator(`[role="treeitem"][data-path="src/main/integrations/pdf/module.mjs"]`).click();
   await expect(page.getByRole("tab", { name: /module\.mjs/ })).toBeVisible();
   await expect(folder("src/main/integrations/pdf")).toBeVisible();
   await folder("src/main").click();
@@ -103,7 +103,7 @@ test("expands three levels of the tree, and keeps them across the remount a new 
 });
 
 test("copies a relative and an absolute path from a row's context menu", async () => {
-  const row = page.locator(`[role="treeitem"][data-path="src/main/integrations/pdf/module.mjs"]`);
+  const row = shownBody().locator(`[role="treeitem"][data-path="src/main/integrations/pdf/module.mjs"]`);
   await openContextMenu(row);
   // A file menu has no Copy reference: the paths say it, and a reference inside a file is the
   // viewer's to copy.
@@ -168,7 +168,7 @@ test("persists the strip across a reload", async () => {
 test("edits a markdown file in place and saves only the lines it changed", async () => {
   await switchProject(docsDir);
   await newTab("File");
-  await page.getByLabel("Filter files").fill("AGENTS.md");
+  await shownBody().getByLabel("Filter files").fill("AGENTS.md");
   await page.getByRole("option", { name: "AGENTS.md", exact: false }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: "AGENTS.md" })).toBeVisible();
   // Scoped to the explorer: the composer is a ProseMirror editor as well.
@@ -189,8 +189,8 @@ test("edits a markdown file in place and saves only the lines it changed", async
 
 test("makes a folder from the tree's menu, renames it, and moves it to the trash", async () => {
   const tree = page.getByTestId("explorer").getByRole("tree");
-  const folder = (name: string) => page.locator(`[role="treeitem"][data-path="${name}"]`);
-  await page.getByLabel("Filter files").fill("");
+  const folder = (name: string) => shownBody().locator(`[role="treeitem"][data-path="${name}"]`);
+  await shownBody().getByLabel("Filter files").fill("");
   await expect(folder("README.md")).toBeVisible();
   // The empty space under the rows is the root: New folder, typed in place.
   await openContextMenu(tree, { x: 40, y: 200 });
@@ -232,7 +232,7 @@ test("makes a folder from the tree's menu, renames it, and moves it to the trash
 test("lists every file, refreshes ignored folders and opens unknown types as Not supported", async () => {
   await switchProject(allFilesDir);
   await newTab("File");
-  const entry = (file: string) => page.locator(`[role="treeitem"][data-path="${file}"]`);
+  const entry = (file: string) => shownBody().locator(`[role="treeitem"][data-path="${file}"]`);
   await expect(entry(".DS_Store")).toBeVisible();
   await expect(entry("output.unsupported")).toBeVisible();
   await entry("STEP").click();
@@ -246,7 +246,7 @@ test("lists every file, refreshes ignored folders and opens unknown types as Not
   await expect(entry("node_modules/new.unsupported")).toBeVisible();
   fs.unlinkSync(path.join(allFilesDir, "node_modules", "new.unsupported"));
   await expect(entry("node_modules/new.unsupported")).toHaveCount(0);
-  await page.getByLabel("Filter files").fill("output.unsupported");
+  await shownBody().getByLabel("Filter files").fill("output.unsupported");
   await page.getByRole("option", { name: "output.unsupported", exact: false }).click();
   await expect(page.getByText("Not supported", { exact: true })).toBeVisible();
 });
@@ -342,7 +342,7 @@ async function switchProject(directory: string) {
 
 /** Open a path through the tree's filter — the way a person would. */
 async function openFromTree(target: string) {
-  const filter = page.getByLabel("Filter files");
+  const filter = shownBody().getByLabel("Filter files");
   await filter.fill(target);
   await page.getByRole("option", { name: target, exact: false }).first().click();
   await expect(page.getByRole("tablist", { name: "Explorer tabs" }).locator('[role="tab"][aria-selected="true"]')).toHaveAttribute("data-tab-path", target);
@@ -387,6 +387,11 @@ async function shoot(name: string) {
 
 function occurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
+}
+
+/** The tab body on screen: recently used tabs stay mounted behind it (`KEEP_ALIVE`), hidden and inert. */
+function shownBody() {
+  return page.locator("#explorer-tabpanel [data-tab-body]:not([inert])");
 }
 
 /** `+` is a menu of the tab kinds; a closing Radix menu can swallow the next click, so wait it out. */

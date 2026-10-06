@@ -21,9 +21,17 @@ Every domain but `workspace` reaches a session through its bundled plugin
 (`resources/bundled/plugins/elastic-<domain>`, see [plugins](plugins.md#bundled-plugins)):
 the plugin's `.mcp.json` names the domain as a `builtin` server, and a plugin
 turned off takes its server and skill out of later sessions. Each session
-receives separate `app-<domain>` stdio MCP server entries.
-They use the same packaged server executable with a different integration ID
-and a distinct per-session, per-integration bearer token. The loopback bridge
+receives separate `app-<domain>` MCP server entries, each with a distinct
+per-session, per-integration bearer token. For an agent that reaches HTTP MCP
+servers (`capabilities.mcpHttp`: Claude Code, Codex) the entry is
+`{ type: "http", url: <bridge>/mcp }` with the token in its `Authorization`
+header, and main serves the domain's tools itself
+(`resources/app-mcp/servers.mjs` over Streamable HTTP, `McpBridge.handleMcp`):
+no process per server. Measured before this, five open Claude chats ran 69
+stdio proxies at 73 MB each, 4.9 GB. Any other agent, and the browser, whose
+Playwright runtime is a process of its own, gets the stdio entry: the same
+packaged server executable with a different integration ID. Both paths check a
+call the same way (`McpBridge.call` and the `/rpc` handler). The loopback bridge
 validates the token, method ownership and input schema before dispatch. A PDF
 server token cannot call terminal methods. Browser bootstrap opens a scoped native
 CDP connection; subsequent browser actions run through the upstream MCP and that

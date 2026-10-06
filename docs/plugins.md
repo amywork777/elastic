@@ -70,6 +70,29 @@ folder is refused.
 Install it from Plugins › Add › Install a plugin folder. It is used in place:
 edit it, press Reload from disk on its page.
 
+### Remote servers and sign-in
+
+A server with a `url` instead of a `command` is reached over Streamable HTTP.
+If it answers 401, its row says Sign in, and nothing opens a browser until the
+person clicks it (`src/main/plugins/oauth.ts`). Most servers let an app register
+itself on the spot; some do not (Slack's, GitHub's, Google's), and those need
+the client their owner registered, named in the server's `oauth` block, in
+either app's spelling:
+
+```json
+{ "slack": { "type": "http", "url": "https://mcp.slack.com/mcp",
+  "oauth": { "client_id": "…", "client_secret": "…", "callback_port": 12799,
+             "callback_url": "http://127.0.0.1:12799/callback/…" },
+  "scopes": ["…"] } }
+```
+
+Codex's keys are those; Claude Code's are `clientId` and `callbackPort`, which
+come back to `localhost` rather than `127.0.0.1`. A fixed port or URL is the
+redirect that client was registered with, so the sign-in listens on exactly that
+one; without one it takes a free port on `127.0.0.1` at `/callback`. A value left
+as a placeholder (`<SLACK_PUBLIC_CLIENT_ID>`) counts as none, and a server that
+needs a client gets a sentence saying the plugin names none.
+
 ## Tools, and who sees them
 
 Every tool a plugin's servers list reaches agents through the app, as an MCP

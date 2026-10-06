@@ -138,7 +138,9 @@ export const AGENT_PROVIDERS: readonly AgentProvider[] = [
     },
     launch: pinned(CLAUDE_ADAPTER),
     adapter: adapterOf(CLAUDE_ADAPTER),
-    capabilities: CAPS.full,
+    // `asides`: claude-agent-acp offers `session/fork` and answers `/usage` and `/context` itself.
+    // `sessionCwd`: claude-agent-acp runs each session's Claude in `session/new`'s `cwd`.
+    capabilities: { ...CAPS.full, asides: true, sessionCwd: true, mcpHttp: true },
     // The adapter reads `additionalDirectories` (or `_meta.additionalRoots`)
     // and passes them to the Agent SDK, which loads
     // `<dir>/.claude/skills/<name>/SKILL.md`. Verified on this machine with
@@ -175,7 +177,8 @@ export const AGENT_PROVIDERS: readonly AgentProvider[] = [
     },
     launch: pinned(CODEX_ADAPTER),
     adapter: adapterOf(CODEX_ADAPTER),
-    capabilities: CAPS.full,
+    // `sessionCwd`: codex-acp starts each thread in `session/new`'s `cwd`.
+    capabilities: { ...CAPS.full, sessionCwd: true, mcpHttp: true },
     // codex-acp reads `additionalDirectories`, falls back to
     // `_meta.additionalRoots`, and registers `<root>/.agents/skills` with the
     // app server (`skills/extraRoots/set`) before refreshing its skill list.

@@ -153,6 +153,28 @@ never disturbs it. Enter commits: the resolved address then shows until the
 page moves on to another URL, and an Enter that picks a candidate during input
 method composition is ignored.
 
+## Seeing and stopping an agent
+
+An agent's input reaches a page only through the scoped CDP adapter, so main
+sees every press before it is sent (`BrowserService.agentInput`, from
+`browser/cdp.ts`). Three things follow from it:
+
+- **The agent's cursor.** A press draws an arrow with a rippling ring where it
+  lands, for a second and a half: a small transparent `WebContentsView` of its
+  own (`pointAt`), added over the page, never a node in the page's document, so
+  no screenshot or snapshot an agent takes contains it. It is drawn only over a
+  page that is shown, kept inside the page's rectangle, and goes with the page.
+  `prefers-reduced-motion` holds the ring still.
+- **The strip.** Each page announces `browser.activity` at most twice a second
+  while an agent drives it, and the tab shows "<agent> is using this tab" under
+  its toolbar for five seconds after the last one
+  (`features/explorer/AgentControlBar.tsx`), with Stop, which ends the chat's
+  turn as the composer's stop does, and Take over.
+- **Take over.** `browser.takeOver` marks the page as the person's: the adapter
+  refuses an agent's `Input.*` with "The person has taken over this browser
+  tab…", which the agent reads as a tool error and waits on, until Hand back.
+  Reading the page (snapshots, screenshots) still works; only input is refused.
+
 ## Adding page context to a prompt
 
 The browser toolbar offers selected text and page screenshot actions. Both add a

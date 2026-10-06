@@ -152,13 +152,26 @@ export function trimForSnapshot(state: SessionState): SessionState {
   return fitToBudget(capped);
 }
 
-/** Drop the oldest turns until the JSON fits. The newest turn is never dropped. */
+/**
+ * Drop the oldest turns until the JSON fits. The newest turn is never dropped.
+ *
+ * Each turn is measured once and the length kept as a running sum: the JSON of
+ * `turns` is its turns' JSON joined by commas, so the whole is the rest of the
+ * state plus that. Re-stringifying the state per dropped turn was quadratic,
+ * and a long chat spent over a second of the main thread on every write.
+ */
 function fitToBudget(state: SessionState): SessionState {
-  let turns = state.turns;
-  while (turns.length > 1 && JSON.stringify({ ...state, turns }).length > SNAPSHOT_JSON_CAP) {
-    turns = turns.slice(1);
+  const turns = state.turns;
+  const lengths = turns.map((turn) => JSON.stringify(turn).length);
+  // `[]` is already in the base; n turns add their lengths and n - 1 commas.
+  const base = JSON.stringify({ ...state, turns: [] }).length;
+  let total = base + lengths.reduce((sum, length) => sum + length, 0) + Math.max(0, turns.length - 1);
+  let first = 0;
+  while (turns.length - first > 1 && total > SNAPSHOT_JSON_CAP) {
+    total -= lengths[first]! + 1;
+    first += 1;
   }
-  return turns === state.turns ? state : { ...state, turns };
+  return first === 0 ? state : { ...state, turns: turns.slice(first) };
 }
 
 /**

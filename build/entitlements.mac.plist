@@ -10,7 +10,8 @@
   points it at, and reads and writes their projects. Network client: the agent
   adapters, the CAD Viewer's local server and the update check. Network server:
   the loopback servers main listens on (the MCP bridge, the embedded browser's
-  CDP endpoint).
+  CDP endpoint). Audio input: the composer's dictation; Chromium records in a
+  helper process, so the inherit plist carries it too.
 
   Nothing here is speculative. An entitlement that is not needed is an
   entitlement that has to be justified later, so add one when a feature fails
@@ -25,6 +26,8 @@
     <key>com.apple.security.cs.allow-dyld-environment-variables</key>
     <true/>
     <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
     <true/>
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>

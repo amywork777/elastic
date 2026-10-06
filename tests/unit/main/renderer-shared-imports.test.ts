@@ -28,6 +28,7 @@ const VALUE_ALLOWLIST = new Set([
   "terminal-replies",
   "titlebar",
   "ipc/errors",
+  "ipc/dictation",
   "image-cap",
   "brand",
   "plugins",

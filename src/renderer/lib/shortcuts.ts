@@ -16,8 +16,10 @@
  * platform — the Settings page prints it as a footnote instead.
  *
  * A binding is written once, in the portable form (`Mod+K`), and rendered per
- * platform: `Mod` is ⌘ on macOS and Ctrl everywhere else, which is the only
- * difference between the two columns worth encoding.
+ * platform: `Mod` is ⌘ on macOS and Ctrl everywhere else. One row needs more
+ * than that: the explorer's tab digits are ⌃1–9 on a Mac, and off a Mac Ctrl is
+ * `Mod`, which the chats' digits already hold, so that row names its keys there
+ * in `offMac`.
  */
 
 /** The groups the page prints, in order. */
@@ -32,6 +34,8 @@ export type Shortcut = {
   binding: string;
   /** The far end of a range, for the nine tab shortcuts that are one row. */
   through?: string;
+  /** The keys on Windows and Linux, for the one row whose keys are not `Mod` there. */
+  offMac?: { binding: string; through?: string };
 };
 
 export const SHORTCUTS: readonly Shortcut[] = [
@@ -49,6 +53,14 @@ export const SHORTCUTS: readonly Shortcut[] = [
   // explorer, skipping a pane that is shut (`Shell`).
   { id: "next-pane", group: "Application", label: "Focus the next pane", binding: "F6" },
   { id: "previous-pane", group: "Application", label: "Focus the previous pane", binding: "Shift+F6" },
+  // The sidebar's rows top to bottom, as drawn (`listedSessions`); 9 is the last.
+  {
+    id: "switch-chat",
+    group: "Application",
+    label: "Switch to chat 1–9",
+    binding: "Mod+1",
+    through: "Mod+9",
+  },
 
   { id: "send", group: "Session", label: "Send", binding: "Enter" },
   {
@@ -81,14 +93,34 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: "Toggle Tab moving focus out of an editor or terminal",
     binding: "Ctrl+Shift+M",
   },
+  // Control on a Mac, beside the chats' ⌘ digits; Alt off it, where Ctrl is the chats'.
   {
     id: "switch-tab",
     group: "Explorer",
     label: "Switch to tab 1–9",
-    binding: "Mod+1",
-    through: "Mod+9",
+    binding: "Ctrl+1",
+    through: "Ctrl+9",
+    offMac: { binding: "Alt+1", through: "Alt+9" },
   },
 ];
+
+/** A row's keys on this platform: its own, or `offMac` off a Mac. */
+export function bindingOn(shortcut: Shortcut, mac: boolean): { binding: string; through?: string } {
+  return !mac && shortcut.offMac ? shortcut.offMac : { binding: shortcut.binding, through: shortcut.through };
+}
+
+/** Every chord a row stands for, a range spelled out: `Mod+1` through `Mod+9` is nine. */
+export function bindingsOf(shortcut: Pick<Shortcut, "binding" | "through">): string[] {
+  const last = shortcut.through?.at(-1);
+  const first = shortcut.binding.at(-1);
+  if (!shortcut.through || !last || !first) return [shortcut.binding];
+  const prefix = shortcut.binding.slice(0, -1);
+  const keys: string[] = [];
+  for (let code = first.charCodeAt(0); code <= last.charCodeAt(0); code += 1) {
+    keys.push(prefix + String.fromCharCode(code));
+  }
+  return keys;
+}
 
 /** How a modifier prints on each platform. */
 const GLYPHS: Record<string, { mac: string; other: string }> = {
@@ -132,5 +164,5 @@ export function shortcutsIn(group: ShortcutGroup): Shortcut[] {
  */
 export function hintWith(label: string, id: string, mac: boolean): string {
   const shortcut = SHORTCUTS.find((candidate) => candidate.id === id);
-  return shortcut ? `${label}  ${shortcutKeys(shortcut.binding, mac)}` : label;
+  return shortcut ? `${label}  ${shortcutKeys(bindingOn(shortcut, mac).binding, mac)}` : label;
 }

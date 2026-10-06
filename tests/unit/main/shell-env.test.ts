@@ -143,3 +143,74 @@ describe("the login shell's output", () => {
     });
   });
 });
+
+/**
+ * A launch answers with the last launch's capture and refreshes behind it (`setEnvCache`): the
+ * login shell took 10.7 s at one busy launch, and every agent waited for it.
+ */
+describe.skipIf(process.platform === "win32")("the environment kept between launches", () => {
+  const shellPrinting = (pathValue: string) =>
+    fakeShell(`env -i PATH=${pathValue}:/usr/bin:/bin HOME=/home/fake /bin/sh -c "$2"`);
+  /** A fresh copy of the module: its capture is module state, held for the app's life. */
+  async function fresh() {
+    vi.resetModules();
+    return import("@main/agents/shell-env");
+  }
+  const memory = (saved: Record<string, string> | null) => {
+    const store = { saved, writes: [] as Record<string, string>[] };
+    return { store, cache: { load: () => store.saved, save: (env: Record<string, string>) => { store.writes.push(env); store.saved = env; } } };
+  };
+
+  it("answers with the saved environment at once, then uses and keeps a capture that changed", async () => {
+    const module = await fresh();
+    const saved = { PATH: "/old/bin", HOME: "/home/fake" };
+    const { store, cache } = memory(saved);
+    module.setEnvCache(cache);
+    vi.stubEnv("SHELL", shellPrinting("/new/bin"));
+    expect(await module.loginEnv({ timeoutMs: 5_000 })).toBe(saved);
+    await vi.waitFor(() => expect(store.writes).toHaveLength(1));
+    expect(store.writes[0]!.PATH).toBe("/new/bin:/usr/bin:/bin");
+    expect((await module.loginEnv()).PATH).toBe("/new/bin:/usr/bin:/bin");
+  });
+
+  it("keeps the saved object when the capture is the same, so a warm adapter's options still match", async () => {
+    vi.stubEnv("SHELL", shellPrinting("/same/bin"));
+    // What the last launch kept: a real capture (the shell's variables over the app's own).
+    const first = memory(null);
+    const last = await fresh();
+    last.setEnvCache(first.cache);
+    const saved = await last.loginEnv({ timeoutMs: 5_000 });
+    // This launch: the same shell answers the same, so nothing is written and the object stays.
+    const module = await fresh();
+    const { store, cache } = memory(saved);
+    module.setEnvCache(cache);
+    expect(await module.loginEnv({ timeoutMs: 5_000 })).toBe(saved);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(store.writes).toHaveLength(0);
+    expect(await module.loginEnv()).toBe(saved);
+  });
+
+  it("captures and keeps the first time, and a named refresh waits for the real shell", async () => {
+    const module = await fresh();
+    const { store, cache } = memory(null);
+    module.setEnvCache(cache);
+    vi.stubEnv("SHELL", shellPrinting("/first/bin"));
+    expect((await module.loginEnv({ timeoutMs: 5_000 })).PATH).toBe("/first/bin:/usr/bin:/bin");
+    expect(store.writes.at(-1)!.PATH).toBe("/first/bin:/usr/bin:/bin");
+    vi.stubEnv("SHELL", shellPrinting("/after/sign-in/bin"));
+    expect((await module.loginEnv({ force: true, timeoutMs: 5_000 })).PATH).toBe("/after/sign-in/bin:/usr/bin:/bin");
+  });
+
+  it("keeps the saved environment when the shell fails, rather than the Dock's", async () => {
+    const module = await fresh();
+    const saved = { PATH: "/saved/bin", HOME: "/home/fake" };
+    const { store, cache } = memory(saved);
+    module.setEnvCache(cache);
+    vi.stubEnv("SHELL", fakeShell("exit 3"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await module.loginEnv({ timeoutMs: 5_000 })).toBe(saved);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(store.writes).toHaveLength(0);
+    expect(await module.loginEnv()).toBe(saved);
+  });
+});

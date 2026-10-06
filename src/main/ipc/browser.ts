@@ -7,7 +7,7 @@ import type { IpcHandlers } from "../../shared/ipc/define";
 import type { BrowserTarget } from "../../shared/browser";
 import { sessions } from "../db/repositories";
 import { rootOf } from "./explorer";
-import { IpcError, type IpcContext } from "./register";
+import { broadcast, IpcError, type IpcContext } from "./register";
 let swept = false;
 /**
  * Once, on the first renderer browser request (a restored browser tab asks at
@@ -47,5 +47,11 @@ export const browserHandlers = {
     close: request => browserService.close(scope(request), request.tabId),
     clearConsole: request => browserService.clearConsole(scope(request), request.tabId),
     capture: request => browserService.captureContext(scope(request), request.tabId, request),
+    takeOver: request => browserService.setTakenOver(scope(request), request.tabId, request.takenOver),
   },
 } satisfies IpcHandlers<typeof browserIpc, IpcContext>;
+
+// An agent driving a page: every window hears it, and the tab that shows the page says so.
+browserService.events.on("activity", ({ sessionId, tabId }: { sessionId: string; tabId: string }) => {
+  broadcast("browser.activity", { sessionId, tabId });
+});

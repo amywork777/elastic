@@ -46,6 +46,11 @@ import {
 } from "./composer/attachments";
 import { AttachmentImagePreview } from "./composer/AttachmentImagePreview";
 import { ComposerEditor, type ComposerEditorHandle } from "./composer/ComposerEditor";
+import { AsideCard } from "./composer/AsideCard";
+import { DictationButton } from "./composer/DictationButton";
+import { parseQuickCommand, withQuickCommands } from "./composer/quick-commands";
+import { useAsides, type QuickCommandName } from "@renderer/state/asides";
+import { useDictation } from "./composer/dictation";
 import { applyMention, mentionQuery } from "./composer/mentions";
 import { ReferenceScopeContext } from "./composer/ReferenceScope";
 import { AnnotationsChip, annotationImageParts, withAnnotations } from "./composer/AnnotationsChip";
@@ -76,9 +81,10 @@ const NO_APP_CONTEXTS: AppContext[] = [];
  * `composer/ComposerEditor`). A composer that starts three lines tall is
  * three lines of nothing, and the prompt most people send is short.
  *
- * There is no microphone. There is no dictation backend behind one, and on
- * macOS the system's own dictation already types into this box; a button
- * that is permanently disabled is a promise the app does not keep.
+ * The microphone beside send dictates into the box, transcribed on the Mac
+ * (`composer/dictation.ts`, `src/main/dictation`). Where it cannot run — off
+ * macOS, before macOS 26, a build without the helper — there is no button at
+ * all: a button that is permanently disabled is a promise the app does not keep.
  *
  * Shared by the new-session state and the live session: the chips differ,
  * the rest does not. Submission hands back the text and the ACP content
@@ -103,6 +109,7 @@ export function Composer({
   placeholder = "Do anything",
   autoFocus,
   refuseSend,
+  quick,
   onSubmit,
   onStop,
 }: {
@@ -123,6 +130,11 @@ export function Composer({
    * says this, the way a chip with a `disabledReason` does, and the draft stays where it is.
    */
   refuseSend?: string;
+  /**
+   * Quick commands this composer answers beside the chat (`composer/quick-commands.ts`), and who
+   * answers them: the agent, and the chat when there is one (`/context` and `/btw` need it).
+   */
+  quick?: { offered: QuickCommandName[]; agentId: string; sessionId: string | null; projectId: string | null };
   /** `draft` is what the box held, kept apart, so a queued prompt can be put back as it was. */
   onSubmit: (text: string, content: PromptBlock[], draft: TakenDraft) => Promise<void> | void;
   onStop?: () => void;
@@ -150,6 +162,14 @@ export function Composer({
     [draftKey, setDraft],
   );
   const textRef = useRef<ComposerEditorHandle | null>(null);
+  const dictation = useDictation({
+    text,
+    setText,
+    scope: draftKey,
+    // After the editor is editable again, which is the render after the phase goes idle.
+    onSettled: () => window.requestAnimationFrame(() => textRef.current?.focus()),
+  });
+  const dictating = dictation.phase !== "idle";
   const focusRequest = useComposer((state) => state.focusRequest?.key === draftKey ? state.focusRequest.nonce : null);
   useEffect(() => {
     if (focusRequest !== null) textRef.current?.focus();
@@ -200,7 +220,9 @@ export function Composer({
     }
   }, [autoFocus, draftKey]);
 
-  const slash = useSlashCommands(text, commands);
+  const offered = quick?.offered;
+  const slashCommands = useMemo(() => (offered ? withQuickCommands(commands, offered) : commands), [commands, offered]);
+  const slash = useSlashCommands(text, slashCommands);
   const mention = useMentions(text, referenceScope);
   const annotations = useComposer((state) => state.annotations[draftKey] ?? NO_ANNOTATIONS);
   const removeAnnotations = useComposer((state) => state.removeAnnotations);
@@ -208,8 +230,45 @@ export function Composer({
   const appContexts = useComposer((state) => state.appContexts[draftKey] ?? NO_APP_CONTEXTS);
   const removeAppContext = useComposer((state) => state.removeAppContext);
 
+  /**
+   * Answer a quick command beside the chat, whatever the chat is doing: never refused, never
+   * queued, never sent. The box empties, as it does for a send.
+   */
+  const runQuick = useCallback(
+    (command: QuickCommandName, question?: string) => {
+      if (!quick) return;
+      useComposer.getState().takeDraft(draftKey);
+      useAsides.getState().run(draftKey, {
+        agentId: quick.agentId,
+        sessionId: quick.sessionId,
+        projectId: quick.projectId,
+        command,
+        ...(question ? { question } : {}),
+      });
+    },
+    [quick, draftKey],
+  );
+  /** A pick from the slash list: a quick command with nothing to add runs now, as Claude Code's does. */
+  const pickCommand = (command: AvailableCommand) => {
+    const quickName = quick?.offered.find((name) => name === command.name);
+    if (quickName && !command.hint) {
+      runQuick(quickName);
+      return;
+    }
+    setText(`/${command.name} `);
+  };
+
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
+      const quickCommand = quick && message.files.length === 0 ? parseQuickCommand(message.text, quick.offered) : null;
+      if (quickCommand) {
+        if ("missing" in quickCommand) {
+          toast.info("Write your question after /btw.");
+          throw new Error("/btw needs a question");
+        }
+        runQuick(quickCommand.command, quickCommand.question);
+        return;
+      }
       if (refuseSend) {
         toast.info(refuseSend);
         // Rejected, so the form keeps its attachments; the draft was never taken.
@@ -252,7 +311,7 @@ export function Composer({
         }
       })();
     },
-    [onSubmit, refuseSend, draftKey, attachmentFiles],
+    [onSubmit, refuseSend, draftKey, attachmentFiles, quick, runQuick],
   );
 
   return (
@@ -332,13 +391,14 @@ export function Composer({
         <SlashPalette
           commands={slash.matches}
           onPick={(command) => {
-            setText(`/${command.name} `);
+            pickCommand(command);
             textRef.current?.focus();
           }}
           selected={slash.selected}
         />
       ) : null}
 
+      <AsideCard onClosed={() => textRef.current?.focus()} scope={draftKey} />
       <div className="flex flex-col gap-1">
         <PromptInput
           className={cn(
@@ -384,7 +444,7 @@ export function Composer({
               <ComposerEditorField
                 admit={admit}
                 autoFocus={autoFocus}
-                disabled={disabled}
+                disabled={disabled || dictating}
                 handle={textRef}
                 onChange={setText}
                 onKeyDown={(event) => {
@@ -418,7 +478,7 @@ export function Composer({
                     event.preventDefault();
                     const command = slash.matches[slash.selected];
                     if (command) {
-                      setText(`/${command.name} `);
+                      pickCommand(command);
                     }
                   } else if (event.key === "Escape") {
                     event.preventDefault();
@@ -429,6 +489,15 @@ export function Composer({
                 value={text}
               />
             </ReferenceScopeContext.Provider>
+            {dictation.available ? (
+              <DictationButton
+                disabled={disabled}
+                level={dictation.level}
+                onCancel={dictation.cancel}
+                onToggle={dictation.toggle}
+                phase={dictation.phase}
+              />
+            ) : null}
             <TooltipHint content={status === "streaming" ? hintWith("Stop", "stop", isMac) : hintWith("Send", "send", isMac)}>
             <PromptInputSubmit
               className={cn(
@@ -438,7 +507,8 @@ export function Composer({
               )}
               aria-describedby={refuseSend ? refuseId : undefined}
               aria-disabled={refuseSend ? "true" : undefined}
-              disabled={disabled || status === "submitted"}
+              // While the microphone is open the words are not all in yet; stop stays stop.
+              disabled={disabled || status === "submitted" || (dictating && status !== "streaming")}
               onStop={onStop}
               size="icon-sm"
               status={status}

@@ -53,6 +53,21 @@ export const AgentCapabilitiesSchema = z.object({
   configOptions: z.boolean(),
   /** Supports `session/load`. */
   loadSession: z.boolean(),
+  /**
+   * Quick commands beside the chat (`/usage`, `/context`, `/btw`): a fork of the session on a
+   * process of its own (`session/fork`), and the agent's own `/usage` and `/context`.
+   */
+  asides: z.boolean().optional(),
+  /**
+   * Takes the session's folder from `session/new` and `session/load`, not from the process: a warm
+   * adapter spawned in another folder can serve it (`WarmAdapterPool.take`).
+   */
+  sessionCwd: z.boolean().optional(),
+  /**
+   * Reaches HTTP MCP servers named in `session/new` (`mcpCapabilities.http`): the app's tools are
+   * served by main on its bridge rather than a process per server (`McpBridge.serverFor`).
+   */
+  mcpHttp: z.boolean().optional(),
 });
 export type AgentCapabilities = z.infer<typeof AgentCapabilitiesSchema>;
 

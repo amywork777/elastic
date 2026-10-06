@@ -41,13 +41,15 @@ export type SidebarSection = {
   name: string;
   project: Project | null;
   sessions: Session[];
+  /** A pinned folder: listed at the top of the folders, and even with no sessions to show. */
+  pinned: boolean;
 };
 
 /**
  * The sidebar's list, in the order it is drawn: `Pinned` first when anything
  * is pinned, then the sections the grouping asks for.
  *
- * Five rules, and the tests are named after them:
+ * Six rules, and the tests are named after them:
  *
  *  1. **The filters come first.** `status` and `environment` decide which
  *     sessions exist at all; everything below sees only what survived.
@@ -59,6 +61,10 @@ export type SidebarSection = {
  *  4. **`Sort by` orders inside every section**, `Pinned` included.
  *  5. **No empty groups.** Directories only exist through their sessions.
  *     A pinned-only directory has no duplicate, empty header.
+ *  6. **A pinned folder leads, and stays.** Pinned folders come first among
+ *     the folders, in the order they were pinned, and are listed even when
+ *     none of their sessions match — the one exception to rule 5, because
+ *     pinning a folder means "keep this one at hand". Hiding beats pinning.
  */
 export function sidebarSections(input: {
   sessions: readonly Session[];
@@ -80,7 +86,7 @@ export function sidebarSections(input: {
     filters.sortBy,
   );
   if (pinned.length > 0) {
-    sections.push({ id: "pinned", kind: "pinned", name: "Pinned", project: null, sessions: pinned });
+    sections.push({ id: "pinned", kind: "pinned", name: "Pinned", project: null, sessions: pinned, pinned: false });
   }
 
   // A hidden folder's sessions leave the groups and the flat list; a pinned one was pinned on
@@ -94,22 +100,58 @@ export function sidebarSections(input: {
       name: "Sessions",
       project: null,
       sessions: sort(loose, filters.sortBy),
+      pinned: false,
     });
     return sections;
   }
 
-  for (const project of input.projects) {
+  const pins = filters.pinnedProjects.filter((id) => !hidden.has(id));
+  const byId = new Map(input.projects.map((project) => [project.id, project]));
+  const ordered = [
+    ...pins.flatMap((id) => byId.get(id) ?? []),
+    ...input.projects.filter((project) => !pins.includes(project.id)),
+  ];
+  for (const project of ordered) {
     const sessions = sort(
       loose.filter((session) => session.projectId === project.id),
       filters.sortBy,
     );
-    if (sessions.length === 0) {
+    const pinnedFolder = pins.includes(project.id);
+    if (sessions.length === 0 && !pinnedFolder) {
       continue;
     }
-    sections.push({ id: project.id, kind: "project", name: project.name, project, sessions });
+    sections.push({ id: project.id, kind: "project", name: project.name, project, sessions, pinned: pinnedFolder });
   }
 
   return sections;
+}
+
+/**
+ * The rows on screen, top to bottom: every section's sessions but a collapsed
+ * project's. Mod+1..9 counts in this order, so the number is the row the
+ * person sees.
+ */
+export function listedSessions(sections: readonly SidebarSection[], collapsedProjects: readonly string[]): Session[] {
+  const collapsed = new Set(collapsedProjects);
+  return sections.flatMap((section) =>
+    section.kind === "project" && collapsed.has(section.id) ? [] : section.sessions,
+  );
+}
+
+/**
+ * Where the folders split in two: "Pinned folders" over the first pinned one, and a hairline
+ * with "Folders" over the first of the rest. Only when both kinds are listed; a sidebar with no
+ * pinned folder, or only pinned ones, has nothing to tell apart.
+ */
+export function folderGroupLabel(sections: readonly SidebarSection[], index: number): "Pinned folders" | "Folders" | null {
+  const folders = sections.filter((section) => section.kind === "project");
+  if (!folders.some((section) => section.pinned) || folders.every((section) => section.pinned)) return null;
+  const section = sections[index];
+  if (section?.kind !== "project") return null;
+  const first = (pinned: boolean) => sections.findIndex((candidate) => candidate.kind === "project" && candidate.pinned === pinned);
+  if (section.pinned && index === first(true)) return "Pinned folders";
+  if (!section.pinned && index === first(false)) return "Folders";
+  return null;
 }
 
 function matchesStatus(session: Session, filters: SidebarSettings): boolean {

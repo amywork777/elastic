@@ -59,7 +59,7 @@ import { hintWith } from "@renderer/lib/shortcuts";
  * Neither of Codex's far-right controls is here. Fullscreen is gone: it was
  * the one thing in the app that could take the session pane away, and the
  * session is the app. Split was never built — two strips would mean two
- * selections, two persisted orders and a second answer to "what does Cmd+1
+ * selections, two persisted orders and a second answer to "what does ⌃1
  * mean", and the plan asks for one strip.
  */
 

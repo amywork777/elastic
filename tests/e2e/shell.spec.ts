@@ -388,7 +388,9 @@ test("a session owns the explorer: its toggles, its strip and its shortcuts", as
   // A session and its explorer do not move the corner.
   await expectLeftmost("sidebar", "[data-sidebar-titlebar]");
 
-  // Three files, then Mod+1..9 and Mod+W. 9 is the last tab, however many there are.
+  // Three files, then the tab digits and Mod+W. 9 is the last tab, however many there are.
+  // ⌃1..9 on a Mac and Alt+1..9 elsewhere: Mod+1..9 is the sidebar's chats.
+  const tabDigit = process.platform === "darwin" ? "Control" : "Alt";
   for (const name of ["one.md", "two.md", "three.md"]) {
     await newTab("File");
     await page.getByLabel("Filter files").fill(name);
@@ -396,11 +398,11 @@ test("a session owns the explorer: its toggles, its strip and its shortcuts", as
     await expect(page.getByRole("tab", { name: new RegExp(name.replace(".", "\\.")) })).toBeVisible();
   }
   const selected = () => page.locator("[role=tab][aria-selected=true]");
-  await page.keyboard.press(`${mod}+1`);
+  await page.keyboard.press(`${tabDigit}+1`);
   await expect(selected()).toContainText("one.md");
-  await page.keyboard.press(`${mod}+2`);
+  await page.keyboard.press(`${tabDigit}+2`);
   await expect(selected()).toContainText("two.md");
-  await page.keyboard.press(`${mod}+9`);
+  await page.keyboard.press(`${tabDigit}+9`);
   await expect(selected()).toContainText("three.md");
   await page.keyboard.press(`${mod}+W`);
   await expect(page.getByRole("tab")).toHaveCount(2);

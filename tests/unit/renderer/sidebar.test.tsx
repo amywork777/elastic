@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 
 import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { Sidebar } from "@renderer/features/sidebar/Sidebar";
-import { SESSION_GLYPH_LABELS, sessionGlyphFor, sidebarSections } from "@renderer/lib/sidebar";
+import { SESSION_GLYPH_LABELS, folderGroupLabel, listedSessions, sessionGlyphFor, sidebarSections } from "@renderer/lib/sidebar";
+import { runUiCommand } from "@renderer/state/bridge";
 import { useExplorer } from "@renderer/state/explorer";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
@@ -175,6 +176,55 @@ describe("sidebarSections", () => {
       .toEqual([]);
   });
 
+  it("puts pinned folders first, in the order they were pinned, and keeps one with nothing to show", () => {
+    const three = [project("p1", "elastic"), project("p2", "tom-cad"), project("p3", "notes")];
+    const sections = sidebarSections({
+      projects: three,
+      filters: filters({ pinnedProjects: ["p3", "p2", "gone"] }),
+      sessions: [
+        session({ id: "a", title: "Alpha" }),
+        session({ id: "b", title: "Beta", projectId: "p2" }),
+        // Its only session is archived, so the folder is listed only because it is pinned.
+        session({ id: "c", title: "Gamma", projectId: "p3", archived: true }),
+      ],
+    });
+    expect(sections.map((section) => [section.id, section.pinned, section.sessions.length])).toEqual([
+      ["p3", true, 0],
+      ["p2", true, 1],
+      ["p1", false, 1],
+    ]);
+    // A pin for a folder no session names any more is ignored, not drawn.
+    expect(sections.some((section) => section.id === "gone")).toBe(false);
+  });
+
+  it("labels pinned folders apart from the rest, only when there are both", () => {
+    const three = [project("p1", "a"), project("p2", "b"), project("p3", "c")];
+    const sessions = [
+      session({ id: "pin", title: "Pinned chat", pinned: true }),
+      session({ id: "a", title: "A" }),
+      session({ id: "b", title: "B", projectId: "p2" }),
+      session({ id: "c", title: "C", projectId: "p3" }),
+    ];
+    const labels = (pinnedProjects: string[]) => {
+      const sections = sidebarSections({ projects: three, sessions, filters: filters({ pinnedProjects }) });
+      return sections.map((section, index) => [section.id, folderGroupLabel(sections, index)]);
+    };
+    // The pinned chats' section is not a folder and gets no label.
+    expect(labels(["p3", "p2"])).toEqual([["pinned", null], ["p3", "Pinned folders"], ["p2", null], ["p1", "Folders"]]);
+    expect(labels([])).toEqual([["pinned", null], ["p1", null], ["p2", null], ["p3", null]]);
+    expect(labels(["p1", "p2", "p3"]).every(([, label]) => label === null)).toBe(true);
+  });
+
+  it("lets hiding beat pinning", () => {
+    const sections = sidebarSections({
+      projects,
+      filters: filters({ pinnedProjects: ["p2"] }),
+      hidden: ["p2"],
+      sessions: [session({ id: "a", title: "Alpha" }), session({ id: "b", title: "Beta", projectId: "p2" })],
+    });
+    expect(sections.map((section) => section.id)).toEqual(["p1"]);
+  });
+
   it("leaves a hidden folder out of the groups and the flat list, keeps its pinned rows, and archives nothing", () => {
     const sessions = [
       session({ id: "a", title: "Alpha" }),
@@ -193,6 +243,45 @@ describe("sidebarSections", () => {
 /* -------------------------------------------------------------------------- */
 /* The state glyph                                                             */
 /* -------------------------------------------------------------------------- */
+
+describe("listedSessions and Mod+1..9", () => {
+  const projects = [project("p1", "elastic"), project("p2", "tom-cad")];
+  const sessions = [
+    session({ id: "pin", title: "Pinned one", projectId: "p2", pinned: true }),
+    session({ id: "a", title: "Alpha" }),
+    session({ id: "b", title: "Beta", projectId: "p2" }),
+    session({ id: "c", title: "Gamma", projectId: "p2" }),
+  ];
+
+  it("counts the rows as drawn: Pinned first, then each folder, a collapsed folder's rows skipped", () => {
+    const sections = sidebarSections({ projects, sessions, filters: filters({ sortBy: "name" }) });
+    expect(listedSessions(sections, []).map((row) => row.id)).toEqual(["pin", "a", "b", "c"]);
+    expect(listedSessions(sections, ["p1"]).map((row) => row.id)).toEqual(["pin", "b", "c"]);
+  });
+
+  it("opens the nth row, 9 the last, and leaves Settings and a plugin's page for it", () => {
+    useProjects.setState({ projects, ready: true, activeId: "p1", draft: null });
+    useSessions.setState({ sessions, ready: true, activeId: "a" });
+    useSettings.setState({
+      settings: { ...defaultSettings(), sidebar: filters({ sortBy: "name", collapsedProjects: ["p1"] }) },
+      ready: true,
+    });
+    useUi.setState({ route: "settings", surface: { kind: "plugins", view: "browse" } });
+
+    runUiCommand({ command: "select-session", index: 2 });
+    expect(useSessions.getState().activeId).toBe("b");
+    expect(useProjects.getState().activeId).toBe("p2");
+    expect(useUi.getState().route).toBe("app");
+    expect(useUi.getState().surface).toEqual({ kind: "home" });
+
+    runUiCommand({ command: "select-session", index: 9 });
+    expect(useSessions.getState().activeId).toBe("c");
+
+    // A number past the last row is not the last row: nothing moves.
+    runUiCommand({ command: "select-session", index: 5 });
+    expect(useSessions.getState().activeId).toBe("c");
+  });
+});
 
 describe("sessionGlyphFor", () => {
   it("maps every status a session row can have", () => {
@@ -468,13 +557,58 @@ describe("Sidebar", () => {
       activeId: null,
     });
     wrap(<Sidebar />);
+    // No chevron: the folder glyph is open while the section is, and the row itself toggles.
+    expect(document.querySelector("[data-sidebar-section-header] .lucide-chevron-right")).toBeNull();
+    expect(document.querySelector("[data-folder-glyph]")).toHaveAttribute("data-folder-glyph", "open");
     await user.click(screen.getByRole("button", { name: "elastic", expanded: true }));
     expect(set).toHaveBeenCalledWith(
       expect.objectContaining({ sidebar: expect.objectContaining({ collapsedProjects: ["p1"] }) }),
     );
+    expect(document.querySelector("[data-folder-glyph]")).toHaveAttribute("data-folder-glyph", "shut");
     // Optimistic, so the row is gone before the round trip lands.
     expect(screen.queryByText("Session 1")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "elastic", expanded: false })).toBeInTheDocument();
+  });
+
+  it("pins a folder from its menu: it moves to the top, marked, and Unpin folder undoes it", async () => {
+    const user = userEvent.setup();
+    const set = vi.fn(async (patch: Record<string, unknown>) => ({ ...defaultSettings(), ...patch }));
+    (window.workbench.settings as unknown as Record<string, unknown>).set = set;
+    useProjects.setState({ projects: [project("p1", "elastic"), project("p2", "tom-cad")], ready: true, activeId: "p1" });
+    useSessions.setState({
+      sessions: [session({ id: "s1", title: "One" }), session({ id: "s2", title: "Two", projectId: "p2" })],
+      ready: true,
+      activeId: null,
+    });
+    wrap(<Sidebar />);
+    const order = () =>
+      [...document.querySelectorAll<HTMLElement>("[data-sidebar-section]")].map((section) => section.dataset.sidebarSection);
+    expect(order()).toEqual(["p1", "p2"]);
+
+    await user.click(screen.getByRole("button", { name: "More for tom-cad" }));
+    await user.click(screen.getByRole("menuitem", { name: "Pin folder" }));
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ sidebar: expect.objectContaining({ pinnedProjects: ["p2"] }) }),
+    );
+    expect(order()).toEqual(["p2", "p1"]);
+    expect(document.querySelector('[data-sidebar-section="p2"] [data-folder-pin]')).not.toBeNull();
+    // The name is the folder's alone: pinning is a mark, not a word in it.
+    expect(screen.getByRole("button", { name: /^tom-cad/, expanded: true })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More for tom-cad" }));
+    await user.click(screen.getByRole("menuitem", { name: "Unpin folder" }));
+    expect(order()).toEqual(["p1", "p2"]);
+  });
+
+  it("lists a pinned folder whose chats are all archived, with a way to start one", () => {
+    withProject();
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ pinnedProjects: ["p1"] }) }, ready: true });
+    useSessions.setState({ sessions: [session({ id: "s1", title: "Old", archived: true })], ready: true, activeId: null });
+    wrap(<Sidebar />);
+    expect(screen.getByText("No chats")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New session in elastic" })).toBeInTheDocument();
+    // A row is on screen, so the panel does not also say it is empty.
+    expect(screen.queryByText("No sessions yet")).not.toBeInTheDocument();
   });
 
   it("pins from the row's menu, and the row moves to Pinned", async () => {
@@ -554,5 +688,60 @@ describe("Sidebar", () => {
     await user.click(screen.getByRole("button", { name: "New session in tom-cad" }));
     expect(useProjects.getState().activeId).toBe("p2");
     expect(useSessions.getState().activeId).toBeNull();
+  });
+});
+
+describe("Running now and the Agents panel", () => {
+  beforeEach(() => {
+    useProjects.setState({ projects: [project("p1", "elastic")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ collapsedProjects: ["p1"] }) }, ready: true });
+  });
+
+  it("lists the working chats above the folders, even a collapsed folder's, and opens one on click", async () => {
+    const user = userEvent.setup();
+    useSessions.setState({
+      sessions: [
+        session({ id: "a", title: "Quiet", status: "idle" }),
+        session({ id: "b", title: "Busy", status: "running", updatedAt: 2 }),
+        session({ id: "c", title: "Asking", status: "waiting", updatedAt: 1 }),
+        session({ id: "d", title: "Shelved", status: "running", archived: true }),
+      ],
+      ready: true,
+      activeId: null,
+    });
+    const view = wrap(<Sidebar />);
+    const rows = [...view.container.querySelectorAll("[data-running-session]")].map((row) => row.getAttribute("data-running-session"));
+    expect(rows).toEqual(["b", "c"]);
+    await user.click(screen.getByRole("button", { name: /Busy/ }));
+    expect(useSessions.getState().activeId).toBe("b");
+  });
+
+  it("draws no Running group when nothing is running", () => {
+    useSessions.setState({ sessions: [session({ id: "a", title: "Quiet" })], ready: true, activeId: null });
+    const view = wrap(<Sidebar />);
+    expect(view.container.querySelector("[data-sidebar-running]")).toBeNull();
+  });
+
+  it("opens the panel with every agent process, Stop for a turn going and Close for an idle chat", async () => {
+    const user = userEvent.setup();
+    useSessions.setState({
+      sessions: [session({ id: "b", title: "Busy", status: "running" }), session({ id: "q", title: "Quiet" })],
+      ready: true,
+      activeId: null,
+    });
+    vi.mocked(window.workbench.sessions.activity).mockResolvedValue({
+      keepAlive: 4,
+      processes: [
+        { kind: "session", sessionId: "b", agentId: "codex", cwd: "/repo", status: "running", pid: 10, memoryBytes: 300 * 1024 ** 2 },
+        { kind: "session", sessionId: "q", agentId: "codex", cwd: "/repo", status: "idle", pid: 11, memoryBytes: 200 * 1024 ** 2 },
+        { kind: "spare", sessionId: null, agentId: "codex", cwd: "/repo", status: "idle", pid: 12, memoryBytes: null },
+      ],
+    });
+    wrap(<Sidebar />);
+    await user.click(screen.getByRole("button", { name: /Agents running/ }));
+    expect(await screen.findByText("3 processes · 500 MB")).toBeInTheDocument();
+    expect(screen.getByText("Spare codex")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
   });
 });

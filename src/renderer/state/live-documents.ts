@@ -15,21 +15,57 @@ function bind<T extends { sourceId: string; path: string }>(map: Map<string, Bin
   const value = { ...scope, sourceId: target.sourceId, path: target.path, target }; map.set(tabId, value);
   return () => { if (map.get(tabId) === value) map.delete(tabId); };
 }
+/**
+ * File tabs kept mounted but not shown (`KEEP_ALIVE` in `ExplorerPane`). A document is live,
+ * editable by an agent, only while its tab is the one on screen; hidden, it is the read-only
+ * snapshot an unmounted tab leaves, exactly as before tabs were kept, and it binds again when shown.
+ */
+const hiddenTabs = new Set<string>();
+const shownListeners = new Map<string, Set<() => void>>();
+export function setDocumentTabShown(tabId: string, shown: boolean): void {
+  if (shown === !hiddenTabs.has(tabId)) return;
+  if (shown) hiddenTabs.delete(tabId); else hiddenTabs.add(tabId);
+  for (const listener of [...(shownListeners.get(tabId) ?? [])]) listener();
+}
+/** A tab gone: nothing of its visibility is kept. */
+export function forgetDocumentTabShown(tabId: string): void {
+  hiddenTabs.delete(tabId);
+}
+/** Bind while shown, a snapshot while hidden; `release` is the binding's end either way. */
+function whileShown(tabId: string, show: () => () => void, snapshot: () => void): () => void {
+  let release: (() => void) | null = null;
+  const follow = () => {
+    if (!hiddenTabs.has(tabId)) {
+      release ??= show();
+    } else if (release) {
+      snapshot();
+      release();
+      release = null;
+    }
+  };
+  const listeners = shownListeners.get(tabId) ?? new Set();
+  shownListeners.set(tabId, listeners);
+  listeners.add(follow);
+  follow();
+  return () => {
+    listeners.delete(follow);
+    if (listeners.size === 0) shownListeners.delete(tabId);
+    if (release) { snapshot(); release(); release = null; }
+  };
+}
 export function desktopLiveDocuments(tabId: string, scope: LiveDocumentScope): Pick<ViewerHost, 'documents' | 'pdf'> {
   const ownedDrafts: DocumentDrafts = { get: (sourceId, path) => retained.get(JSON.stringify([tabId, sourceId, path])), put(sourceId, path, value) {
     const key = JSON.stringify([tabId, sourceId, path]);
     if (value) { const owned = draftOwners.get(tabId) ?? new Set<string>(); owned.add(key); draftOwners.set(tabId, owned); }
     if (value) retained.set(key, value); else retained.delete(key);
   } };
-  return { documents: { drafts: ownedDrafts, bind: target => {
-    inactiveText.delete(tabId);
-    const release = bind(text, tabId, scope, target);
-    return () => { if (text.get(tabId)?.target === target) inactiveText.set(tabId, { ...scope, sourceId: target.sourceId, path: target.path, target: target.read() }); release(); };
-  } }, pdf: { assetBaseUrl: new URL("./pdfjs/", document.baseURI).href, bind: target => {
-    inactivePdf.delete(tabId);
-    const release = bind(pdf, tabId, scope, target);
-    return () => { if (pdf.get(tabId)?.target === target) inactivePdf.set(tabId, { ...scope, sourceId: target.sourceId, path: target.path, target: target.state() }); release(); };
-  } } };
+  return { documents: { drafts: ownedDrafts, bind: target => whileShown(tabId,
+    () => { inactiveText.delete(tabId); return bind(text, tabId, scope, target); },
+    () => { if (text.get(tabId)?.target === target) inactiveText.set(tabId, { ...scope, sourceId: target.sourceId, path: target.path, target: target.read() }); },
+  ) }, pdf: { assetBaseUrl: new URL("./pdfjs/", document.baseURI).href, bind: target => whileShown(tabId,
+    () => { inactivePdf.delete(tabId); return bind(pdf, tabId, scope, target); },
+    () => { if (pdf.get(tabId)?.target === target) inactivePdf.set(tabId, { ...scope, sourceId: target.sourceId, path: target.path, target: target.state() }); },
+  ) } };
 }
 /** The FileSource id a desktop file tab's drafts and bindings are keyed by. */
 export function desktopSourceId(projectId: string, root: string | null): string {

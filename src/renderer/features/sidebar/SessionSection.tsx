@@ -1,5 +1,5 @@
 import { useShallow } from "zustand/react/shallow";
-import { ChevronRight, Ellipsis, Plus, Folder } from "lucide-react";
+import { Ellipsis, Plus, Folder, FolderOpen, Pin } from "lucide-react";
 import { cn } from "cn";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 
@@ -75,13 +75,19 @@ export function SessionSection({ section }: { section: SidebarSection }) {
 
   const header = (
     <div
-      className="group/section flex h-8 items-center gap-0.5 rounded-md pr-0.5 pl-2"
+      className={cn(
+        "group/section flex h-8 items-center gap-0.5 rounded-md pr-0.5",
+        // The whole row is the collapse (Codex's): it lights like a session row does.
+        collapsible && "hover:bg-sidebar-accent/60",
+      )}
       data-sidebar-section-header
     >
-      {/* Named for the section, always: the state is aria-expanded's to say, not the name's. */}
+      {/* Named for the section, always: the state is aria-expanded's to say, not the name's.
+          No chevron: the row is the toggle, edge to edge up to its `…` and `+`, and the folder
+          glyph is open or shut with it. */}
       <button
         aria-expanded={collapsible ? !collapsed : undefined}
-        className="flex min-w-0 flex-1 items-center gap-1 text-left"
+        className="flex h-full min-w-0 flex-1 items-center gap-1 rounded-md pl-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         disabled={!collapsible}
         onClick={toggle}
         type="button"
@@ -92,21 +98,24 @@ export function SessionSection({ section }: { section: SidebarSection }) {
         <TooltipHint content={project?.path}>
           {/* Codex's grammar: a project reads as a folder row, a group without one as a quiet label. */}
           <span className={cn("flex min-w-0 items-center gap-2 truncate", project ? "text-[13px] text-foreground/85" : "text-[11px] font-medium text-muted-foreground")}>
-            {project ? <Folder aria-hidden className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} /> : null}
+            {project ? (
+              collapsed ? (
+                <Folder aria-hidden className="size-4 shrink-0 text-muted-foreground" data-folder-glyph="shut" strokeWidth={1.75} />
+              ) : (
+                <FolderOpen aria-hidden className="size-4 shrink-0 text-muted-foreground" data-folder-glyph="open" strokeWidth={1.75} />
+              )
+            ) : null}
             <span className="min-w-0 shrink truncate">{section.name}</span>
+            {/* Pinned to the top. A mark, not a word in the name, which stays the folder's alone
+                (above); the menu's Unpin folder says it in words. */}
+            {section.pinned ? (
+              <Pin aria-hidden className="size-3 shrink-0 text-muted-foreground/80" data-folder-pin />
+            ) : null}
             {/* The folder it sits in, dimmed: two projects with one name tell apart, and it gives
                 way first when the row is narrow. The whole path is the hint. */}
             {project ? <span aria-hidden className="min-w-0 shrink-[4] truncate text-[11px] text-muted-foreground/80" data-project-parent>{parentName(project.path)}</span> : null}
           </span>
         </TooltipHint>
-        {collapsible ? (
-          <ChevronRight
-            className={cn(
-              "size-3 shrink-0 text-muted-foreground/70 transition-transform",
-              !collapsed && "rotate-90",
-            )}
-          />
-        ) : null}
       </button>
 
       {project ? (
@@ -155,6 +164,7 @@ export function SessionSection({ section }: { section: SidebarSection }) {
       data-sidebar-section={section.id}
       data-sidebar-section-active={active ? "" : undefined}
       data-sidebar-section-collapsed={collapsed ? "" : undefined}
+      data-sidebar-section-pinned={section.pinned ? "" : undefined}
     >
       {project ? (
         <ContextMenu>
@@ -169,7 +179,13 @@ export function SessionSection({ section }: { section: SidebarSection }) {
         header
       )}
 
-      {collapsed ? null : (
+      {collapsed ? null : section.sessions.length === 0 ? (
+        // Only a pinned folder is listed with nothing in it (`lib/sidebar.ts`, rule 6): it is kept
+        // at hand to start a chat in, and its `+` is right above.
+        <p className="py-1 pr-2 pl-8 text-[12px] text-muted-foreground/80" data-sidebar-section-empty>
+          No chats
+        </p>
+      ) : (
         <div className="mt-0.5 flex flex-col gap-px">
           {section.sessions.map((session) => (
             <SessionRow

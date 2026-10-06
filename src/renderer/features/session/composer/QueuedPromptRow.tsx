@@ -1,4 +1,4 @@
-import { ArrowUp, Pencil, X } from "lucide-react";
+import { CornerDownRight, GripVertical, Pencil, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -6,7 +6,6 @@ import {
   QueueItemAction,
   QueueItemActions,
   QueueItemContent,
-  QueueItemIndicator,
 } from "@renderer/components/ai-elements/queue";
 import { useComposer, type QueuedPrompt } from "@renderer/state/composer";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
@@ -15,7 +14,7 @@ import { TooltipHint } from "@workbench/ui/primitives/tooltip";
  * One prompt waiting in the queue. Click its text (or Edit) to change it in place: Enter saves,
  * Shift+Enter is a new line, Escape puts it back as it was. While it is open the queue does not
  * send it (`editingQueued`), so it never goes out with the text being replaced. Drag a row onto
- * another to reorder. Send now (the arrow, or Cmd/Ctrl+Enter while editing) puts it into the
+ * another to reorder (the grip on hover says so). Send now (or Cmd/Ctrl+Enter while editing) puts it into the
  * running turn when the agent steers, else stops the turn and sends it next.
  */
 export function QueuedPromptRow({ sessionId, item, index, onRemove }: {
@@ -112,8 +111,13 @@ export function QueuedPromptRow({ sessionId, item, index, onRemove }: {
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <QueueItemIndicator />
+        <div className="flex items-center gap-1.5">
+          {/* "Comes next", and on hover or focus the grip the row is dragged by. Not the queue's
+              stock hollow dot, which read as a box to tick. */}
+          <span aria-hidden className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground/70">
+            <CornerDownRight className="size-3.5 transition-opacity group-hover:opacity-0 group-focus-within:opacity-0" />
+            <GripVertical className="absolute size-3.5 cursor-grab opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" />
+          </span>
           <button
             className="min-w-0 grow cursor-text rounded-sm text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             onClick={open}
@@ -121,15 +125,20 @@ export function QueuedPromptRow({ sessionId, item, index, onRemove }: {
           >
             <QueueItemContent>{item.text || "(attachments)"}</QueueItemContent>
           </button>
-          <QueueItemActions>
-            <TooltipHint content="Send now"><QueueItemAction aria-label={`Send now: ${label}`} onClick={() => void useComposer.getState().sendNow(sessionId, item.id)}>
-              <ArrowUp className="size-3" />
+          <QueueItemActions className="items-center gap-0.5">
+            {/* Words for the one that changes what happens next; icons for the two everyone knows. */}
+            <QueueItemAction
+              aria-label={`Send now: ${label}`}
+              className="h-6 rounded-md px-2 text-[11px] font-medium"
+              onClick={() => void useComposer.getState().sendNow(sessionId, item.id)}
+            >
+              Send now
+            </QueueItemAction>
+            <TooltipHint content="Edit"><QueueItemAction aria-label={`Edit queued prompt: ${label}`} className="flex size-6 items-center justify-center rounded-md p-0" onClick={open}>
+              <Pencil className="size-3.5" />
             </QueueItemAction></TooltipHint>
-            <TooltipHint content="Edit"><QueueItemAction aria-label={`Edit queued prompt: ${label}`} onClick={open}>
-              <Pencil className="size-3" />
-            </QueueItemAction></TooltipHint>
-            <TooltipHint content="Remove from queue"><QueueItemAction aria-label={`Remove from queue: ${label}`} onClick={onRemove}>
-              <X className="size-3" />
+            <TooltipHint content="Remove from queue"><QueueItemAction aria-label={`Remove from queue: ${label}`} className="flex size-6 items-center justify-center rounded-md p-0" onClick={onRemove}>
+              <X className="size-3.5" />
             </QueueItemAction></TooltipHint>
           </QueueItemActions>
         </div>

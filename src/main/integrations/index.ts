@@ -15,7 +15,9 @@ import { explorerTerminals } from "../ipc/explorer";
 import { sessionRuntimePath } from "../runtime-path";
 import { BrowserConnections } from "../browser/connections";
 import { integrations } from "./registry.mjs";
-import { McpBridge, PLUGIN_INTEGRATION_PREFIX, type BridgeSession, type PluginRpcHandler } from "./mcp-bridge";
+import { McpBridge, PLUGIN_INTEGRATION_PREFIX, pluginTarget, type BridgeSession, type HttpServerFactory, type PluginRpcHandler } from "./mcp-bridge";
+import { createPluginProxy, createServer } from "../../../resources/app-mcp/servers.mjs";
+import { agentProvider } from "../agents/registry";
 import { composeSkillSources, EMPTY_SKILLS, materialiseSkillsRoot, skillsPreamble, SKILLS_ROOT_ENV, type SkillSummary, type SkillsRoot } from "./skills";
 import { APP_NAME } from "../../shared/brand";
 import { pluginToolId, readToolUi } from "../../shared/plugins";
@@ -161,7 +163,12 @@ export async function initIntegrations(deps: { sendCommand: (command: Integratio
   const actions = { ...createActions(actionDeps, commandsInstance),
     ...createTerminalActions(actionDeps, commandsInstance, explorerTerminals, sessionRuntimePath),
     browser_connection: (session: BridgeSession, _params: Record<string, unknown>, signal?: AbortSignal) => browsers.connect(session, signal) };
-  bridgeInstance = new McpBridge(actions, mcpServerScript, browsers, pluginRpc(commandsInstance));
+  // The app's servers over HTTP on the bridge itself, for the agents that can reach one: the same
+  // servers the stdio proxy runs (`servers.mjs`), with the skills root this app materialised.
+  const httpServers: HttpServerFactory = (integration, name, bridge) => pluginTarget(integration)
+    ? createPluginProxy(bridge, { name, version: appVersion() })
+    : createServer(bridge, { integration, skillsRoot: skillsInstance.root, version: appVersion() });
+  bridgeInstance = new McpBridge(actions, mcpServerScript, browsers, pluginRpc(commandsInstance), httpServers);
   await bridgeInstance.start();
 }
 
@@ -270,13 +277,15 @@ function sessionRoot(session: BridgeSession): { directory: string; root: string 
  * name). A bundled plugin turned off takes its server, and so its token, out
  * of later sessions.
  */
-export function mcpServersFor(session: Pick<Session, "id" | "projectId" | "cwd">): McpServer[] {
+export function mcpServersFor(session: Pick<Session, "id" | "projectId" | "cwd"> & { agentId?: string }): McpServer[] {
   if (!bridgeInstance?.address()) {
     return [];
   }
   const bridgeSession = { sessionId: session.id, projectId: session.projectId, cwd: session.cwd };
-  const servers = [bridgeInstance.serverFor(bridgeSession, CORE_INTEGRATION)];
-  for (const app of pluginsInstance?.appServers() ?? []) servers.push(bridgeInstance.serverFor(bridgeSession, app.integration, app.name));
+  // Over HTTP on the bridge for an agent that reaches HTTP MCP servers: no process per server.
+  const http = session.agentId ? agentProvider(session.agentId)?.capabilities.mcpHttp === true : false;
+  const servers = [bridgeInstance.serverFor(bridgeSession, CORE_INTEGRATION, `app-${CORE_INTEGRATION}`, http)];
+  for (const app of pluginsInstance?.appServers() ?? []) servers.push(bridgeInstance.serverFor(bridgeSession, app.integration, app.name, http));
   const hosted = pluginsInstance?.hostedServers() ?? [];
   const taken = new Set(servers.map((server) => server.name));
   const counts = new Map<string, number>();
@@ -284,7 +293,7 @@ export function mcpServersFor(session: Pick<Session, "id" | "projectId" | "cwd">
   for (const server of hosted) {
     const name = (counts.get(server.name) ?? 0) > 1 || taken.has(server.name) ? `${server.pluginId}-${server.name}` : server.name;
     taken.add(name);
-    servers.push(bridgeInstance.serverFor(bridgeSession, `${PLUGIN_INTEGRATION_PREFIX}${server.pluginId}/${server.name}`, name));
+    servers.push(bridgeInstance.serverFor(bridgeSession, `${PLUGIN_INTEGRATION_PREFIX}${server.pluginId}/${server.name}`, name, http));
   }
   return servers;
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pageOccluded, useBrowser } from "@renderer/state/browser";
 import { useExplorer } from "@renderer/state/explorer";
+import { useSessions } from "@renderer/state/sessions";
 import type { BrowserTarget } from "@shared/browser";
 
 const binding = { sessionId: "browser-session", projectId: "browser-project", root: null, tabId: "browser-tab" };
@@ -11,7 +12,8 @@ let cleanups: (() => void)[];
 beforeEach(() => {
   vi.useFakeTimers(); vi.clearAllMocks();
   useBrowser.setState({ targets: {}, errors: {}, consoles: {} });
-  useExplorer.setState({ sessionId: "browser-session", projectId: binding.projectId, root: null, tabs: [{ sessionId: "browser-session", id: binding.tabId, projectId: binding.projectId, kind: "browser", root: null, url: target.url, order: 0 }], ready: true });
+  useExplorer.setState({ sessionId: "browser-session", projectId: binding.projectId, root: null, tabs: [{ sessionId: "browser-session", id: binding.tabId, projectId: binding.projectId, kind: "browser", root: null, url: target.url, order: 0 }], activeId: binding.tabId, ready: true });
+  useSessions.setState({ activeId: "browser-session" });
   vi.mocked(window.workbench.browser.ensure).mockResolvedValue(target);
   vi.mocked(window.workbench.browser.metadata).mockResolvedValue(target);
   element = document.createElement("div");
@@ -54,6 +56,58 @@ describe("browser presentation lifetime", () => {
     expect(vi.mocked(window.workbench.browser.present).mock.calls.every(([request]) => request.bounds === null)).toBe(true);
     expect(useExplorer.getState().tabs).toEqual([]);
   });
+  it("hides the page the moment its tab or its chat stops being selected, before anything renders", async () => {
+    mount();
+    await vi.advanceTimersByTimeAsync(1);
+    const present = vi.mocked(window.workbench.browser.present);
+    expect(present.mock.calls.at(-1)![0].bounds).not.toBeNull();
+    // Another tab: hidden in the same tick as the store write, no frame or timer between.
+    useExplorer.setState({ activeId: "another-tab" });
+    expect(present.mock.calls.at(-1)![0].bounds).toBeNull();
+    const calls = present.mock.calls.length;
+    // Not shown again by the next layout pass while it is not selected.
+    await vi.advanceTimersByTimeAsync(600);
+    expect(present.mock.calls.slice(calls).every(([request]) => request.bounds === null)).toBe(true);
+    // Selected again: back on the next frame.
+    useExplorer.setState({ activeId: binding.tabId });
+    await vi.advanceTimersByTimeAsync(20);
+    expect(present.mock.calls.at(-1)![0].bounds).not.toBeNull();
+    // Another chat in the sidebar: hidden at once too.
+    useSessions.setState({ activeId: "another-session" });
+    expect(present.mock.calls.at(-1)![0].bounds).toBeNull();
+  });
+
+  it("hides on the press of another tab or chat, and shows again when the press selects nothing", async () => {
+    mount();
+    await vi.advanceTimersByTimeAsync(1);
+    const present = vi.mocked(window.workbench.browser.present);
+    const other = document.createElement("div");
+    other.dataset.tab = "another-tab";
+    const own = document.createElement("div");
+    own.dataset.tab = binding.tabId;
+    const chat = document.createElement("button");
+    chat.dataset.sessionRow = "another-session";
+    document.body.append(other, own, chat);
+    const press = (target: Element, type = "pointerdown") => target.dispatchEvent(new MouseEvent(type, { bubbles: true, button: 0 }));
+    try {
+      // Its own tab: nothing to hide.
+      press(own);
+      expect(present.mock.calls.at(-1)![0].bounds).not.toBeNull();
+      // Another tab, on the press: hidden before any click.
+      press(other);
+      expect(present.mock.calls.at(-1)![0].bounds).toBeNull();
+      // Let go with the selection unchanged (a drag that went nowhere): back on the next frame.
+      press(other, "pointerup");
+      await vi.advanceTimersByTimeAsync(20);
+      expect(present.mock.calls.at(-1)![0].bounds).not.toBeNull();
+      // Another chat in the sidebar, on the press too.
+      press(chat);
+      expect(present.mock.calls.at(-1)![0].bounds).toBeNull();
+    } finally {
+      other.remove(); own.remove(); chat.remove();
+    }
+  });
+
   it("hides native content while a dialog overlays it and restores afterward", async () => {
     mount(); await vi.advanceTimersByTimeAsync(1);
     const dialog = document.createElement("div"); dialog.setAttribute("role", "dialog"); document.body.append(dialog);

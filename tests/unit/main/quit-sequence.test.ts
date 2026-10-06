@@ -246,8 +246,9 @@ describe("quit sequence", () => {
     expect(h.ready).toBe(true);
     const [window] = h.windows;
 
-    // The app's page gets the clipboard and nothing else: Electron grants
-    // whatever a session has no handler for — the camera, notifications.
+    // The app's page gets the clipboard, and the microphone only for its own audio request
+    // (tests/unit/main/app-permissions.test.ts): Electron grants whatever a session has no
+    // handler for — the camera, notifications.
     const { permissions } = window as unknown as { permissions: { request: (contents: unknown, permission: string, callback: (granted: boolean) => void) => void; check: (contents: unknown, permission: string) => boolean } };
     const granted = (permission: string) => {
       let answer: boolean | undefined;

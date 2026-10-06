@@ -20,9 +20,13 @@ import { buildMenu } from "@main/menu";
 // The table is renderer code, and `tsconfig.node.json` may not list renderer
 // files; a computed specifier keeps the compiler out while Vite resolves the
 // alias. The module is pure data, so a Node test can load it.
-type Shortcut = { id: string; group: string; binding: string };
+type Shortcut = { id: string; group: string; binding: string; through?: string };
 const tableModule = "@renderer/lib/shortcuts";
-const { SHORTCUTS } = (await import(/* @vite-ignore */ tableModule)) as { SHORTCUTS: readonly Shortcut[] };
+const { SHORTCUTS, bindingsOf } = (await import(/* @vite-ignore */ tableModule)) as {
+  SHORTCUTS: readonly Shortcut[];
+  /** A range row (`Mod+1` through `Mod+9`) as every chord in it. */
+  bindingsOf: (shortcut: Shortcut) => string[];
+};
 
 const flatten = (items: MenuItemConstructorOptions[]): MenuItemConstructorOptions[] =>
   items.flatMap((item) => [item, ...(Array.isArray(item.submenu) ? flatten(item.submenu) : [])]);
@@ -44,15 +48,14 @@ const accelerators = flatten(
 const RENDERER_ONLY = new Set(["close-settings", "next-pane", "previous-pane"]);
 
 it("lists every packaged menu accelerator in the shortcut table", () => {
-  const bindings = new Set(SHORTCUTS.map((shortcut) => shortcut.binding));
+  const bindings = new Set(SHORTCUTS.flatMap(bindingsOf));
   expect(accelerators.length).toBeGreaterThan(0);
   expect(accelerators.filter((accelerator) => !bindings.has(accelerator)), "menu accelerators missing from SHORTCUTS").toEqual([]);
 });
 
 it("gives every Application shortcut a menu accelerator", () => {
   const menu = new Set(accelerators);
-  const missing = SHORTCUTS.filter(
-    (shortcut) => shortcut.group === "Application" && !RENDERER_ONLY.has(shortcut.id) && !menu.has(shortcut.binding),
-  ).map((shortcut) => `${shortcut.id} ${shortcut.binding}`);
+  const missing = SHORTCUTS.filter((shortcut) => shortcut.group === "Application" && !RENDERER_ONLY.has(shortcut.id))
+    .flatMap((shortcut) => bindingsOf(shortcut).filter((binding) => !menu.has(binding)).map((binding) => `${shortcut.id} ${binding}`));
   expect(missing, "Application shortcuts with no menu accelerator").toEqual([]);
 });

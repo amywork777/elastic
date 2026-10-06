@@ -221,7 +221,7 @@ export function Shell() {
 
 /**
  * Cmd/Ctrl+B and Cmd/Ctrl+Alt+B for the panes, Cmd/Ctrl+[ and Cmd/Ctrl+] for
- * the history — bound here as well as in the app menu, because the menu's
+ * the history, Cmd/Ctrl+1..9 for the sidebar's chats — bound here as well as in the app menu, because the menu's
  * accelerator is the one that works with focus in a webview and this one
  * works when the menu is hidden. Both ends at the same commands.
  * `toggle-explorer` is inert without a session: the store refuses a
@@ -257,6 +257,9 @@ function useShellShortcuts(): void {
       } else if (key === "]") {
         event.preventDefault();
         runUiCommand({ command: "navigate-forward" });
+      } else if (/^[1-9]$/.test(key)) {
+        event.preventDefault();
+        runUiCommand({ command: "select-session", index: Number(key) });
       }
     };
     window.addEventListener("keydown", onKeyDown);

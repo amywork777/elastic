@@ -70,6 +70,37 @@ test.afterAll(async () => {
   if (scratch) await fs.rm(scratch, { recursive: true, force: true });
 });
 
+/**
+ * An agent driving a page is seen and can be stopped (`BrowserService.agentInput`): its presses
+ * announce `activity` and draw the agent's cursor over the page as a view of its own, and while
+ * the person has taken the page over its input is refused with a sentence, not dropped.
+ */
+test("an agent's input is announced, pointed at, and refused while the person has the page", async () => {
+  test.setTimeout(60_000);
+  await application.evaluate(() => {
+    const f = browserMcpFixture as typeof browserMcpFixture & { activity?: string[] };
+    f.activity = [];
+    f.service.events.on("activity", (event: { tabId: string }) => f.activity!.push(event.tabId));
+  });
+  await tool("browser_tabs", { action: "list" });
+  await tool("browser_tabs", { action: "select", index: 0 });
+  const views = () => application.evaluate(() => browserMcpFixture.window.contentView.children.length);
+  const before = await views();
+  await tool("browser_mouse_click_xy", { element: "the page", x: 40, y: 40 });
+  expect(await application.evaluate(() => (browserMcpFixture as typeof browserMcpFixture & { activity: string[] }).activity)).toContain("form");
+  // The cursor: one more native view over the page, never part of the page.
+  expect(await views()).toBe(before + 1);
+  const shot = await tool("browser_snapshot");
+  expect(shot).not.toContain("ripple");
+
+  await application.evaluate(() => browserMcpFixture.service.setTakenOver(browserMcpFixture.scope, "form", true));
+  const refused = await client.callTool({ name: "browser_mouse_click_xy", arguments: { element: "the page", x: 40, y: 40 } });
+  expect(refused.isError).toBe(true);
+  expect(JSON.stringify(refused.content)).toContain("taken over this browser tab");
+  await application.evaluate(() => browserMcpFixture.service.setTakenOver(browserMcpFixture.scope, "form", false));
+  await tool("browser_mouse_click_xy", { element: "the page", x: 40, y: 40 });
+});
+
 test("shipping Playwright tools operate native pages, preserve them on reconnect and enforce workspace scope", async () => {
   test.setTimeout(120_000);
   const tools = (await client.listTools()).tools.map(t => t.name);

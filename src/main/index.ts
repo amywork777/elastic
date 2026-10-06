@@ -18,6 +18,10 @@ import { settings as settingsRepository } from "./db/repositories";
 import { broadcast, registerIpcHandlers } from "./ipc";
 import { prewarmAgents, shutdownAcp } from "./ipc/acp";
 import { shutdownAgents } from "./ipc/agents";
+import { restrictAppPermissions } from "./app-permissions";
+import { sealedEnvCache } from "./agents/env-cache";
+import { setEnvCache } from "./agents/shell-env";
+import { disposeDictation } from "./ipc/dictation";
 import { disposeExplorerServices } from "./ipc/explorer";
 import { installMenu } from "./menu";
 import { armQuitDeadline } from "./quit-deadline";
@@ -87,22 +91,6 @@ if (!app.commandLine.hasSwitch("user-data-dir")) {
   app.setPath("sessionData", app.getPath("userData"));
 }
 
-/**
- * What the app's own page may ask Chromium for: the clipboard, which the
- * terminal pastes from and the sidebar's Copy path writes to. Nothing else —
- * not the camera or microphone the vendored AI Elements know how to ask for,
- * not notifications, not the screen — because the app uses none of it, and
- * Electron grants every request a session has no handler for. Browser pages
- * are in partitions of their own that refuse everything
- * (`src/main/browser/service.ts`); this is the app's `defaultSession`.
- */
-const APP_PERMISSIONS: ReadonlySet<string> = new Set(["clipboard-read", "clipboard-sanitized-write"]);
-
-export function restrictAppPermissions(session: Electron.Session) {
-  session.setPermissionRequestHandler((_contents, permission, callback) => callback(APP_PERMISSIONS.has(permission)));
-  session.setPermissionCheckHandler((_contents, permission) => APP_PERMISSIONS.has(permission));
-}
-
 function createWindow() {
   const state = restoreWindowState();
 
@@ -159,7 +147,7 @@ function createWindow() {
     },
   });
 
-  restrictAppPermissions(window.webContents.session);
+  restrictAppPermissions(window.webContents.session, RENDERER_DEV_URL);
   guardAppFrames(window.webContents);
   if (state.maximized) {
     window.maximize();
@@ -275,6 +263,14 @@ if (!app.requestSingleInstanceLock()) {
   // which has to be declared before the app is ready.
   registerAppScheme();
   void app.whenReady().then(async () => {
+    // Milliseconds since the process started, per step, as one line: where a launch's time goes.
+    const startup: string[] = [`ready=${Math.round(performance.now())}`];
+    const mark = (step: string) => startup.push(`${step}=${Math.round(performance.now())}`);
+    // Before anything asks for the login shell's environment: the last launch's, while it refreshes.
+    // Not in a packaged build yet: releases are ad-hoc signed until the signing secrets exist
+    // (scripts/package.mjs), and the keychain ties its key to the signature, so every update
+    // would open a keychain prompt at launch, holding the main thread while it is up.
+    setEnvCache(app.isPackaged ? null : sealedEnvCache(app.getPath("userData")));
     serveAppScheme();
     if (!app.isPackaged && process.platform === "darwin") {
       // The Dock shows Electron's icon for an unpackaged app; the packaged
@@ -286,6 +282,7 @@ if (!app.requestSingleInstanceLock()) {
     // "my projects are gone" report can be checked against the file that was
     // actually written.
     db();
+    mark("db");
     startupStep = "services";
     console.info(`[db] ${databaseFile()}`);
     registerIpcHandlers();
@@ -294,8 +291,11 @@ if (!app.requestSingleInstanceLock()) {
     // need them up.
     await initIntegrations({ sendCommand: (command) => broadcast("integrations.command", command), cancelCommand: requestId => broadcast("integrations.cancel", { requestId }),
       pluginsChanged: (snapshot) => broadcast("plugins.changed", snapshot) });
+    mark("integrations");
     installMenu(() => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null, createWindow);
     createWindow();
+    mark("window");
+    console.info(`[startup] ${startup.join(" ")}`);
     initUpdater();
     // Starts the agent probe now, and (outside `NODE_ENV=test` unless
     // `WORKBENCH_PREWARM=1`) spawns one idle adapter per agent the index says
@@ -378,6 +378,7 @@ if (!app.requestSingleInstanceLock()) {
       step("quit teardown", "settings effects", disposeSettingsEffects);
       step("quit teardown", "browser", () => browserService.dispose());
       step("quit teardown", "explorer", disposeExplorerServices);
+      step("quit teardown", "dictation", disposeDictation);
       // Before the database closes: the windows' own `close` saves come after
       // this handler, and must not reopen it (src/main/window-state.ts).
       step("quit teardown", "window state", flushWindowStates);

@@ -15,5 +15,12 @@ export const browserIpc = {
     close: invoke(At, z.void()),
     clearConsole: invoke(At, z.void()),
     capture: invoke(At.extend({ url: z.string().url(), generation: z.number().int().nonnegative(), kind: z.enum(["selection", "screenshot"]) }), z.object({ base64: z.string(), mimeType: z.string(), url: z.string(), generation: z.number() })),
+    /** The person takes the page from the agent (its input is refused), or hands it back. */
+    takeOver: invoke(At.extend({ takenOver: z.boolean() }), z.object({ takenOver: z.boolean() })),
   },
 };
+
+export const browserEvents = {
+  /** An agent is driving this page (its CDP input, at most twice a second per page). */
+  "browser.activity": z.object({ sessionId: z.string(), tabId: z.string() }),
+} as const;

@@ -8,6 +8,7 @@
  */
 import {
   SHORTCUT_GROUPS,
+  bindingOn,
   shortcutKeys,
   shortcutsIn,
   type ShortcutGroup,
@@ -34,19 +35,22 @@ export function ShortcutsPage() {
 function Group({ group }: { group: ShortcutGroup }) {
   return (
     <SettingCard title={group}>
-      {shortcutsIn(group).map((shortcut) => (
-        <SettingRow
-          control={
-            <kbd className="rounded-md border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
-              {shortcutKeys(shortcut.binding, isMac)}
-              {shortcut.through ? ` – ${shortcutKeys(shortcut.through, isMac)}` : ""}
-            </kbd>
-          }
-          key={shortcut.id}
-          keywords={`${shortcut.binding} shortcut key binding`}
-          title={shortcut.label}
-        />
-      ))}
+      {shortcutsIn(group).map((shortcut) => {
+        const { binding, through } = bindingOn(shortcut, isMac);
+        return (
+          <SettingRow
+            control={
+              <kbd className="rounded-md border bg-muted px-2 py-1 font-mono text-xs whitespace-nowrap">
+                {shortcutKeys(binding, isMac)}
+                {through ? ` – ${shortcutKeys(through, isMac)}` : ""}
+              </kbd>
+            }
+            key={shortcut.id}
+            keywords={`${binding} shortcut key binding`}
+            title={shortcut.label}
+          />
+        );
+      })}
     </SettingCard>
   );
 }

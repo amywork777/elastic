@@ -1,5 +1,5 @@
 import { PanelsTopLeft, Plus, SquareTerminal } from "lucide-react";
-import { Component, lazy, Suspense, useEffect, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 
 import { Button } from "@renderer/components/ui/button";
@@ -97,12 +97,14 @@ function LazyTab<P extends object>({ tab, props, opening, what }: {
 /**
  * The explorer: one tab strip and whatever the selected tab renders.
  *
- * Every tab kind is kept mounted only while it is selected. That is the
- * cheaper half of a real trade-off — a webview and an xterm each cost a
- * process and a canvas, and eight background tabs of them is a slow window —
- * and the state that would otherwise be lost is kept where it belongs instead:
- * the pty and live browser page in main, the browser's URL on the tab, the file's draft in
- * the tab's own component, the tree's geometry in the store.
+ * The selected tab is mounted, and so are the last few file, review and plugin tool tabs it
+ * was switched from (`KEEP_ALIVE`), hidden and inert: switching back to one is a style change,
+ * not a rebuild of its editor, diff or frame (measured ~140 ms for a Markdown file). Browser and
+ * terminal tabs are not kept: a browser's page lives in main and its chrome is cheap, and a
+ * terminal's pty does too, with its scrollback replayed on return (tested). The state that would
+ * otherwise be lost is kept where it belongs: the pty and live browser page in main, the
+ * browser's URL on the tab, the file's draft in the tab's own component, the tree's geometry in
+ * the store.
  */
 export function ExplorerPane() {
   const project = useActiveProject();
@@ -111,6 +113,16 @@ export function ExplorerPane() {
   const ready = useExplorer((state) => state.ready);
   const open = useExplorer((state) => state.open);
   const active = useActiveTab();
+  const kept = useKeptTabs(active, tabs);
+  // A kept tab that is hidden lets go of the keyboard, as an unmounted one did: what was focused
+  // in it is blurred before the next tab's body claims focus (`./focus`).
+  const activeId = active?.id ?? null;
+  useLayoutEffect(() => {
+    const focused = document.activeElement;
+    if (!(focused instanceof HTMLElement)) return;
+    const body = focused.closest<HTMLElement>("[data-tab-body]");
+    if (body && body.dataset.tabBody !== activeId) focused.blur();
+  }, [activeId]);
 
   useIdlePreload();
 
@@ -129,7 +141,20 @@ export function ExplorerPane() {
       <div className="min-h-0 flex-1" id={EXPLORER_TABPANEL_ID} role="tabpanel" aria-labelledby={active ? explorerTabDomId(active.id) : undefined}>
         {loadError ? <EmptyState title="Could not restore tabs" description={loadError} icon={PanelsTopLeft}
           action={<Button onClick={() => { const state = useExplorer.getState(); void state.bindSession(state.sessionId, state.projectId, state.root); }}>Try again</Button>} /> : active ? (
-          <TabBody key={active.id} project={project} tab={active} />
+          <>
+            {kept.map((tab) => (
+              // Hidden and inert when not selected: out of the tab order, the accessibility tree
+              // and every query for "the" editor, and its focusables cannot take the keyboard.
+              <div className={tab.id === active.id ? "h-full" : "hidden"} data-tab-body={tab.id} inert={tab.id !== active.id} key={tab.id}>
+                <TabBody project={project} shown={tab.id === active.id} tab={tab} />
+              </div>
+            ))}
+            {kept.some((tab) => tab.id === active.id) ? null : (
+              <div className="h-full" data-tab-body={active.id} key={active.id}>
+                <TabBody project={project} tab={active} />
+              </div>
+            )}
+          </>
         ) : (
           <EmptyState
             action={
@@ -152,12 +177,40 @@ export function ExplorerPane() {
   );
 }
 
+/** How many recently used tabs stay mounted, the selected one included. */
+export const KEEP_ALIVE = 3;
+/** The kinds worth keeping: their bodies are costly to rebuild and hold nothing in main. */
+const KEPT_KINDS = new Set<ExplorerTab["kind"]>(["file", "review", "tool"]);
+
+/**
+ * The tabs kept mounted, in the order they were first kept: a kept body never moves in the
+ * document, because moving a plugin tool's frame reloads it. Which ones is decided by use, most
+ * recent first, `KEEP_ALIVE` of them; a tab closed or of another session drops out.
+ */
+function useKeptTabs(active: ExplorerTab | null, tabs: readonly ExplorerTab[]): ExplorerTab[] {
+  const [kept, setKept] = useState<{ order: string[]; recent: string[]; active: string | null }>({ order: [], recent: [], active: null });
+  // Adjusted while rendering, when the selection moves (React's pattern for state that follows a prop).
+  const activeId = active && KEPT_KINDS.has(active.kind) ? active.id : null;
+  if (activeId !== kept.active) {
+    const recent = activeId ? [activeId, ...kept.recent.filter((id) => id !== activeId)].slice(0, KEEP_ALIVE) : kept.recent;
+    const order = [...kept.order.filter((id) => recent.includes(id)), ...recent.filter((id) => !kept.order.includes(id))];
+    setKept({ order, recent, active: activeId });
+  }
+  const byId = new Map(tabs.map((tab) => [tab.id, tab]));
+  return kept.order.flatMap((id) => {
+    const tab = byId.get(id);
+    return tab && KEPT_KINDS.has(tab.kind) ? [tab] : [];
+  });
+}
+
 function Frame({ children }: { children: React.ReactNode }) {
   return <div className="flex h-full min-h-0 flex-col border-l">{children}</div>;
 }
 
-function TabBody({ tab, project }: {
+function TabBody({ tab, project, shown = true }: {
   tab: ExplorerTab; project: Project;
+  /** False for a kept tab behind the selected one. */
+  shown?: boolean;
 }) {
   switch (tab.kind) {
     case "file":
@@ -168,6 +221,7 @@ function TabBody({ tab, project }: {
           path={tab.path}
           project={project}
           root={tab.root}
+          shown={shown}
           tabId={tab.id}
         />
       );
@@ -238,15 +292,25 @@ function focusOpened(tab: ExplorerTab | null) {
  *   - No session: nothing; every chord falls through to the menu.
  *   - Open-a-tab chords (`Ctrl+\``, `Mod+T`, `Mod+Shift+R/B/D`) run whether the
  *     pane is collapsed or not, because `open` reveals it.
- *   - Collapsed pane: `Mod+W` and `Mod+1..9` act on tabs nobody can see, so they
+ *   - Collapsed pane: `Mod+W` and the tab digits act on tabs nobody can see, so they
  *     fall through to the menu (`Mod+W` closes the window).
+ *   - The tab digits are `Ctrl+1..9` on a Mac and `Alt+1..9` elsewhere: `Mod+1..9`
+ *     is the sidebar's chats (`useShellShortcuts`), and off a Mac `Mod` is Ctrl.
+ *     They run inside a terminal too: there `⌃3` would be an Escape, which
+ *     nobody types that way, and Alt+digit is readline's rarely used argument.
  *   - `event.repeat` is swallowed: a held chord opens or closes one tab, not a
  *     dozen. A held `Mod+W` is swallowed even after the last tab is gone, so it
  *     does not go on to close the window.
- *   - On Windows and Linux the plain `Ctrl` chords (`Ctrl+T`, `Ctrl+W`,
- *     `Ctrl+1..9`) are skipped inside `[data-terminal-body]`, where they are the
+ *   - On Windows and Linux the plain `Ctrl` chords (`Ctrl+T`, `Ctrl+W`)
+ *     are skipped inside `[data-terminal-body]`, where they are the
  *     shell's; `Ctrl+Shift` chords and `Ctrl+\`` still run there.
  */
+/** `⌃1`..`⌃9` on a Mac, `Alt+1`..`Alt+9` elsewhere, and nothing else held. */
+function isTabDigit(event: KeyboardEvent): boolean {
+  const held = isMac ? event.ctrlKey && !event.altKey : event.altKey && !event.ctrlKey;
+  return held && !event.metaKey && !event.shiftKey && /^[1-9]$/.test(event.key);
+}
+
 export function useExplorerShortcuts() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -268,6 +332,20 @@ export function useExplorerShortcuts() {
         return;
       }
 
+      if (isTabDigit(event)) {
+        // Like Close, picking acts on tabs nobody can see while the pane is collapsed.
+        if (useExplorer.getState().collapsed || tabs.length === 0) {
+          return;
+        }
+        event.preventDefault();
+        // 9 is the last tab, the way browsers do it — otherwise the ninth
+        // shortcut is dead in every strip with fewer than nine tabs.
+        const index = event.key === "9" ? tabs.length : Number(event.key);
+        selectIndex(index);
+        focusOpened(tabs[index - 1] ?? null);
+        return;
+      }
+
       if (!isPrimaryModifier(event) || event.altKey) {
         return;
       }
@@ -284,7 +362,7 @@ export function useExplorerShortcuts() {
         return;
       }
       // Control is the shell's on Windows and Linux: Ctrl+W deletes a word, Ctrl+T
-      // transposes, Ctrl+1..9 are typed. With the focus in a terminal the terminal
+      // transposes. With the focus in a terminal the terminal
       // keeps them — it forwards Ctrl+K/C/V itself (`TerminalTab`) — and the strip's
       // plain chords wait for the focus to leave. Cmd is no shell's key, so macOS keeps them.
       // The Shift chords above are no shell's, so they run from a terminal too and this waits.
@@ -297,10 +375,10 @@ export function useExplorerShortcuts() {
         if (!event.repeat) focusOpened(open("file"));
         return;
       }
-      // The chords above open a tab, and opening reveals the pane. Close and pick act on tabs
+      // The chords above open a tab, and opening reveals the pane. Close acts on tabs
       // the person cannot see while the explorer is collapsed, so they are left to the menu
       // (Cmd+W closes the window, as it did before there was a strip): closing a hidden tab
-      // would kill its shell, and picking one would change what the next reveal shows.
+      // would kill its shell.
       if (useExplorer.getState().collapsed) {
         return;
       }
@@ -310,15 +388,6 @@ export function useExplorerShortcuts() {
       if (key === "w" && (activeId || event.repeat)) {
         event.preventDefault();
         if (!event.repeat) closeActive();
-        return;
-      }
-      if (/^[1-9]$/.test(event.key) && tabs.length > 0) {
-        event.preventDefault();
-        // 9 is the last tab, the way browsers do it — otherwise the ninth
-        // shortcut is dead in every strip with fewer than nine tabs.
-        const index = event.key === "9" ? tabs.length : Number(event.key);
-        selectIndex(index);
-        focusOpened(tabs[index - 1] ?? null);
       }
     };
     // Capture: a terminal and Monaco both swallow keys on the bubble phase.

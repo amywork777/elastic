@@ -108,9 +108,9 @@ it("a terminal chunk that fails to load draws an alert with Try again, and Try a
   chunk.release();
   const alert = await screen.findByRole("alert");
   expect(alert).toHaveTextContent("Could not open the terminal");
-  fireEvent.keyDown(window, { key: "1", metaKey: true, ctrlKey: true });
+  fireEvent.keyDown(window, { key: "1", altKey: true });
   expect(useExplorer.getState().activeId).toBe("f1");
-  fireEvent.keyDown(window, { key: "2", metaKey: true, ctrlKey: true });
+  fireEvent.keyDown(window, { key: "2", altKey: true });
 
   chunk.state.fail = false;
   chunk.hold();
@@ -144,7 +144,7 @@ const afterSettle = () => new Promise<void>((resolve) => requestAnimationFrame((
 it("the first terminal picked in a window takes the keyboard when its chunk lands after focus settled", async () => {
   render(<TooltipProvider><Pane /></TooltipProvider>);
   screen.getByRole("textbox", { name: "Editor f1" }).focus();
-  fireEvent.keyDown(window, { key: "2", metaKey: true, ctrlKey: true });
+  fireEvent.keyDown(window, { key: "2", altKey: true });
   expect(useExplorer.getState().activeId).toBe("t1");
   await afterSettle();
   expect(screen.getByText("Opening terminal…")).toBeInTheDocument();
@@ -168,7 +168,7 @@ it("picking the active terminal's tab focuses it then, and leaves no claim for a
   await waitFor(() => expect(screen.queryByText("Opening terminal…")).toBeNull());
   expect(focused.count).toBe(0);
 
-  fireEvent.keyDown(window, { key: "2", metaKey: true, ctrlKey: true });
+  fireEvent.keyDown(window, { key: "2", altKey: true });
   await afterSettle();
   expect(focused.count).toBe(1);
   expect(claimFocus("t1")).toBe(false);

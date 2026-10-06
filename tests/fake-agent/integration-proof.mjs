@@ -1,6 +1,27 @@
-/** Opt-in Electron proof: real session-provided stdio MCP configs, never a model. */
+/** Opt-in Electron proof: real session-provided MCP configs (stdio or HTTP), never a model. */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
+/** The transport an agent would open for this `session/new` entry: an HTTP one names a url. */
+export function transportFor(config) {
+  if (config.type === 'http') {
+    const headers = Object.fromEntries((config.headers ?? []).map(header => [header.name, header.value]));
+    return new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers } });
+  }
+  const env = { ...process.env, ...Object.fromEntries((config.env ?? []).map(entry => [entry.name, entry.value])) };
+  return new StdioClientTransport({ command: config.command, args: config.args ?? [], env });
+}
+
+/** The bridge's URL and this server's token, from either kind of entry. */
+function bridgeOf(config) {
+  if (config.type === 'http') {
+    const header = (config.headers ?? []).find(entry => entry.name.toLowerCase() === 'authorization');
+    return { url: config.url.replace(/\/mcp$/, ''), token: header.value.replace(/^Bearer /, '') };
+  }
+  const env = Object.fromEntries(config.env.map(entry => [entry.name, entry.value]));
+  return { url: env.WORKBENCH_BRIDGE_URL, token: env.WORKBENCH_BRIDGE_TOKEN };
+}
 
 /**
  * One client per server for the life of the agent process, the way a real agent keeps the MCP
@@ -13,8 +34,7 @@ async function withServer(config, operation) {
   if (!config) throw new Error('Requested integration was not supplied on session/new.');
   let client = clients.get(config.name);
   if (!client) {
-    const env = { ...process.env, ...Object.fromEntries((config.env ?? []).map(entry => [entry.name, entry.value])) };
-    const transport = new StdioClientTransport({ command: config.command, args: config.args ?? [], env });
+    const transport = transportFor(config);
     client = new Client({ name: 'elastic-integration-proof', version: '1.0.0' });
     await client.connect(transport);
     clients.set(config.name, client);
@@ -28,9 +48,9 @@ export async function integrationProof(servers, request) {
   }
   if (request.operation === 'isolation') {
     const config = servers.find(server => server.name === 'app-pdf');
-    const env = Object.fromEntries(config.env.map(entry => [entry.name, entry.value]));
-    const response = await fetch(`${env.WORKBENCH_BRIDGE_URL}/rpc`, { method: 'POST',
-      headers: { authorization: `Bearer ${env.WORKBENCH_BRIDGE_TOKEN}`, 'content-type': 'application/json' },
+    const bridge = bridgeOf(config);
+    const response = await fetch(`${bridge.url}/rpc`, { method: 'POST',
+      headers: { authorization: `Bearer ${bridge.token}`, 'content-type': 'application/json' },
       body: JSON.stringify({ method: 'read_document', params: { tabId: request.tabId } }) });
     return { status: response.status, body: await response.json() };
   }

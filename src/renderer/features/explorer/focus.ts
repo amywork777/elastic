@@ -39,7 +39,9 @@ export function focusTabBody(tabId: string, prefer?: string): void {
   const later = (landing: boolean) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => settle(landing)));
   const settle = (landing: boolean) => {
     if (wanted !== tabId) return;
-    const panel = document.getElementById(EXPLORER_TABPANEL_ID);
+    // The selected tab's own body: other kept tabs sit hidden in the same panel.
+    const panel = document.querySelector<HTMLElement>(`#${EXPLORER_TABPANEL_ID} [data-tab-body="${CSS.escape(tabId)}"]`)
+      ?? document.getElementById(EXPLORER_TABPANEL_ID);
     if (panel?.contains(document.activeElement)) {
       wanted = null;
       return;
@@ -65,7 +67,7 @@ export function focusTabBody(tabId: string, prefer?: string): void {
       return;
     }
     wanted = null;
-    const preferred = prefer ? document.getElementById(EXPLORER_TABPANEL_ID)?.querySelector<HTMLElement>(prefer) : null;
+    const preferred = prefer ? panel?.querySelector<HTMLElement>(prefer) : null;
     if (preferred) {
       preferred.focus();
       return;

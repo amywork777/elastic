@@ -40,7 +40,7 @@ import {
   type PluginServerConfig,
 } from "../../shared/plugins";
 import { ELASTIC_NODE, expandPluginRoot, insidePlugin } from "./manifest";
-import { isAuthError, ServerAuthProvider, SignInRequired, signIn, type AuthStore } from "./oauth";
+import { isAuthError, oauthOptions, ServerAuthProvider, SignInRequired, signIn, type AuthStore } from "./oauth";
 
 /** The MCP methods a proxy may forward, and the result each is read as. */
 export const FORWARDED_METHODS = {
@@ -139,7 +139,7 @@ export class PluginHost {
     if (config.url) {
       // Saved credentials go with the request (and refresh); without any, a 401 means "Sign in".
       const authProvider = this.deps.auth?.store.signedIn(config.url)
-        ? new ServerAuthProvider(config.url, this.deps.auth.store, this.deps.clientName)
+        ? new ServerAuthProvider(config.url, this.deps.auth.store, this.deps.clientName, undefined, oauthOptions(config))
         : undefined;
       const transport = new StreamableHTTPClientTransport(new URL(config.url), {
         requestInit: { headers: config.headers ?? {} },
@@ -242,11 +242,13 @@ export class PluginHost {
   /** The person's sign-in to a remote server, in the system browser; its connections restart after. */
   async signIn(pluginId: string, serverName: string): Promise<void> {
     const key = PluginHost.key(pluginId, serverName);
-    const url = this.servers.get(key)?.config.url;
-    if (!url) throw new Error(`${serverName} is not a remote server`);
+    const config = this.servers.get(key)?.config;
+    const url = config?.url;
+    if (!config || !url) throw new Error(`${serverName} is not a remote server`);
     if (!this.deps.auth) throw new Error("sign-in is not available");
-    const provider = new ServerAuthProvider(url, this.deps.auth.store, this.deps.clientName, this.deps.auth.open);
-    await signIn(url, provider, { fetchFn: this.deps.auth.fetchFn });
+    const oauth = oauthOptions(config);
+    const provider = new ServerAuthProvider(url, this.deps.auth.store, this.deps.clientName, this.deps.auth.open, oauth);
+    await signIn(url, provider, { fetchFn: this.deps.auth.fetchFn, oauth });
     await this.closeServer(key);
   }
 

@@ -7,6 +7,7 @@
  * change made from the app menu updates the same state a click would.
  */
 import { usePlugins } from "@renderer/plugins/store";
+import type { SessionEvent } from "@shared/acp/types";
 import type { IpcEventPayload } from "@shared/ipc";
 
 import { useAcp } from "./acp";
@@ -16,10 +17,10 @@ import { useComposer } from "./composer";
 import { performIntegrationCommand } from "./integration-commands";
 import { useExplorer } from "./explorer";
 import { attachHistory, useHistory } from "./history";
-import { useOnboarding } from "./onboarding";
+import { leaveWelcome, useOnboarding } from "./onboarding";
 import { usePathLinks } from "./path-links";
 import { useProjects } from "./projects";
-import { useSessions } from "./sessions";
+import { listedSessionAt, useSessions } from "./sessions";
 import { useSettings } from "./settings";
 import { useUi } from "./ui";
 import { useUpdates } from "./updates";
@@ -48,6 +49,8 @@ export function subscribeToMain(): () => void {
       useUpdates.getState().receive(status);
     }),
     window.workbench.on("session.state", ({ sessionId, state }) => {
+      // The snapshot already holds what is waiting to be drawn, and is newer.
+      streamed.drop(sessionId);
       // Sent before main heard the session was archived or deleted: taking it would bring back
       // state the index already let go of, and nothing would forget it again (`state/acp.ts`).
       // Main broadcasts a new session's row before its first state, so a missing row is a gone one
@@ -73,6 +76,13 @@ export function subscribeToMain(): () => void {
       if (error && status !== "error" && status !== "closed") useAcp.getState().receiveSetupNote(sessionId, error);
     }),
     window.workbench.on("session.update", ({ sessionId, event }) => {
+      // A streamed reply's chunks, thoughts and tool updates are drawn once a frame.
+      if (event.type === "session/update") {
+        streamed.push(sessionId, event);
+        return;
+      }
+      // Anything else (a turn starting or ending, a permission) lands after what came before it.
+      streamed.flush();
       const before = useAcp.getState().sessions[sessionId]?.status;
       useAcp.getState().receiveEvent(sessionId, event);
       // A turn's lifecycle drives the prompt queue: a turn that ends sends
@@ -160,6 +170,50 @@ export function subscribeToMain(): () => void {
 }
 
 /**
+ * The agent's streamed updates, held for the next frame and written to the store together: a
+ * reply arrives as many chunks a frame, and one store write each redrew every subscriber of the
+ * session (its screen, its composer, its chips) per chunk. Order is kept: anything that is not a
+ * streamed update flushes what is held before it is applied, and a full snapshot drops it.
+ * A frame, or 50 ms where there are no frames (a window that is hidden or not shown yet).
+ */
+const streamed = (() => {
+  const held = new Map<string, SessionEvent[]>();
+  let scheduled = false;
+  const flush = () => {
+    scheduled = false;
+    if (held.size === 0) return;
+    const batches = [...held];
+    held.clear();
+    for (const [sessionId, events] of batches) {
+      const acp = useAcp.getState();
+      const before = acp.sessions[sessionId]?.status;
+      acp.receiveEvents(sessionId, events);
+      // As a single update would: a session that went idle drains its queue.
+      if (before !== "idle" && useAcp.getState().sessions[sessionId]?.status === "idle") {
+        void useComposer.getState().drain(sessionId);
+      }
+    }
+  };
+  return {
+    push(sessionId: string, event: SessionEvent) {
+      const events = held.get(sessionId);
+      if (events) events.push(event);
+      else held.set(sessionId, [event]);
+      if (scheduled) return;
+      scheduled = true;
+      let done = false;
+      const once = () => { if (!done) { done = true; flush(); } };
+      requestAnimationFrame(once);
+      setTimeout(once, 50);
+    },
+    flush,
+    drop(sessionId: string) {
+      held.delete(sessionId);
+    },
+  };
+})();
+
+/**
  * One `ui.command`, whether it came from the app menu or from a button in the
  * renderer.
  *
@@ -193,6 +247,20 @@ export function runUiCommand(payload: IpcEventPayload<"ui.command">): void {
     case "navigate-forward":
       useHistory.getState().forward();
       break;
+    case "select-session": {
+      // A number with no row behind it does nothing: the person stays where they are.
+      const session = payload.index ? listedSessionAt(payload.index) : null;
+      if (!session) {
+        break;
+      }
+      // The chat is on Home: Settings, the welcome and a plugin's page step aside, as they do
+      // for the palette's session rows.
+      ui.closeSettings();
+      leaveWelcome();
+      ui.setSurface({ kind: "home" });
+      useSessions.getState().select(session.id);
+      break;
+    }
     case "new-session": {
       ui.closeSettings();
       const projectId = payload.projectId ?? useProjects.getState().activeId;

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { BrowserTarget } from "@shared/browser";
 import { useExplorer } from "./explorer";
+import { useSessions } from "./sessions";
 import { errorMessage } from "@shared/ipc/errors";
 
 type BrowserBinding = { sessionId: string; projectId: string; root: string | null; tabId: string };
@@ -74,8 +75,22 @@ export const useBrowser = create<BrowserState>((set, get) => {
       let disposed = false, ready = false, pending = false, stopped = false;
       let previousBox = "";
       let frame = 0;
+      // The page shows only while its tab is the selected one of the chat on screen. Read from the
+      // stores, not from this element still being mounted: the tab that replaces it is rendered
+      // first, and a heavy one (an editor, a review) left the native page over it for a second.
+      const selected = () => {
+        const explorer = useExplorer.getState();
+        return explorer.activeId === binding.tabId && explorer.sessionId === binding.sessionId
+          && useSessions.getState().activeId === binding.sessionId;
+      };
+      const hideNow = () => {
+        if (disposed || !ready || previousBox === "null") return;
+        previousBox = "null";
+        void window.workbench.browser.present({ ...binding, lease, bounds: null }).catch(() => {});
+      };
       const present = () => {
         if (disposed || !ready) return;
+        if (!selected()) { hideNow(); return; }
         const rect = element.getBoundingClientRect();
         const pageURL = get().targets[binding.tabId]?.url;
         const occluded = pageOccluded(document.querySelectorAll('[role="dialog"], [role="menu"], [data-radix-popper-content-wrapper], [data-sonner-toast]'), rect);
@@ -111,6 +126,23 @@ export const useBrowser = create<BrowserState>((set, get) => {
         accept(target);
         present();
       }).catch(error => { if (!disposed) failed(binding.tabId, error); });
+      // On the click itself: a store write runs its subscribers before React renders anything.
+      const follow = () => { if (!selected()) hideNow(); else if (previousBox === "null") schedule(); };
+      const stopExplorer = useExplorer.subscribe(follow);
+      const stopSessions = useSessions.subscribe(follow);
+      // Earlier still: on the press of another tab or another chat, not its click, which comes a
+      // tenth of a second later when the button is let go. A press that selects nothing (a drag
+      // to reorder, a press let go elsewhere) shows the page again on release.
+      const pressed = (event: PointerEvent) => {
+        if (event.button !== 0 || !(event.target instanceof Element)) return;
+        const tab = event.target.closest<HTMLElement>("[data-tab]")?.dataset.tab;
+        const chat = event.target.closest<HTMLElement>("[data-session-row]")?.dataset.sessionRow;
+        if ((tab && tab !== binding.tabId) || (chat && chat !== binding.sessionId)) hideNow();
+      };
+      const released = () => { if (selected() && previousBox === "null") schedule(); };
+      window.addEventListener("pointerdown", pressed, true);
+      window.addEventListener("pointerup", released, true);
+      window.addEventListener("pointercancel", released, true);
       const resize = new ResizeObserver(schedule);
       resize.observe(element);
       const overlays = new MutationObserver(schedule);
@@ -123,6 +155,10 @@ export const useBrowser = create<BrowserState>((set, get) => {
         if (wakers.get(binding.tabId) === wake) wakers.delete(binding.tabId);
         if (frame) cancelAnimationFrame(frame);
         resize.disconnect(); overlays.disconnect(); window.removeEventListener("resize", schedule); clearInterval(timer);
+        stopExplorer(); stopSessions();
+        window.removeEventListener("pointerdown", pressed, true);
+        window.removeEventListener("pointerup", released, true);
+        window.removeEventListener("pointercancel", released, true);
         void window.workbench.browser.present({ ...binding, lease, bounds: null }).catch(() => {});
       };
     },

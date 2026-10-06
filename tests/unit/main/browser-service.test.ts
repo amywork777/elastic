@@ -22,7 +22,8 @@ const electron = await vi.hoisted(async () => {
     constructor(public session: InstanceType<typeof EventEmitter>) { super(); }
     setWindowOpenHandler() {}
     async loadURL(url: string) { this.url = url; }
-    getURL() { return this.url; } getTitle() { return ""; } isLoading() { return false; }
+    getURL() { return this.url; } getTitle() { return ""; } isLoading() { return false; } getZoomFactor() { return 1; }
+    executeJavaScript = vi.fn(async () => undefined);
     isDestroyed() { return this.destroyed; } isFocused() { return this.focused; }
     // Chromium reports `destroyed` after close() returns; a test can hold it back.
     close() { this.destroyed = true; if (!electron.state.deferDestroy) this.emit("destroyed"); }
@@ -30,8 +31,8 @@ const electron = await vi.hoisted(async () => {
   }
   class WebContentsView {
     webContents: FakeContents;
-    setBounds = vi.fn(); setVisible = vi.fn();
-    constructor(options: { webPreferences: { partition: string } }) { this.webContents = new FakeContents(partitionSession(options.webPreferences.partition)); }
+    setBounds = vi.fn(); setVisible = vi.fn(); setBackgroundColor = vi.fn();
+    constructor(options: { webPreferences: { partition?: string } }) { this.webContents = new FakeContents(partitionSession(options.webPreferences.partition ?? "cursor")); }
   }
   return { sessions, FakeContents, WebContentsView, state: { deferDestroy: false } };
 });
@@ -232,4 +233,49 @@ it("still warns about a listener leak, past a finite cap", async () => {
     await new Promise(resolve => setImmediate(resolve));
   } finally { process.off("warning", warn); service.events.removeAllListeners("opened"); }
   expect(warn).toHaveBeenCalledWith(expect.objectContaining({ name: "MaxListenersExceededWarning" }));
+});
+
+it("draws an agent's press where it lands, announces it twice a second at most, and refuses it while the person has the page", async () => {
+  const window = owner();
+  const added = (window.contentView as unknown as { addChildView: ReturnType<typeof vi.fn> }).addChildView;
+  await service.open(scope, { tabId: "drive", url: "https://example.com/" });
+  await service.open(scope, { tabId: "hidden", url: "https://example.com/" });
+  service.present(scope, "drive", window, "lease", bounds);
+  const announced: string[] = [];
+  service.events.on("activity", (event: { tabId: string }) => announced.push(event.tabId));
+  let now = 5_000_000;
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+  const press = (tabId: string, x: number, y: number) =>
+    service.agentInput(scope, tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+
+  const before = added.mock.calls.length;
+  press("drive", 100, 50);
+  const cursor = added.mock.calls.at(-1)![0] as { setBounds: ReturnType<typeof vi.fn>; setVisible: ReturnType<typeof vi.fn> };
+  expect(added.mock.calls.length).toBe(before + 1);
+  // Centred on the press, in window pixels: the page sits at (10, 20) and the cursor is 44 square.
+  expect(cursor.setBounds).toHaveBeenLastCalledWith({ x: 88, y: 48, width: 44, height: 44 });
+  expect(cursor.setVisible).toHaveBeenLastCalledWith(true);
+  // Kept inside the page at its edge.
+  press("drive", 0, 0);
+  expect(cursor.setBounds).toHaveBeenLastCalledWith({ x: 10, y: 20, width: 44, height: 44 });
+  expect(announced).toEqual(["drive"]);
+  now += 600;
+  service.agentInput(scope, "drive", "Input.insertText", { text: "hi" });
+  expect(announced).toEqual(["drive", "drive"]);
+
+  // A page nobody is looking at is announced but has nothing to draw over.
+  const drawn = added.mock.calls.length;
+  now += 600;
+  press("hidden", 5, 5);
+  expect(added.mock.calls.length).toBe(drawn);
+  expect(announced.at(-1)).toBe("hidden");
+
+  // Taken over: refused in words, and neither drawn nor announced.
+  expect(service.setTakenOver(scope, "drive", true)).toEqual({ takenOver: true });
+  now += 600;
+  expect(() => press("drive", 1, 1)).toThrow(/taken over this browser tab/);
+  expect(announced.filter((tab) => tab === "drive")).toHaveLength(2);
+  service.setTakenOver(scope, "drive", false);
+  expect(() => press("drive", 1, 1)).not.toThrow();
+  clock.mockRestore();
 });

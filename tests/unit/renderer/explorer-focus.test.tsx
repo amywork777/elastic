@@ -55,13 +55,13 @@ it("Mod+Shift+R from an editor hands focus to the new review's tab, not the page
   expect(document.activeElement).toBe(stripTab(opened));
 });
 
-it("Mod+2 from an editor hands focus to the picked tab, and Mod+1 back into its body's tab", async () => {
+it("Alt+2 (⌃2 on a Mac) from an editor hands focus to the picked tab, and Alt+1 back into its body's tab", async () => {
   pane();
   screen.getByRole("textbox", { name: "Editor f1" }).focus();
-  fireEvent.keyDown(window, { key: "2", metaKey: true, ctrlKey: true });
+  fireEvent.keyDown(window, { key: "2", altKey: true });
   await waitFor(() => expect(document.activeElement).not.toBe(document.body));
   expect(document.activeElement).toBe(stripTab("r1"));
-  fireEvent.keyDown(window, { key: "1", metaKey: true, ctrlKey: true });
+  fireEvent.keyDown(window, { key: "1", altKey: true });
   await waitFor(() => expect(document.activeElement).toBe(stripTab("f1")));
 });
 
@@ -110,22 +110,22 @@ it("a held Mod+T or Mod+W repeats nothing, and the repeat is still kept from the
   expect(held("w").defaultPrevented).toBe(true);
 });
 
-it("Ctrl+W and Mod+2 leave a collapsed explorer's hidden tabs alone, and the menu keeps the key", () => {
+it("Ctrl+W and Alt+2 (⌃2 on a Mac) leave a collapsed explorer's hidden tabs alone, and the menu keeps the key", () => {
   const terminal = { id: "t1", kind: "terminal", sessionId: "s1", projectId: PROJECT.id, order: 1, ptyId: "pty-9", cwd: null, readOnly: false } as ExplorerTab;
   const tabs = [fileTab("f1", 0), terminal];
   useExplorer.setState({ collapsed: true, tabs, activeId: "t1" });
   const kill = vi.fn(async () => {});
   (window.workbench.terminal as unknown as Record<string, unknown>).kill = kill;
   pane();
-  const press = (key: string) => {
-    const event = new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true, cancelable: true });
+  const press = (key: string, modifier: "ctrlKey" | "altKey" = "ctrlKey") => {
+    const event = new KeyboardEvent("keydown", { key, [modifier]: true, bubbles: true, cancelable: true });
     window.dispatchEvent(event);
     return event;
   };
   expect(press("w").defaultPrevented).toBe(false);
   expect(kill).not.toHaveBeenCalled();
   expect(useExplorer.getState().tabs).toEqual(tabs);
-  expect(press("2").defaultPrevented).toBe(false);
+  expect(press("2", "altKey").defaultPrevented).toBe(false);
   expect(useExplorer.getState().collapsed).toBe(true);
   expect(useExplorer.getState().activeId).toBe("t1");
 });
@@ -141,4 +141,32 @@ it("Ctrl+Shift+R with the focus in a terminal still opens a review tab; the plai
   const before = useExplorer.getState().tabs.length;
   fireEvent.keyDown(input, { key: "t", ctrlKey: true });
   expect(useExplorer.getState().tabs).toHaveLength(before);
+});
+
+/**
+ * Recently used file, review and tool tabs stay mounted, hidden and inert (`KEEP_ALIVE` in
+ * `ExplorerPane`): switching back is a style change, not a rebuild of the editor.
+ */
+it("keeps a file tab's body mounted while another tab is shown, and shows the same one on return", async () => {
+  useExplorer.setState({ tabs: [fileTab("f1", 0), fileTab("f2", 1), reviewTab("r1", 2), fileTab("f3", 3), fileTab("f4", 4)], activeId: "f1" });
+  pane();
+  const first = screen.getByRole("textbox", { name: "Editor f1" });
+  fireEvent.keyDown(window, { key: "2", altKey: true });
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "Editor f2" })).toBeInTheDocument());
+  // Still there, hidden from the page, the keyboard and assistive tech.
+  const kept = document.querySelector<HTMLElement>('[data-tab-body="f1"]')!;
+  expect(kept.contains(first)).toBe(true);
+  expect(kept.className).toContain("hidden");
+  expect(kept.hasAttribute("inert")).toBe(true);
+  fireEvent.keyDown(window, { key: "1", altKey: true });
+  await waitFor(() => expect(document.querySelector('[data-tab-body="f1"]')!.className).not.toContain("hidden"));
+  expect(screen.getByRole("textbox", { name: "Editor f1" })).toBe(first);
+
+  // Three at most: f1, f2 and the review are kept; picking f3 and then f4 lets the oldest go.
+  fireEvent.keyDown(window, { key: "3", altKey: true });
+  fireEvent.keyDown(window, { key: "4", altKey: true });
+  fireEvent.keyDown(window, { key: "5", altKey: true });
+  await waitFor(() => expect(document.querySelectorAll("[data-tab-body]")).toHaveLength(3));
+  expect(document.querySelector('[data-tab-body="f2"]')).toBeNull();
+  expect(document.querySelector('[data-tab-body="f1"]')).toBeNull();
 });

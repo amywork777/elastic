@@ -30,7 +30,8 @@ area is not an oversight — it is the seam.
 | P7 (done) | `src/main/projects` (`git.ts`, `workspace.ts`, `index.ts`), `src/{shared,main}/ipc/git.ts`, `src/renderer/lib/git-mode.ts`, the review tab's scopes and commit strip, Git and worktrees' per-project cards, `tests/e2e/git.spec.ts` |
 | P8 (done) | `electron-builder.yml`, `build/`, `resources/brand`, `scripts/{package,make-icons,make-brand,app-version}.mjs`, `src/main/updater.ts`, `src/{shared,main}/ipc/app.ts` |
 | Browser | the embedded browser P3's tab kind grew into: `src/main/browser/`, `src/shared/browser.ts`, `src/{shared,main}/ipc/browser.ts`, `features/explorer/BrowserTab.tsx`, `docs/browser.md` |
-| Clipboard | `src/{shared,main}/ipc/clipboard.ts` — the one door to Electron's native clipboard (main-side text and PNG reads and writes, validated); renderer callers of that go through `window.workbench.clipboard`. A copy button on the page — the vendored `terminal.tsx`, `code-block.tsx` and Streamdown's, Copy path, the terminal's selection — writes plain text with the web `navigator.clipboard.writeText`, which `clipboard-sanitized-write` in `src/main/index.ts` permits; that is not a second door to the native clipboard, and the vendored components are not rewritten to use the IPC one |
+| Clipboard | `src/{shared,main}/ipc/clipboard.ts` — the one door to Electron's native clipboard (main-side text and PNG reads and writes, validated); renderer callers of that go through `window.workbench.clipboard`. A copy button on the page — the vendored `terminal.tsx`, `code-block.tsx` and Streamdown's, Copy path, the terminal's selection — writes plain text with the web `navigator.clipboard.writeText` (a reply's Copy, `features/session/CopyReply.tsx`, writes HTML beside it with `navigator.clipboard.write`), which `clipboard-sanitized-write` in `src/main/app-permissions.ts` permits; that is not a second door to the native clipboard, and the vendored components are not rewritten to use the IPC one |
+| Dictation | the composer's microphone: `native/dictation`, `scripts/build-dictation.mjs`, `src/main/dictation`, `src/{shared,main}/ipc/dictation.ts`, `src/renderer/features/session/composer/{dictation.ts,DictationButton.tsx}`, and the microphone's line in `src/main/app-permissions.ts` |
 | P9 (onboarding) | `src/main/onboarding.ts`, `src/{shared,main}/ipc/onboarding.ts`, `src/renderer/features/onboarding`, `src/renderer/state/onboarding.ts`, the `onboarding*` settings fields. The welcome offers "Open a folder" and "Browse plugins" |
 
 Work outside your area's directories only where the seam requires it — a new
@@ -77,8 +78,8 @@ the rule is about.
   types and pure, dependency-free modules** (zod aside) — never anything that
   touches Node, Electron or the file system. The modules it takes values from
   today: `types.ts` (the schemas, `PANE_LIMITS`), `acp/options.ts`,
-  `acp/reduce.ts`, `acp/elicitation.ts`, `file-refs.ts`, `diff-counts.ts`, `image-cap.ts`, `terminal-replies.ts`, `titlebar.ts`, `brand.ts`, `plugins.ts`, `color-themes.ts`, `providers.ts` and
-  `ipc/errors.ts`. A shared module that grows a Node import stops
+  `acp/reduce.ts`, `acp/elicitation.ts`, `file-refs.ts`, `diff-counts.ts`, `image-cap.ts`, `terminal-replies.ts`, `titlebar.ts`, `brand.ts`, `plugins.ts`, `color-themes.ts`, `providers.ts`,
+  `ipc/errors.ts` and `ipc/dictation.ts` (the sample rate). A shared module that grows a Node import stops
   qualifying. Its one way off the page is `window.workbench`, built from the
   contract in `src/shared/ipc/index.ts`.
   (`tests/unit/main/renderer-shared-imports.test.ts` enforces this.)
@@ -153,7 +154,8 @@ the rule is about.
   `WORKBENCH_BUNDLE_CHECK=1`; a local run without a fresh build passes).
   (README, "Development".)
 - **A chord that acts on a hidden tab never runs while the pane is collapsed.**
-  `useExplorerShortcuts` (mounted by `Shell`) lets `Mod+W` and `Mod+1..9` fall
+  `useExplorerShortcuts` (mounted by `Shell`) lets `Mod+W` and the tab digits
+  (`Ctrl+1..9` on a Mac, `Alt+1..9` elsewhere; `Mod+1..9` is the sidebar's chats) fall
   through to the menu when the explorer is collapsed or there is no session;
   the open-a-tab chords are the exception because `open` reveals the pane.
   `event.repeat` is swallowed, and non-mac plain Ctrl chords are skipped inside
@@ -279,7 +281,9 @@ the rule is about.
 - **Projects are derived directory groups, not saved entities.** The session
   index owns the directory identity. A folder choice before the first prompt
   is a transient draft; archiving the last session hides its group without
-  deleting session data. Never reintroduce a project-delete cascade.
+  deleting session data, unless the folder is pinned (`pinnedProjects` in
+  `settings.sidebar`, an id list like `hiddenProjects`, never a saved project).
+  Never reintroduce a project-delete cascade.
 - **The renderer never picks a session's working directory.** It sends a git
   mode; main resolves it (`src/main/projects/workspace.ts`), creates the
   worktree, and writes `cwd`, `branch` and `worktreePath` onto the row. The one
@@ -462,6 +466,11 @@ the rule is about.
   answers to it.** `explorer.loadTabs` nulls a terminal tab's `ptyId` that no
   pty of the session owns, because ptys die with the app
   (`tests/unit/main/terminal-ipc.test.ts`).
+- **Only the app page listens.** The app's session grants the clipboard and,
+  for dictation, the microphone: audio only, top frame, the app's own URL
+  (`src/main/app-permissions.ts`). A plugin's view is a frame in that session
+  and gets nothing; a new permission is added there with its test
+  (`tests/unit/main/app-permissions.test.ts`).
 - **Nothing lands on its final path until it is complete.** A save writes a
   temporary sibling and renames it (`src/main/explorer/fs.ts`).
 

@@ -4,6 +4,7 @@
  * into the contract; main calls `shutdownAcp` on quit.
  */
 import { randomUUID } from "node:crypto";
+import os from "node:os";
 
 import { app } from "electron";
 
@@ -14,7 +15,7 @@ import type { acpContract } from "../../shared/ipc/acp";
 import type { AgentSnapshot } from "../acp/agent-options";
 import { spawnPtyTerminal } from "../acp/pty-backend";
 import { AgentOptionStore } from "../acp/agent-options";
-import { SessionManager } from "../acp/sessions";
+import { BTW_PREAMBLE, SessionManager } from "../acp/sessions";
 import { sessionRuntimePath } from "../runtime-path";
 import { providerStore } from "../providers";
 import { routeFor } from "../../shared/providers";
@@ -171,6 +172,22 @@ export const acpHandlers = {
     respondPermission: ({ id, requestId, optionId, answers }) =>
       surfacing(() => sessionManager.respondPermission(id, requestId, optionId, answers)),
     retrySetup: ({ id }) => surfacing(() => sessionManager.retrySetup(id)),
+    aside: ({ agentId, sessionId, projectId, command, question }) =>
+      surfacing(() => {
+        // The folder is the project's, resolved here; with neither a chat nor a project, `/usage`
+        // runs in the home folder, since what it reports is the account's.
+        // `/usage` is the account's, not the chat's: a fresh session in the chat's folder, no fork.
+        const project = projectId ? projects.get(projectId) ?? null : null;
+        const row = sessionId ? sessions.get(sessionId) : undefined;
+        const text = command === "btw" ? `${BTW_PREAMBLE}\n\n${question ?? ""}` : `/${command}`;
+        return sessionManager.aside({
+          agentId,
+          cwd: row?.cwd ?? project?.path ?? os.homedir(),
+          projectId: row?.projectId ?? project?.id ?? null,
+          forkOf: command === "usage" ? null : sessionId,
+          text,
+        });
+      }),
     rename: ({ id, title }) => surfacing(() => sessionManager.rename(id, title)),
     // The row first, as `delete` does: an archive that throws leaves the session
     // active with its tokens, pages and shells, not half torn down.
@@ -184,6 +201,7 @@ export const acpHandlers = {
       return session;
     }),
     setPinned: ({ id, pinned }) => surfacing(() => sessionManager.setPinned(id, pinned)),
+    activity: () => sessionManager.activity(),
     close: ({ id }) => surfacing(async () => { forgetSession(id); await sessionManager.close(id); }),
     delete: ({ id }) =>
       surfacing(async () => {

@@ -2,10 +2,10 @@ import { FileViewer } from "@workbench/ui/file-viewer";
 import type { ViewerHost } from "@workbench/ui/host";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { GitBranch } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useResolvedTheme } from "@renderer/hooks/use-theme";
-import { desktopLiveDocuments } from "@renderer/state/live-documents";
+import { desktopLiveDocuments, forgetDocumentTabShown, setDocumentTabShown } from "@renderer/state/live-documents";
 import { openSessionTab, readSessionStrip, updateSessionTab, useExplorer } from "@renderer/state/explorer";
 import { useProjects } from "@renderer/state/projects";
 import { useSettings } from "@renderer/state/settings";
@@ -31,9 +31,13 @@ export function worktreeMark(root: ExplorerRoot): { label: string; path: string 
 }
 
 /** The desktop supplies a root, native services and tab navigation to the shared viewer. */
-export function FileTab({ sessionId, tabId, project, root, path, panel }: {
+export function FileTab({ sessionId, tabId, project, root, path, panel, shown = true }: {
   sessionId: string; tabId: string; project: Project; root: ExplorerRoot; path: string | null; panel: string | null;
+  /** False while kept mounted behind another tab: its document is then a snapshot, not live. */
+  shown?: boolean;
 }) {
+  useLayoutEffect(() => setDocumentTabShown(tabId, shown), [tabId, shown]);
+  useEffect(() => () => forgetDocumentTabShown(tabId), [tabId]);
   const source = useMemo(() => createDesktopFileSource({ sessionId, projectId: project.id,
     projectName: () => useProjects.getState().projects.find(entry => entry.id === project.id)?.name ?? "Project", root }), [sessionId, project.id, root]);
   // Composed again when a plugin is installed, toggled or chosen for an extension.

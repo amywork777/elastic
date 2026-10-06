@@ -160,6 +160,20 @@ export function buildMenu(
           accelerator: "CmdOrCtrl+]",
           click: send("navigate-forward"),
         },
+        // The sidebar's chats by number, as it draws them; the renderer counts the rows.
+        {
+          label: "Go to Chat",
+          submenu: Array.from({ length: 9 }, (_, at): MenuItemConstructorOptions => ({
+            label: at === 8 ? "Last Chat" : `Chat ${at + 1}`,
+            accelerator: `CmdOrCtrl+${at + 1}`,
+            click: () => {
+              const window = focusedWindow();
+              if (window) {
+                emit([window.webContents], "ui.command", { command: "select-session", index: at + 1 });
+              }
+            },
+          })),
+        },
         { type: "separator" },
         {
           label: "Command Palette…",

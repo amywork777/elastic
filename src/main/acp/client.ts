@@ -45,6 +45,11 @@ export class AcpClient implements acp.Client {
 
   constructor(private readonly options: AcpClientOptions) {}
 
+  /** A warm adapter adopted by a session in another folder: confinement and terminals follow it. */
+  retarget(cwd: string): void {
+    this.options.cwd = cwd;
+  }
+
   /* ---------------------------------------------------------------------- */
   /* session/*                                                               */
   /* ---------------------------------------------------------------------- */

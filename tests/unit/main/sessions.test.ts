@@ -1130,6 +1130,32 @@ describe("SessionManager", () => {
   });
 
   /**
+   * Claude takes its folder from `session/new`, so the warm adapter serves a chat in any folder,
+   * and the client's confinement moves with it: a write lands in the new chat's folder.
+   */
+  it("hands the warm adapter to a session in another folder, and confines it there", async () => {
+    const { manager, cwd } = await setup();
+    const first = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });
+    manager.close(first.id);
+    await manager.warmAgents();
+    await until(() => (manager.warmed("claude-code") ? true : undefined));
+
+    const elsewhere = await tempDir("elastic-mgr-elsewhere-");
+    const logged: string[] = [];
+    const spy = vi.spyOn(console, "info").mockImplementation((...args: unknown[]) => { logged.push(args.join(" ")); });
+    try {
+      const second = await manager.create({ projectId: "p2", agentId: "claude-code", cwd: elsewhere, gitMode: "none" });
+      expect(logged.some((line) => line.includes(`create ${second.id.slice(0, 8)}`) && line.includes("warm=yes"))).toBe(true);
+      const target = path.join(elsewhere, "made.txt");
+      const { stopReason } = await manager.prompt(second.id, [{ type: "text", text: `please write ${target}` }]);
+      expect(stopReason).toBe("end_turn");
+      expect(await readFile(target, "utf8")).toBe("hello\n");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  /**
    * A warm adapter was spawned with the options of its moment: the PATH the
    * runtime had then, the skills root, the launch. A Python override changed
    * since, a sign-in that refreshed the shell's environment, a skills root

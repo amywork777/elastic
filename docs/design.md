@@ -445,7 +445,8 @@ PDF and terminals tools and their skills) and `resources/plugins/` (the
 example plugins and their marketplace) ship beside the app as
 `extraResources`, with `src/main/browser/vendor/LICENSE`, which lands as
 `notices/browser-use-browser-harness-js-LICENSE`. The MCP server ships inside `out/app-mcp/`, unpacked from the asar so an
-agent can run it by path. See `resources/README.md` for what lives in
+agent can run it by path, and so does the dictation helper, in `out/native/`,
+which main spawns. See `resources/README.md` for what lives in
 `resources/`.
 
 `scripts/package.mjs` looks through every checked-out extraResource after the
@@ -555,8 +556,9 @@ thing `Cmd+N` does — and at that row's right the two controls that act on the
 whole list, search (the command palette) and the sliders that open the filter
 menu (`features/sidebar/Sidebar.tsx`).
 Under that, one grey header per project with a flat list of that project's
-threads. The header is the project: its name and a chevron that collapses the
-section (persisted per project in `settings.sidebar`), and on the right `+`,
+threads. The header is the project: its folder and name, and a click anywhere
+on it collapses the section, Codex's way, with no chevron; the folder glyph is
+open or shut with it (persisted per project in `settings.sidebar`). On the right `+`,
 a thread in *that* project — and nothing else. A search glyph and a copy of
 the sliders used to appear on it on hover; neither was ever about one project
 (the palette searches every thread and the filter settings are global), and a
@@ -589,6 +591,16 @@ worktree or on a branch of its own, and a `…` on hover or when it takes
 keyboard focus, for pin, rename, archive and delete. `Pinned` is the first section when anything is pinned,
 and a pinned thread lives **only** there — never twice.
 
+A folder can be pinned too, from its `…` or right-click menu (`Pin folder`).
+Pinned folders come first among the folders, in the order they were pinned,
+with a small pin after the name (`settings.sidebar.pinnedProjects`). When some
+folders are pinned and some are not, "Pinned folders" heads the first group and
+a hairline with "Folders" the second (`folderGroupLabel` in `lib/sidebar.ts`). A pinned
+folder stays listed when none of its chats match, archived ones included, with
+"No chats" under its header and its `+` beside it, so a folder a person works in
+every day is always one click from a new chat. Hiding a folder beats pinning
+it. Mod+1..9 counts rows as drawn, so it follows the new order.
+
 The filter menu is global, and it is opened from the panel's own header:
 `Status` (Active / Archived / All), `Environment` (All / Local / Worktree —
 our git modes), `Group by` (Project, or None for one flat list), `Sort by`
@@ -596,7 +608,8 @@ our git modes), `Group by` (Project, or None for one flat list), `Sort by`
 function over the index (`sidebarSections` in `lib/sidebar.ts`), which is also
 where the rules live that a screenshot cannot check: a pinned thread is
 excluded from its directory section, empty sections never appear (including
-pinned-only directories), and every section is sorted the same way. Directory
+pinned-only directories) unless the folder itself is pinned, and every section
+is sorted the same way. Directory
 labels and their order are derived from the session index; there is no durable
 project list to synchronize.
 
@@ -771,7 +784,65 @@ with git's words and a Retry. A refresh that fails keeps the last answer on
 screen, marked stale under a "Could not refresh" line with Try again.
 
 The composer's paperclip opens one picker for files and photos.
-There is no microphone: macOS dictation can type into the editor.
+
+### Dictation
+
+The microphone beside send dictates into the box, transcribed on the Mac by
+Apple's SpeechAnalyzer (macOS 26). The renderer records
+(`src/renderer/features/session/composer/dictation.ts`): Chromium opens the
+microphone and asks macOS for it, an audio worklet turns it into 100 ms
+chunks of 16 kHz 16-bit samples, and `dictation.push` hands them to main.
+Main runs one helper per dictation (`src/main/dictation/index.ts`), the
+Swift program in `native/dictation/main.swift` that
+`scripts/build-dictation.mjs` builds into `out/native/elastic-dictation` (both
+architectures), and turns its JSON lines into `dictation.update` events.
+SpeechAnalyzer needs no speech-recognition authorization, so the helper needs
+no Info.plist of its own; the only prompt is the app's microphone one, which
+is `NSMicrophoneUsageDescription` and the `audio-input` entitlement in a
+packaged build. The first dictation in a language installs Apple's model for
+it, once, and the button says "Getting the speech model ready…" meanwhile.
+
+The words are written after what the box held, as they are heard, and the
+editor is read-only until the dictation ends, so the transcript and the
+person never write over each other. A second click settles the last words;
+Escape on the button puts the box back as it was. Only the app page's top
+frame may open the microphone, audio only (`src/main/app-permissions.ts`): a
+plugin's view is a frame in the same session and does not get to listen.
+Where the helper cannot run — off macOS, before macOS 26, a build without
+it — there is no button at all.
+
+### Quick commands
+
+`/usage`, `/context` and `/btw <question>` are answered beside the chat, in a
+card over the composer, and never sent into it: they run whatever the chat is
+doing, never wait in the queue, and never become a turn. Claude Code's terminal
+treats these three the same way; over ACP the agent sees `/usage` and
+`/context` only as messages, and `/btw` not at all. `features/session/composer/quick-commands.ts`
+names them and joins them to the agent's slash list; picking `/usage` or
+`/context` there runs it at once, and `/btw` waits for its question.
+
+Main runs each on an adapter process of its own (`SessionManager.aside`,
+`src/main/acp/sessions.ts`, through `sessions.aside`). `/context` and `/btw`
+fork the chat's conversation (`session/fork`, made from the transcript on disk,
+then `session/resume` without a replay), and `/btw` asks in the agent's plan
+mode with a preamble that says the answer is shown once; a permission or a
+question the fork asks is cancelled, not answered. `/usage` is the account's,
+so it runs on a fresh session in the chat's folder, and on the new-session
+screen, where it is the only one offered. Only agents with `capabilities.asides`
+(Claude Code: claude-agent-acp forks and answers `/usage` and `/context` itself)
+offer them. A fork is a session of the agent's own, so it stays in the agent's
+history (`claude --resume` lists it).
+
+### Copy
+
+Every finished reply has a Copy under it: the latest always, older ones on
+hover or focus. It takes the answer, the text after the last tool call, which
+is what "Worked for …" leaves open (`replyMarkdown` in
+`src/renderer/features/session/CopyReply.tsx`), and writes it twice in one
+clipboard item: as HTML (`src/renderer/lib/markdown-html.ts`, a small printer
+over remark's tree that escapes every text and keeps only web and mail
+links), so a paste into Slack, Docs or an email keeps its formatting, and as
+the markdown, for a terminal or an editor.
 
 ## The model, the effort and the mode
 
@@ -1023,15 +1094,30 @@ row is longer than the pane, and then stops at the pane's edge with the tabs
 passing underneath it. In the flow alone it was the button that scrolled off
 at six tabs in a 45% pane; pinned outside the row it was always reachable and
 never part of it. The file tree's open folders and its listings live in the explorer
-store, not in the file tab, because opening a file makes a tab and the pane
-mounts one tab at a time. `listDirectory` stats a directory's entries 64 at a
+store, not in the file tab, because opening a file makes a tab and a tab's body
+can be unmounted. `listDirectory` stats a directory's entries 64 at a
 time (`LIST_STAT_BATCH` in `src/main/explorer/fs.ts`).
+
+The selected tab is mounted, and so are the last file, review and plugin tool
+tabs it was switched from, three in all (`KEEP_ALIVE` in `ExplorerPane.tsx`),
+hidden and `inert`: switching back is a style change rather than a rebuild of
+an editor, a diff or a frame (a Markdown file measured about 140 ms to
+rebuild). They keep the order they were first kept, because moving a plugin's
+frame in the document reloads it, and focus left in one that is hidden is
+blurred, as an unmount did. A kept file tab's document is live, editable by an
+agent, only while it is the tab on screen (`setDocumentTabShown` in
+`state/live-documents.ts`); hidden, it is the read-only snapshot an unmounted
+tab leaves, so the documents integration's `active` still means "on screen".
+Browser and terminal tabs are not kept: their page and pty live in main.
 
 The strip's chords are `useExplorerShortcuts` (`ExplorerPane.tsx`), mounted by
 `Shell` because the pane is not rendered while collapsed. With no session every
 chord falls through to the menu. The open-a-tab chords run with the pane
-collapsed, because `open` reveals it; ⌘W and ⌘1..9 act on tabs the person
+collapsed, because `open` reveals it; ⌘W and ⌃1..9 act on tabs the person
 cannot see then, so they fall through to the menu too (⌘W closes the window).
+The tab digits are ⌃1..9 on a Mac and Alt+1..9 on Windows and Linux, because
+⌘1..9 (Ctrl+1..9 there) opens the sidebar's chats by row, as drawn: collapsed
+folders skipped, 9 the last (`listedSessions` in `src/renderer/lib/sidebar.ts`).
 A held key (`event.repeat`) is swallowed rather than repeated, ⌘W included even
 once the last tab is closed, so it does not go on to close the window. On
 Windows and Linux the plain Ctrl chords are skipped while the focus is inside a
@@ -1898,14 +1984,29 @@ beside `sessions.ts`:
   0.20 s for Codex. The `spawn()` call itself is a millisecond — what costs
   is the adapter's own boot, and it shows up inside the `initialize` round
   trip.
-  One per agent, handed out once and replaced. An adapter cannot be moved
-  between directories, so it is matched on the `cwd` it was spawned in: a
-  worktree session spawns its own. It is matched on the rest of what it was
+  One per agent, handed out once and replaced. Most adapters take where they
+  are from the directory they were spawned in, so they are matched on that
+  `cwd` and a worktree session spawns its own. Claude Code and Codex take the
+  folder from `session/new` and `session/load` instead
+  (`capabilities.sessionCwd`), so theirs serves a session in any folder, and
+  adopting re-points the client's file confinement and terminals there. That
+  was most of the wait: with chats spread over a few folders, Claude's warm
+  adapter was almost never taken, and each open paid an `initialize` of 0.6 s
+  to 9.7 s (56 s once, a cold `npm exec`). It is matched on the rest of what it was
   spawned with too — the environment, the runtime on `PATH`, the skills root,
   the launch — and one spawned before any of those changed is closed rather
   than adopted. There are no sessions in the index on a
   first launch, so this does nothing until the second — and it is gated the
   way the agents' pre-warm is (`WORKBENCH_PREWARM=1` under `NODE_ENV=test`).
+
+- **Streaming is drawn a frame at a time.** A reply arrives as many
+  `session/update` chunks a frame, and one store write each redrew everything
+  that reads the session, the composer and its chips included, per chunk. The
+  bridge (`state/bridge.ts`) holds a session's streamed updates until the next
+  animation frame (50 ms where a hidden window has none) and folds them in one
+  write (`receiveEvents`); any other event flushes them first, so a turn's end
+  or a permission is never applied ahead of the text before it, and a full
+  snapshot drops what was held.
 
 What is left of the seconds is the `session/load` replay itself, which is
 the agent's own work and is now behind a transcript rather than in front of

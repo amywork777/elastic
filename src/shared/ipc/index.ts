@@ -50,8 +50,9 @@ import { integrationsIpc, integrationsEvents } from "./integrations";
 import { explorerEvents, explorerIpc } from "./explorer";
 import { gitIpc } from "./git";
 import { clipboardContract } from "./clipboard";
+import { dictationContract, dictationEvents } from "./dictation";
 import { providersContract } from "./providers";
-import { browserIpc } from "./browser";
+import { browserEvents, browserIpc } from "./browser";
 
 export * from "./define";
 export * from "./agent-options";
@@ -75,7 +76,11 @@ export const UiCommandSchema = z.object({
      */
     "navigate-back",
     "navigate-forward",
+    /** Mod+1..9: the sidebar's `index`th chat as it is drawn, 9 the last. */
+    "select-session",
   ]),
+  /** `select-session` only: which row, 1 to 9. */
+  index: z.number().int().min(1).max(9).optional(),
   /**
    * `new-session` only: the project to start it in, and the directory to
    * start it in — Settings › Git and worktrees' `New session in this worktree`
@@ -198,6 +203,7 @@ export const ipcContract = defineIpc({
   },
 
   ...clipboardContract,
+  ...dictationContract,
   ...providersContract,
   ...browserIpc,
 
@@ -238,6 +244,10 @@ export const ipcEvents = {
   // `integrations.command` — the app MCP server's way into the explorer (P5).
   ...integrationsEvents,
   ...pluginsEvents,
+  // `dictation.update`: what the composer's microphone heard.
+  ...dictationEvents,
+  // `browser.activity`: an agent is driving a page.
+  ...browserEvents,
 } as const;
 
 export type IpcEvents = typeof ipcEvents;

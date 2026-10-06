@@ -52,6 +52,8 @@ type AcpState = {
   receiveSetupNote: (sessionId: string, note: string) => void;
   receiveState: (sessionId: string, state: SessionState) => void;
   receiveEvent: (sessionId: string, event: SessionEvent) => void;
+  /** Several in order, as one store write (a frame's worth of a streamed reply). */
+  receiveEvents: (sessionId: string, events: readonly SessionEvent[]) => void;
   receiveTerminalOutput: (sessionId: string, terminalId: string, data: string, silent?: boolean) => void;
   forget: (sessionId: string) => void;
 
@@ -149,12 +151,14 @@ export const useAcp = create<AcpState>((set, get) => ({
       return { sessions: { ...current.sessions, [sessionId]: state }, coldTerminals, loadErrors };
     }),
 
-  receiveEvent: (sessionId, event) =>
+  receiveEvent: (sessionId, event) => get().receiveEvents(sessionId, [event]),
+
+  receiveEvents: (sessionId, events) =>
     set((current) => {
       const state = current.sessions[sessionId];
       // Events for a session we have no snapshot of are dropped: the
       // snapshot that follows a connect carries everything up to that point.
-      if (!state) {
+      if (!state || events.length === 0) {
         return current;
       }
       // A session painted from disk while its agent reconnects: what arrives
@@ -163,7 +167,9 @@ export const useAcp = create<AcpState>((set, get) => ({
       if (current.reconnecting[sessionId]) {
         return current;
       }
-      const next = reduce(state, event);
+      // One write for the lot: a streamed reply is many chunks a frame, and every subscriber
+      // redrew for each one (`bridge.ts` batches them).
+      const next = events.reduce((acc, event) => reduce(acc, event), state);
       // An adapter that closed behind another session's pane — the keep-alive evicting it — is
       // let go: its transcript is the snapshot main flushed, and a click repaints it from there.
       if (next.status === "closed" && !stillWanted(sessionId, current)) {

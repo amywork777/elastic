@@ -5,7 +5,9 @@
  * of Homebrew, nvm, pnpm or `~/.local/bin` — where every agent CLI lives. So
  * the environment agents and probes run in is the one an interactive login
  * shell would have: `$SHELL -ilc 'env -0'`, captured once, refreshed on
- * demand. Any failure (no shell, a hung rc file) falls back to `process.env`
+ * demand. A launch starts from the last launch's capture, sealed on disk
+ * (`./env-cache.ts`), and captures again behind it, so no agent waits for the
+ * shell (10.7 s at one busy launch). Any failure (no shell, a hung rc file) falls back to `process.env`
  * — logged, because agents then look "not installed" — so a broken dotfile
  * never keeps the app from starting.
  *
@@ -67,6 +69,19 @@ export function stripHostSession(env: Env): Env {
 }
 
 /**
+ * `npm run dev` runs the app under electron-vite, which puts `NODE_ENV=development` and
+ * `NODE_ENV_ELECTRON_VITE` in the app's own environment. Neither is the person's, and inherited
+ * by an agent, `NODE_ENV=development` would make an `npm run build` in their project a
+ * development build. So both go before the login shell starts, and only when electron-vite's own
+ * marker says the `NODE_ENV` is its: an rc file that exports `NODE_ENV` still sets it.
+ */
+export function stripBuildTool(env: Env): Env {
+  if (!("NODE_ENV_ELECTRON_VITE" in env)) return env;
+  const { NODE_ENV_ELECTRON_VITE: _marker, NODE_ENV: _mode, ...rest } = env;
+  return rest;
+}
+
+/**
  * Generous: a login shell that runs nvm, pyenv and conda init can take
  * several seconds, and giving up means every agent CLI looks missing. A
  * capture slower than `SLOW_MS` is logged so the cause can be found.
@@ -90,16 +105,53 @@ let cached: Promise<Env> | null = null;
  * Resolve the login environment. Cached after the first call; `force`
  * re-runs the shell (Settings › Agents › Refresh).
  */
+/** Where the last launch's captured environment is kept between launches (`env-cache.ts`). */
+export type EnvCache = { load(): Env | null; save(env: Env): void };
+let envCache: EnvCache | null = null;
+
+/** Install the cache, once, before anything asks for the environment. */
+export function setEnvCache(cache: EnvCache | null): void {
+  envCache = cache;
+}
+
+/** Same variables, same values: a fresh capture that changed nothing keeps the object in use. */
+export function sameEnv(a: Env, b: Env): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((key) => b[key] === a[key]);
+}
+
 export function loginEnv(options: { force?: boolean; timeoutMs?: number; shell?: string } = {}): Promise<Env> {
   if (!cached || options.force) {
-    cached = captureLoginEnv(options.timeoutMs ?? DEFAULT_TIMEOUT_MS, options.shell)
+    const fresh = captureLoginEnv(options.timeoutMs ?? DEFAULT_TIMEOUT_MS, options.shell)
+      .then((env) => ({ env, captured: true }))
       .catch((error: unknown) => {
         const reason = error instanceof Error ? error.message : String(error);
         console.warn(
           `[shell-env] could not read the login shell's environment (${reason}); using the process environment, so agents on the shell's PATH may look not installed`,
         );
-        return stripHostSession(processEnv());
+        return { env: stripBuildTool(stripHostSession(processEnv())), captured: false };
       });
+    // A launch answers with the last launch's capture at once and refreshes behind it: the login
+    // shell took 10.7 s at one busy launch, and every agent waited for it. A refresh asked for by
+    // name (a sign-in that changed the shell) waits for the real thing.
+    const saved = options.force ? null : envCache?.load() ?? null;
+    if (saved) {
+      const answer = Promise.resolve(saved);
+      cached = answer;
+      void fresh.then(({ env, captured }) => {
+        // A failed capture fell back to the process environment; the saved one came from a shell that worked.
+        if (!captured) return;
+        if (!sameEnv(env, saved)) {
+          if (cached === answer) cached = Promise.resolve(env);
+          envCache?.save(env);
+        }
+      });
+    } else {
+      cached = fresh.then(({ env, captured }) => {
+        if (captured) envCache?.save(env);
+        return env;
+      });
+    }
   }
   return cached;
 }
@@ -119,7 +171,7 @@ export function processEnv(): Env {
 export async function captureLoginEnv(timeoutMs: number, shell = process.env.SHELL || "/bin/sh"): Promise<Env> {
   // The shell starts from the process environment minus a host session's
   // variables, so the rc can only add back what it exports itself.
-  const base = stripHostSession(processEnv());
+  const base = stripBuildTool(stripHostSession(processEnv()));
   if (process.platform === "win32") {
     return base;
   }

@@ -15,12 +15,16 @@
  *   - **Handed out once.** `take` removes it and starts its replacement, so
  *     the second session of a burst spawns its own rather than waiting for
  *     one that is already busy.
- *   - **Matched by directory.** An adapter is spawned in a directory and
- *     cannot be moved: `spawn`'s `cwd`, the client's file confinement and
- *     the agent's own notion of where it is all come from it. A session in a
- *     worktree therefore does not take the project's warm adapter — it
+ *   - **Matched by directory, unless the agent does not care.** An adapter is
+ *     spawned in a directory. Most agents take where they are from it, so a
+ *     session in a worktree does not take the project's warm adapter: it
  *     spawns its own, and the pool keeps the one it has for the next session
- *     that does match.
+ *     that does match. An agent that takes the folder from `session/new` and
+ *     `session/load` instead (`capabilities.sessionCwd`: Claude Code, Codex)
+ *     is handed out to a session in any folder, and adopting re-points the
+ *     client's confinement and terminals there. Measured: Claude's chats
+ *     spread over a few folders took its warm adapter almost never, and
+ *     paid 0.6 s to 56 s of `initialize` each time.
  *   - **Matched by the options it was spawned with.** Its environment (the
  *     login shell's, the runtime in front of `PATH`), the skills root and the
  *     launch were read when it was spawned; a Python override changed since,
@@ -100,7 +104,7 @@ export class WarmAdapterPool<A extends WarmAdapter> {
    * null means the caller spawns its own. One spawned with other options is
    * closed on the way — it can never be handed out.
    */
-  take(agentId: string, cwd: string, optionsKey: string): A | null {
+  take(agentId: string, cwd: string, optionsKey: string, anyDirectory = false): A | null {
     const adapter = this.idle.get(agentId);
     if (!adapter) {
       return null;
@@ -110,7 +114,7 @@ export class WarmAdapterPool<A extends WarmAdapter> {
       void this.warm(agentId, cwd);
       return null;
     }
-    if (adapter.cwd !== cwd) {
+    if (adapter.cwd !== cwd && !anyDirectory) {
       return null;
     }
     if (adapter.optionsKey !== optionsKey) {
@@ -132,6 +136,11 @@ export class WarmAdapterPool<A extends WarmAdapter> {
 
   get size(): number {
     return this.idle.size;
+  }
+
+  /** The idle adapters that are alive, by agent (the Agents panel). */
+  entries(): [string, A][] {
+    return [...this.idle].filter(([, adapter]) => adapter.alive);
   }
 
   /** On quit: kill every idle adapter, and refuse to warm another. */

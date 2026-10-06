@@ -18,7 +18,7 @@ vi.mock("@main/db/repositories", () => ({
   },
 }));
 vi.mock("@main/ipc/explorer", () => ({ rootOf: () => fixture.root }));
-vi.mock("@main/browser/service", () => ({ browserService: { metadata } }));
+vi.mock("@main/browser/service", () => ({ browserService: { metadata, events: { on: vi.fn() } } }));
 vi.mock("@main/browser/storage", () => ({ sweepBrowserStorage: sweep }));
 import { browserHandlers } from "@main/ipc/browser";
 import { IpcError } from "@main/ipc/register";

@@ -21,6 +21,7 @@ import type { Session } from "@shared/types";
 import { AgentSetupCard, isNotInstalledError } from "./agent-setup";
 import { AuthPrompt } from "./AuthPrompt";
 import { Composer } from "./Composer";
+import type { QuickCommandName } from "@renderer/state/asides";
 import { EffortChip, ModeChip, ModelChip } from "./ComposerChips";
 import { ContextMeter } from "./ContextMeter";
 import { ContinueBar, LinkedChats, continueWith, type ContinueTarget } from "./ContinueWith";
@@ -46,6 +47,8 @@ import { isAuthError, planClock, planPinned } from "./view";
  * the agent comes back; only a session with no snapshot at all — one created
  * before there were snapshots — still waits behind "Connecting to …".
  */
+const CHAT_QUICK: QuickCommandName[] = ["usage", "context", "btw"];
+
 export function SessionView({ session }: { session: Session }) {
   const state = useAcp((store) => store.sessions[session.id] ?? null);
   const loading = useAcp((store) => store.loading[session.id] ?? false);
@@ -63,6 +66,8 @@ export function SessionView({ session }: { session: Session }) {
   // or on its way. The box was emptied for it, so it has to say so.
   const sending = useComposer((store) => session.id in store.sending);
   const agents = useAgents((store) => store.agents);
+  // Quick commands beside the chat (`composer/quick-commands.ts`), for an agent that can fork it.
+  const quickAgent = agents.find((agent) => agent.id === session.agentId)?.capabilities?.asides === true;
   const agent = agents.find((candidate) => candidate.id === session.agentId) ?? null;
   // The model chip offers every installed agent's models and every provider from
   // Models & keys: one of this agent's own switches in place, anything else is
@@ -391,6 +396,7 @@ export function SessionView({ session }: { session: Session }) {
             onStop={() => reportRefusal(cancel(session.id), "stop the turn", "Could not")}
             onSubmit={onSubmit}
             placeholder={running ? "Send another message, it goes next" : "Do anything"}
+            quick={quickAgent ? { offered: CHAT_QUICK, agentId: session.agentId, sessionId: session.id, projectId: session.projectId } : undefined}
             sessionId={session.id}
             status={composerStatus}
             trailing={chips?.trailing ?? null}

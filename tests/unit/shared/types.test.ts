@@ -102,6 +102,7 @@ describe("Settings", () => {
       sortBy: "activity",
       showBranch: false,
       collapsedProjects: [],
+      pinnedProjects: [],
     });
   });
 

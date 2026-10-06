@@ -19,6 +19,7 @@ import { agentsHandlers } from "./agents";
 import { appHandlers } from "./app";
 import { integrationHandlers } from "./integrations";
 import { clipboardHandlers } from "./clipboard";
+import { dictationHandlers } from "./dictation";
 import { providersHandlers } from "./providers";
 import { browserHandlers } from "./browser";
 import { dialogsHandlers, existingPath } from "./dialogs";
@@ -127,6 +128,7 @@ const handlers = {
   ...gitHandlers,
   ...integrationHandlers,
   ...clipboardHandlers,
+  ...dictationHandlers,
   ...providersHandlers,
   ...browserHandlers,
 } satisfies Parameters<typeof registerIpc<IpcContract>>[1];

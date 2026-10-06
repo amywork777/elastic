@@ -239,7 +239,7 @@ export class ScopedBrowserCdp {
         default:
           if (!page || /^(Browser|Target|Storage)\./.test(method)) throw new Error(`Unsupported scoped browser command: ${method}`);
           if (method === "Page.navigate") browserURL(String(params.url));
-          if (method.startsWith("Input.")) this.service.noteAutomatedInput(this.scope, page.tabId);
+          if (method.startsWith("Input.")) this.service.agentInput(this.scope, page.tabId, method, params);
           return page.contents.debugger.sendCommand(method, params, page.nativeSession);
       }
     };

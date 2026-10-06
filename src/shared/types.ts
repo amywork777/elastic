@@ -561,9 +561,10 @@ export type SidebarSortBy = z.infer<typeof SidebarSortBySchema>;
  * set it on one header and found the next header unchanged would have to set
  * it once per project.
  *
- * `collapsedProjects` is the only per-project value here, and it lives in the
- * settings rather than in `state/projects.ts` so a collapsed section is still
- * collapsed after a relaunch. There is one copy of it: the store reads this.
+ * `collapsedProjects` and `pinnedProjects` are the per-project values here, and
+ * they live in the settings rather than in `state/projects.ts` so a collapsed or
+ * pinned section is still so after a relaunch. There is one copy of each: the
+ * store reads this.
  */
 export const SidebarSettingsSchema = z.object({
   status: SidebarStatusFilterSchema.default("active"),
@@ -574,6 +575,11 @@ export const SidebarSettingsSchema = z.object({
   showBranch: z.boolean().default(false),
   /** Project ids whose section is collapsed to its header. */
   collapsedProjects: z.array(z.string()).default([]),
+  /**
+   * Project ids pinned to the top of the folders, in the order they were pinned. A pinned folder
+   * stays listed when none of its sessions match, so it is always there to start one in.
+   */
+  pinnedProjects: z.array(z.string()).default([]),
 });
 export type SidebarSettings = z.infer<typeof SidebarSettingsSchema>;
 

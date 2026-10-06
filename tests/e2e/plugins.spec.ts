@@ -37,9 +37,12 @@ async function shoot(name: string) {
   await shootInto(page, name, test.info());
 }
 
-/** The table the Tables app drew, inside its frame. */
+/**
+ * The table the Tables app drew, inside its frame, in the tab on screen: recently used tabs stay
+ * mounted behind it (`KEEP_ALIVE`), inert, with frames of their own.
+ */
 function tablesFrame(): FrameLocator {
-  return page.frameLocator('[data-plugin-frame^="csv-table/tables/"] iframe');
+  return page.frameLocator('#explorer-tabpanel [data-tab-body]:not([inert]) [data-plugin-frame^="csv-table/tables/"] iframe');
 }
 
 test("one list on the Plugins page: the bundled plugins installed, the examples to install, and Tables installs", async () => {

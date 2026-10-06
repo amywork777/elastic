@@ -150,13 +150,15 @@ test("a real ACP session starts isolated domain MCPs and operates the live app's
   const strip = json<{ tabs: Array<{ id: string; kind: string }> }>(await tool("workspace", "list_open_tabs", {}));
   json(await tool("workspace", "show_tab", { tabId: strip.tabs.find((tab) => tab.kind === "browser")!.id }));
 
-  // Back to the document: hidden, it still holds the agent's text; shown, it binds again with a
-  // new revision, and saves.
+  // Back to the document: hidden, it is a read-only snapshot that still holds the agent's text
+  // (its editor is kept mounted behind the other tab, `KEEP_ALIVE`, but not live); shown, it is
+  // live again, the same editor with the same text, so the revision the agent last had still
+  // names it, and it saves.
   expect(json(await tool("documents", "read_document", { tabId: opened.tabId }))).toMatchObject({ active: false, content: "agent reviewed draft", dirty: true });
   json(await tool("workspace", "show_tab", { tabId: opened.tabId }));
   live = await readBound(opened.tabId);
   expect(live.content).toBe("agent reviewed draft");
-  expect(live.revision).not.toBe(replaced.revision);
+  expect(live.revision).toBe(replaced.revision);
   expect(json(await tool("documents", "save_document", { tabId: opened.tabId, expectedRevision: live.revision }))).toMatchObject({ status: "saved" });
   expect(fs.readFileSync(path.join(project, "notes.txt"), "utf8")).toBe("agent reviewed draft");
 

@@ -11,7 +11,34 @@ type Target = {
   owner?: BrowserWindow; lease?: string; dropOwnerClosed?: () => void; generation: number; visible: boolean; ready: Promise<void>; logs: BrowserTarget["logs"];
   /** Last key or mouse press that reached the page, and last one an agent sent over CDP (ms). */
   userInputAt: number; automatedInputAt: number;
+  /** The page's last presented rectangle in the window, in window pixels. */
+  bounds?: BrowserBounds;
+  /** The person took the tab over: an agent's input is refused until they hand it back. */
+  takenOver: boolean;
+  /** Where the agent last pressed, drawn over the page for a moment (`pointAt`). */
+  cursor?: WebContentsView; cursorTimer?: ReturnType<typeof setTimeout>;
+  /** The last `activity` event, so a burst of input announces itself twice a second, not per event. */
+  announcedAt: number;
 };
+/** How long the agent's cursor stays over the page after its last press. */
+const CURSOR_MS = 1_500;
+const CURSOR_SIZE = 44;
+/** At most this often, an `activity` event per page while an agent drives it. */
+const ACTIVITY_EVERY_MS = 500;
+/**
+ * The agent's cursor: an arrow with a ring that ripples out from it, centred in a small transparent
+ * view (`pointAt`). Its own document, so the page under it never sees it and no screenshot of the
+ * page contains it; `prefers-reduced-motion` keeps the ring still.
+ */
+const CURSOR_HTML = `<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden;pointer-events:none}
+.ring{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid rgba(17,17,17,.55);box-shadow:0 0 0 1px rgba(255,255,255,.7)}
+.go .ring{animation:ripple .7s ease-out forwards}
+@keyframes ripple{from{transform:scale(.6);opacity:1}to{transform:scale(3);opacity:0}}
+@media (prefers-reduced-motion: reduce){.go .ring{animation:none;opacity:.6;transform:scale(1.6)}}
+svg{position:absolute;left:50%;top:50%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+</style></head><body><div class="ring"></div><svg width="16" height="20" viewBox="0 0 16 20"><path d="M1 1 L1 16 L5 12.5 L8 19 L10.5 18 L7.6 11.6 L13 11.6 Z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
+<script>window.ping=()=>{document.body.classList.remove("go");void document.body.offsetWidth;document.body.classList.add("go")}</script></body></html>`;
 /** How recent a press must be for a download to count as the person's own. */
 const USER_GESTURE_MS = 2_000;
 export type BrowserBounds = { x: number; y: number; width: number; height: number };
@@ -64,7 +91,7 @@ export class BrowserService {
       webSecurity: true, backgroundThrottling: false, spellcheck: false,
     } });
     view.setBounds({ x: 0, y: 0, width: 1000, height: 700 });
-    const target: Target = { id, scope: { ...scope }, view, harness: browserHarness(view.webContents), generation: 0, visible: false, ready: Promise.resolve(), logs: [], userInputAt: 0, automatedInputAt: 0 };
+    const target: Target = { id, scope: { ...scope }, view, harness: browserHarness(view.webContents), generation: 0, visible: false, ready: Promise.resolve(), logs: [], userInputAt: 0, automatedInputAt: 0, takenOver: false, announcedAt: 0 };
     this.targets.set(id, target);
     const wc = view.webContents;
     wc.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
@@ -127,6 +154,8 @@ export class BrowserService {
     for (const other of this.targets.values()) if (other.owner === owner && other !== target) this.hide(other);
     if (target.owner !== owner) {
       this.hide(target);
+      // The cursor belongs to the window it was drawn in; the next press draws it in this one.
+      this.dropCursor(target);
       target.dropOwnerClosed?.();
       target.owner = owner;
       owner.contentView.addChildView(target.view);
@@ -136,8 +165,9 @@ export class BrowserService {
       this.watchOwner(owner);
     }
     const zoom = owner.webContents.getZoomFactor();
-    target.view.setBounds({ x: Math.round(bounds.x * zoom), y: Math.round(bounds.y * zoom),
-      width: Math.max(1, Math.round(bounds.width * zoom)), height: Math.max(1, Math.round(bounds.height * zoom)) });
+    target.bounds = { x: Math.round(bounds.x * zoom), y: Math.round(bounds.y * zoom),
+      width: Math.max(1, Math.round(bounds.width * zoom)), height: Math.max(1, Math.round(bounds.height * zoom)) };
+    target.view.setBounds(target.bounds);
     target.lease = lease;
     target.visible = true;
     target.view.setVisible(true);
@@ -191,6 +221,69 @@ export class BrowserService {
   }
   /** An agent sent input to this page (CDP `Input.*`, or the app's own input method). */
   noteAutomatedInput(scope: BrowserScope, id: string) { this.get(scope, id).automatedInputAt = Date.now(); }
+  /**
+   * An agent's CDP input to this page, before it is sent: refused while the person has the tab
+   * (`setTakenOver`), else noted for the download guard, drawn where it presses (`pointAt`) and
+   * announced (`activity`), so the person can see the page being driven and stop it.
+   */
+  agentInput(scope: BrowserScope, id: string, method: string, params: Record<string, unknown>) {
+    const target = this.get(scope, id);
+    if (target.takenOver) {
+      throw new Error("The person has taken over this browser tab. Wait until they hand it back, then try again.");
+    }
+    target.automatedInputAt = Date.now();
+    if (method === "Input.dispatchMouseEvent" && params.type === "mousePressed" && typeof params.x === "number" && typeof params.y === "number") {
+      this.pointAt(target, params.x, params.y);
+    }
+    const now = Date.now();
+    if (now - target.announcedAt >= ACTIVITY_EVERY_MS) {
+      target.announcedAt = now;
+      this.events.emit("activity", { ...target.scope, tabId: id });
+    }
+  }
+  /** The person takes the tab from the agent, or hands it back. */
+  setTakenOver(scope: BrowserScope, id: string, takenOver: boolean) {
+    const target = this.get(scope, id);
+    target.takenOver = takenOver;
+    if (takenOver) this.hideCursor(target);
+    return { takenOver };
+  }
+  /** The agent's cursor over the page at (x, y) in its CSS pixels, for a moment; nothing while the page is not shown. */
+  private pointAt(target: Target, x: number, y: number) {
+    const owner = target.owner;
+    if (!owner || owner.isDestroyed() || !target.visible || !target.bounds) return;
+    if (!target.cursor || target.cursor.webContents.isDestroyed()) {
+      const cursor = new WebContentsView({ webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: false } });
+      cursor.setBackgroundColor("#00000000");
+      void cursor.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(CURSOR_HTML)}`).catch(() => {});
+      target.cursor = cursor;
+    }
+    const cursor = target.cursor;
+    // Added again on every press: that puts it back on top of the page it points at.
+    owner.contentView.addChildView(cursor);
+    const zoom = target.view.webContents.getZoomFactor();
+    const { bounds } = target;
+    const half = CURSOR_SIZE / 2;
+    const left = Math.min(Math.max(bounds.x + x * zoom - half, bounds.x), bounds.x + bounds.width - CURSOR_SIZE);
+    const top = Math.min(Math.max(bounds.y + y * zoom - half, bounds.y), bounds.y + bounds.height - CURSOR_SIZE);
+    cursor.setBounds({ x: Math.round(left), y: Math.round(top), width: CURSOR_SIZE, height: CURSOR_SIZE });
+    cursor.setVisible(true);
+    void cursor.webContents.executeJavaScript("window.ping && window.ping()").catch(() => {});
+    clearTimeout(target.cursorTimer);
+    target.cursorTimer = setTimeout(() => this.hideCursor(target), CURSOR_MS);
+  }
+  private hideCursor(target: Target) {
+    clearTimeout(target.cursorTimer);
+    if (target.cursor && !target.cursor.webContents.isDestroyed()) target.cursor.setVisible(false);
+  }
+  private dropCursor(target: Target) {
+    this.hideCursor(target);
+    const cursor = target.cursor;
+    target.cursor = undefined;
+    if (!cursor) return;
+    if (target.owner && !target.owner.isDestroyed()) target.owner.contentView.removeChildView(cursor);
+    if (!cursor.webContents.isDestroyed()) cursor.webContents.close();
+  }
   private focusedTarget(owner?: BrowserWindow | null) {
     return [...this.targets.values()].find(candidate => candidate.visible && (!owner || candidate.owner === owner)
       && !candidate.view.webContents.isDestroyed() && candidate.view.webContents.isFocused());
@@ -219,6 +312,7 @@ export class BrowserService {
   }
   private hide(target: Target) {
     target.visible = false;
+    this.hideCursor(target);
     if (target.view.webContents.isFocused() && target.owner && !target.owner.isDestroyed()) target.owner.webContents.focus();
     target.view.setVisible(false);
   }
@@ -226,6 +320,7 @@ export class BrowserService {
     const target = this.get(scope, id);
     this.targets.delete(id);
     target.dropOwnerClosed?.();
+    this.dropCursor(target);
     if (target.owner && !target.owner.isDestroyed()) target.owner.contentView.removeChildView(target.view);
     target.view.webContents.close({ waitForBeforeUnload: false });
   }

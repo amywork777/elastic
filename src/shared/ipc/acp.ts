@@ -21,6 +21,23 @@ import { invoke } from "./define";
 
 const Id = z.object({ id: z.string().min(1) });
 
+/**
+ * One adapter process this app is running (`SessionManager.activity`): a chat's, kept alive
+ * behind the one on screen, or an idle spare spawned ahead of the next chat (`acp/warm.ts`).
+ */
+export const AgentProcessSchema = z.object({
+  kind: z.enum(["session", "spare"]),
+  /** The chat it serves; null for a spare. */
+  sessionId: z.string().nullable(),
+  agentId: z.string(),
+  cwd: z.string(),
+  status: SessionStatusSchema,
+  pid: z.number().int().nullable(),
+  /** The whole process tree under `pid`; null where it could not be measured. */
+  memoryBytes: z.number().nonnegative().nullable(),
+});
+export type AgentProcess = z.infer<typeof AgentProcessSchema>;
+
 export const acpContract = {
   sessions: {
     /** Every session, or just one project's, newest first. */
@@ -112,6 +129,23 @@ export const acpContract = {
      * session: null when it went through, else the note. Never a reconnect.
      */
     retrySetup: invoke(Id, z.object({ error: z.string().nullable() })),
+    /**
+     * A quick command beside the chat, on an adapter process of its own (`SessionManager.aside`):
+     * `usage` and `context` are the agent's own commands, `btw` a side question about the chat.
+     * Never queued behind a running turn, never written into the transcript. `sessionId` is the
+     * chat it is about (needed for `context` and `btw`); without one, `projectId` names the folder.
+     */
+    aside: invoke(
+      z.object({
+        agentId: z.string().min(1),
+        sessionId: z.string().min(1).nullable(),
+        projectId: z.string().min(1).nullable(),
+        command: z.enum(["usage", "context", "btw"]),
+        question: z.string().trim().min(1).max(20_000).optional(),
+      }).refine((request) => request.command !== "btw" || request.question, "/btw needs a question")
+        .refine((request) => request.command === "usage" || request.sessionId, "this command is about a chat"),
+      z.object({ markdown: z.string() }),
+    ),
     /** Override the agent's title with a user-supplied name that later notifications preserve. */
     rename: invoke(Id.extend({ title: z.string().min(1).max(200) }), SessionSchema),
     /** Hide from (or restore to) the sidebar. Archiving closes the adapter. */
@@ -122,6 +156,11 @@ export const acpContract = {
      * `updatedAt`, so pinning does not reorder a list sorted by activity.
      */
     setPinned: invoke(Id.extend({ pinned: z.boolean() }), SessionSchema),
+    /**
+     * Every adapter process running now, chats first (most recently used first), then the
+     * spares, and how many idle chats the app keeps alive before closing the oldest.
+     */
+    activity: invoke(z.void(), z.object({ processes: z.array(AgentProcessSchema), keepAlive: z.number().int() })),
     /** Kill the adapter; the index row stays and `load` brings it back. */
     close: invoke(Id, z.void()),
     /** Close and forget. The agent's own transcript store is not touched. */

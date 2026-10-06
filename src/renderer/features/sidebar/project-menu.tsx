@@ -1,9 +1,10 @@
-import { EyeOff, FolderOpen, MessageSquarePlus } from "lucide-react";
+import { EyeOff, FolderOpen, MessageSquarePlus, Pin, PinOff } from "lucide-react";
 
 import { MenuItem, MenuSeparator } from "@renderer/features/sidebar/menu";
 import { hideFolder } from "@renderer/state/hidden-folders";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
+import { useSettings, useSidebarSettings } from "@renderer/state/settings";
 import type { Project } from "@shared/types";
 
 /**
@@ -24,6 +25,9 @@ export function ProjectMenuItems({
 }) {
   const setActiveProject = useProjects((state) => state.setActive);
   const setActiveSession = useSessions((state) => state.setActive);
+  const pins = useSidebarSettings().pinnedProjects;
+  const setSidebar = useSettings((state) => state.setSidebar);
+  const pinned = pins.includes(project.id);
 
   return (
     <>
@@ -45,6 +49,14 @@ export function ProjectMenuItems({
         onSelect={() => void window.workbench.shell.showItemInFolder({ projectId: project.id })}
       />
       <MenuSeparator />
+      {/* A new pin goes last among the pins: the folders already at the top stay where they are. */}
+      <MenuItem
+        icon={pinned ? <PinOff /> : <Pin />}
+        label={pinned ? "Unpin folder" : "Pin folder"}
+        onSelect={() =>
+          void setSidebar({ pinnedProjects: pinned ? pins.filter((id) => id !== project.id) : [...pins, project.id] })
+        }
+      />
       <MenuItem icon={<EyeOff />} label="Hide folder" onSelect={() => hideFolderKeepingFocus(project.id)} />
     </>
   );

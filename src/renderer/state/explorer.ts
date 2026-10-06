@@ -242,7 +242,7 @@ type ExplorerState = {
   close: (id: string) => void;
   closeActive: () => void;
   setActive: (id: string) => void;
-  /** Select the nth tab, 1-based — Cmd/Ctrl+1..9. */
+  /** Select the nth tab, 1-based — ⌃1..9 on a Mac, Alt+1..9 elsewhere. */
   selectIndex: (index: number) => void;
   /** Drag reorder: move the tab with `id` to `toIndex`. */
   move: (id: string, toIndex: number) => void;

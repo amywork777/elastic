@@ -28,6 +28,7 @@ import type { GitMode, Project } from "@shared/types";
 import { AgentSetupCard, useOfferedAgents } from "./agent-setup";
 import { AuthPrompt } from "./AuthPrompt";
 import { Composer } from "./Composer";
+import type { QuickCommandName } from "@renderer/state/asides";
 import { EffortChip, GitModeChip, ModeChip, ModelChip, ProjectChip, type ProviderPick } from "./ComposerChips";
 import { errorMessage, isAuthError } from "./view";
 
@@ -64,6 +65,8 @@ import { errorMessage, isAuthError } from "./view";
  * is typed, with the sign-in or the install as the action, rather than
  * after a send.
  */
+const NEW_SESSION_QUICK: QuickCommandName[] = ["usage"];
+
 export function NewSession({ project }: { project: Project }) {
   const draftKey = newSessionKey(project.id);
   const draftRoot = useComposer((state) => state.draftRoots[draftKey]);
@@ -527,6 +530,8 @@ export function NewSession({ project }: { project: Project }) {
             // "Do anything" — by then the person knows what it is for.
             placeholder={busy && agent ? `Starting ${agent.name}…` : "Ask for anything…"}
             newDraftKey={draftKey}
+            // No chat yet, so only `/usage`, which is the account's: never a new chat named "/usage".
+            quick={agent?.capabilities?.asides ? { offered: NEW_SESSION_QUICK, agentId: agent.id, sessionId: null, projectId: project.id } : undefined}
             sessionId={null}
             status={busy ? "submitted" : "ready"}
             trailing={trailing}

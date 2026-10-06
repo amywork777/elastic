@@ -59,6 +59,9 @@ asarUnpack:
   # script path in `session/new`, so it has to be a real file on disk, not an
   # entry in the archive (src/main/integrations/index.ts, mcpServerScript).
   - out/app-mcp/**
+  # The dictation helper is an executable main spawns (src/main/dictation),
+  # so it cannot live in the archive either.
+  - out/native/**
 
 # Every artifact is named the same way, so a GitHub Release reads as a table:
 # elastic-<version>-<os>-<arch>.<ext>.
@@ -93,6 +96,9 @@ mac:
   notarize: false
   extendInfo:
     NSHumanReadableCopyright: elastic contributors
+    # The composer's microphone (src/main/dictation). Speech is transcribed on
+    # the Mac by Apple's SpeechAnalyzer, which needs no speech-recognition prompt.
+    NSMicrophoneUsageDescription: elastic uses the microphone when you dictate a message. What you say is transcribed on this Mac.
 
 dmg:
   # ${arch} in a dmg name is the architecture of the app inside it, which is

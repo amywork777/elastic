@@ -462,6 +462,22 @@ new AgentSideConnection((conn) => ({
     };
   },
 
+  // Quick commands beside the chat (`SessionManager.aside`): a fork made from the conversation,
+  // then opened without a replay, on a process of its own.
+  async unstable_forkSession(params) {
+    record("session/fork", params);
+    return { sessionId: `${params.sessionId}-fork` };
+  },
+
+  async resumeSession(params) {
+    record("session/resume", params);
+    mcpServers = Array.isArray(params?.mcpServers) ? params.mcpServers : [];
+    if (claudeProfile) {
+      return { modes: { currentModeId, availableModes: claudeModes() }, configOptions: claudeConfigOptions() };
+    }
+    return { ...(modeAsOption ? {} : { modes: { currentModeId, availableModes: modeList() } }), configOptions: configOptions() };
+  },
+
   async loadSession(params) {
     record("session/load", params);
     mcpServers = Array.isArray(params?.mcpServers) ? params.mcpServers : [];
@@ -603,6 +619,21 @@ async function script(conn, params) {
   const after = (word) => words[words.indexOf(word) + 1];
   const send = (update) => conn.sessionUpdate({ sessionId, update });
 
+  // The quick commands, as claude-agent-acp answers them: its own `/usage` and `/context`, and a
+  // side question with elastic's preamble in front (first, before any keyword below matches it).
+  if (text === "/usage" || text === "/context") {
+    const reply = text === "/usage"
+      ? "## Usage\n\n**5-hour limit**: **6%** used\n\n**Weekly, all models**: **62%** used"
+      : "## Context usage\n\n**12k** of **200k** tokens";
+    await send({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: reply } });
+    return { stopReason: "end_turn" };
+  }
+  if (text.startsWith("[A side question")) {
+    const question = text.split("\n\n").at(-1);
+    await send({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: `Side answer, in mode ${currentModeId}: ${question}` } });
+    return { stopReason: "end_turn" };
+  }
+
   if (text.startsWith("session-title ")) {
     const info = JSON.parse(text.slice("session-title ".length));
     await conn.sessionUpdate({
@@ -649,6 +680,20 @@ async function script(conn, params) {
     process.exit(3);
   }
 
+  // A long reply in small chunks, about fifty a second, the way a fast model streams: for timing
+  // what the window does (typing, scrolling) while a reply is arriving.
+  if (text.startsWith("stream")) {
+    const sentence = "Here is **another** line of the reply, with `code` and a [link](https://example.com) in it. ";
+    for (let i = 0; i < 300 && !cancelled; i += 1) {
+      const piece = i % 12 === 11 ? `${sentence}\n\n- item ${i}\n- item ${i + 1}\n\n` : sentence;
+      for (const word of piece.split(/(?<= )/)) {
+        await send({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: word } });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        if (cancelled) break;
+      }
+    }
+    return { stopReason: cancelled ? "cancelled" : "end_turn" };
+  }
   if (text.includes("showcase")) {
     return showcase(conn, sessionId);
   }
@@ -887,18 +932,14 @@ async function callAppTool(name, args) {
   if (!server) {
     throw new Error(`Session carried no MCP server for ${name}`);
   }
-  const env = { ...process.env };
-  for (const entry of server.env ?? []) {
-    env[entry.name] = entry.value;
-  }
   // Imported here, not at the top: only the prompts that call a tool need the MCP
   // client, and loading it is a quarter of every spawn's startup (the unit suites
-  // and the e2e spawn this agent dozens of times).
-  const [{ Client: McpClient }, { StdioClientTransport }] = await Promise.all([
+  // and the e2e spawn this agent dozens of times). Stdio or HTTP, as the entry says.
+  const [{ Client: McpClient }, { transportFor }] = await Promise.all([
     import("@modelcontextprotocol/sdk/client/index.js"),
-    import("@modelcontextprotocol/sdk/client/stdio.js"),
+    import("./integration-proof.mjs"),
   ]);
-  const transport = new StdioClientTransport({ command: server.command, args: server.args ?? [], env });
+  const transport = transportFor(server);
   const client = new McpClient({ name: "fake-agent", version: "0.0.0" });
   await client.connect(transport);
   try {

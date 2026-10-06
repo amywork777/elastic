@@ -66,6 +66,15 @@ describe("WarmAdapterPool", () => {
     expect(warm.has("codex")).toBe(true);
   });
 
+  it("lists the idle adapters that are alive, for the Agents panel", async () => {
+    const { pool: warm, spawned } = pool();
+    await warm.warm("codex", "/p");
+    await warm.warm("claude-code", "/q");
+    expect(warm.entries().map(([agentId]) => agentId).sort()).toEqual(["claude-code", "codex"]);
+    spawned[0]!.alive = false;
+    expect(warm.entries().map(([agentId]) => agentId)).toEqual(["claude-code"]);
+  });
+
   it("does not warm a second adapter for an agent that has one", async () => {
     const { pool: warm, spawned } = pool();
     await warm.warm("codex", "/p");
@@ -102,6 +111,21 @@ describe("WarmAdapterPool", () => {
     expect(warm.take("codex", "/worktrees/thing", "k1")).toBeNull();
     expect(warm.has("codex")).toBe(true);
     expect(warm.take("codex", "/project", "k1")).toBe(spawned[0]);
+  });
+
+  /**
+   * An agent that takes its folder from `session/new` (Claude Code, Codex) is served from any
+   * folder: chats spread over a few folders otherwise took the warm adapter almost never.
+   */
+  it("hands an adapter to a session in any directory when the agent takes its folder from the request", async () => {
+    const { pool: warm, spawned } = pool();
+    await warm.warm("claude-code", "/project");
+    expect(warm.take("claude-code", "/elsewhere", "k1", true)).toBe(spawned[0]);
+    // Replaced, where the session that took it is.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(spawned[1]?.cwd).toBe("/elsewhere");
+    // The options still have to match: a stale environment is never handed out.
+    expect(warm.take("claude-code", "/third", "other", true)).toBeNull();
   });
 
   /**

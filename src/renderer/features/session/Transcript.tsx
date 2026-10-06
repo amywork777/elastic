@@ -8,6 +8,7 @@ import { cn } from "@renderer/lib/utils";
 import { Conversation, ConversationContent } from "@renderer/components/ai-elements/conversation";
 import type { Part, SessionState, Turn } from "@shared/acp/types";
 
+import { CopyReplyButton, replyMarkdown } from "./CopyReply";
 import { PartsList } from "./parts/PartsList";
 import { StatusLine } from "./StatusLine";
 import { statusLine } from "./view";
@@ -256,8 +257,10 @@ const TurnView = memo(function TurnView({
     return <UserTurn turn={turn} />;
   }
   const open = turn.endedAt === null;
+  // A finished reply with words in it can be copied; one still streaming is not done saying them.
+  const reply = open ? "" : replyMarkdown(turn.parts);
   return (
-    <div className="flex min-w-0 w-full flex-col" data-turn={turn.id} data-role="agent" data-stop-reason={turn.stopReason ?? undefined}>
+    <div className="group/turn flex min-w-0 w-full flex-col" data-turn={turn.id} data-role="agent" data-stop-reason={turn.stopReason ?? undefined}>
       <WorkFold fold={foldWork && !open} turn={turn}>
         {(parts) => (
           <PartsList
@@ -281,6 +284,7 @@ const TurnView = memo(function TurnView({
           Stopped at the agent&apos;s limit. Send &quot;continue&quot; to go on.
         </p>
       ) : null}
+      {reply ? <CopyReplyButton latest={!foldWork} markdown={reply} /> : null}
     </div>
   );
 });
