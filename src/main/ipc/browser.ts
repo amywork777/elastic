@@ -1,7 +1,8 @@
 import fs from "node:fs";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, session } from "electron";
 import { browserService } from "../browser/service";
 import { sweepBrowserStorage } from "../browser/storage";
+import { SHARED_BROWSER_PARTITION } from "../browser/policy";
 import type { browserIpc } from "../../shared/ipc/browser";
 import type { IpcHandlers } from "../../shared/ipc/define";
 import type { BrowserTarget } from "../../shared/browser";
@@ -48,6 +49,11 @@ export const browserHandlers = {
     clearConsole: request => browserService.clearConsole(scope(request), request.tabId),
     capture: request => browserService.captureContext(scope(request), request.tabId, request),
     takeOver: request => browserService.setTakenOver(scope(request), request.tabId, request.takenOver),
+    clearData: async () => {
+      const shared = session.fromPartition(SHARED_BROWSER_PARTITION);
+      await shared.clearStorageData();
+      await shared.clearCache();
+    },
   },
 } satisfies IpcHandlers<typeof browserIpc, IpcContext>;
 

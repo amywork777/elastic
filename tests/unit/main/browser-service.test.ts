@@ -11,7 +11,7 @@ const electron = await vi.hoisted(async () => {
   const { EventEmitter } = await import("node:events");
   const sessions = new Map<string, InstanceType<typeof EventEmitter>>();
   const partitionSession = (partition: string) => {
-    const session = sessions.get(partition) ?? Object.assign(new EventEmitter(), { setPermissionRequestHandler: () => {}, setPermissionCheckHandler: () => {} });
+    const session = sessions.get(partition) ?? Object.assign(new EventEmitter(), { setPermissionRequestHandler: () => {}, setPermissionCheckHandler: () => {}, ua: "Mozilla/5.0 Chrome/144 Electron/40.10.6 Safari/537.36", getUserAgent() { return this.ua; }, setUserAgent(ua: string) { this.ua = ua; } });
     sessions.set(partition, session);
     return session;
   };
@@ -21,6 +21,9 @@ const electron = await vi.hoisted(async () => {
     navigationHistory = { canGoBack: () => false, canGoForward: () => false };
     constructor(public session: InstanceType<typeof EventEmitter>) { super(); }
     setWindowOpenHandler() {}
+    ua = "Mozilla/5.0 Chrome/144 Electron/40.10.6 Safari/537.36";
+    getUserAgent() { return this.ua; }
+    setUserAgent(ua: string) { this.ua = ua; }
     async loadURL(url: string) { this.url = url; }
     getURL() { return this.url; } getTitle() { return ""; } isLoading() { return false; } getZoomFactor() { return 1; }
     executeJavaScript = vi.fn(async () => undefined);
@@ -38,7 +41,6 @@ const electron = await vi.hoisted(async () => {
 });
 vi.mock("electron", () => ({ WebContentsView: electron.WebContentsView, app: {}, session: {} }));
 import { BrowserService } from "@main/browser/service";
-import { browserSessionKey } from "@main/browser/storage";
 
 type Contents = InstanceType<typeof electron.FakeContents>;
 const scope = { sessionId: "session-a", projectId: "project", root: "/work" };
@@ -135,12 +137,12 @@ it("cancels background downloads with an error line, and lets the person's own f
   clock.mockRestore();
 });
 
-it("names each partition after its session so a deleted session's storage can be found", async () => {
+it("opens every chat's pages in one storage, signed in once, with Chrome's user agent", async () => {
   await service.open(scope, { tabId: "p1", url: "https://example.com/" });
   await service.open({ ...scope, sessionId: "session-b" }, { tabId: "p2", url: "https://example.com/" });
-  const [first, second] = [...electron.sessions.keys()];
-  expect(first).toMatch(new RegExp(`^persist:browser-${browserSessionKey("session-a")}-[0-9a-f]{32}$`));
-  expect(second).toMatch(new RegExp(`^persist:browser-${browserSessionKey("session-b")}-[0-9a-f]{32}$`));
+  expect([...electron.sessions.keys()]).toEqual(["persist:browser-shared"]);
+  const shared = electron.sessions.get("persist:browser-shared") as unknown as { ua: string };
+  expect(shared.ua).toBe("Mozilla/5.0 Chrome/144 Safari/537.36");
 });
 
 it("reloads only the focused, presented page", async () => {

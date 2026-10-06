@@ -15,12 +15,16 @@ Every page carries its immutable session ID, directory identity and canonical
 workspace root. Browser tools derive all three from the authenticated session;
 UI handlers validate the session and its root. IDs cannot be reused across
 sessions, including two sessions in the same directory. Listing exposes only the
-caller's pages. Storage partitions are hashed from session ID, directory and
-root, prefixed with a hash of the session ID alone
-(`persist:browser-<sha256(session)>-<scope hash>`, `browser/storage.ts`): pages in
-one session share storage, separate sessions do not. Archiving keeps a session's
-partitions and `browser-artifacts/<sha256(session)>`; deleting it clears the
-partitions' storage and cache and removes the artifacts. A partition an older build named `browser-<sha256(scope)>` is
+caller's pages. Every page, in every session, uses one storage partition,
+`persist:browser-shared` (`browser/policy.ts`): a login to claude.ai, chatgpt.com
+or Google made in one chat's tab is there in all of them, and agents in any chat
+can use it. Settings › General › Clear browser data signs out of everything
+(`browser.clearData`). Pages send Chrome's own user agent, without Electron's
+tokens, since Google refuses sign-in to a browser naming Electron. Older builds
+kept a partition per session (`persist:browser-<sha256(session)>-<scope hash>`,
+`browser/storage.ts`); those stay readable for cleanup. Archiving keeps a session's
+`browser-artifacts/<sha256(session)>`; deleting it clears the session's old
+partitions and removes the artifacts. A partition an older build named `browser-<sha256(scope)>` is
 renamed to the current name on first use, and by the sweep that the first
 renderer browser request of a run starts; that sweep also removes partitions and
 artifact directories whose session no longer exists. Nothing opened this run is swept. An older partition is judged on
@@ -103,9 +107,12 @@ agent loop or MCP tool catalog. The previous custom browser MCP action layer has
 been removed. Browser navigation, native context capture and IPC remain app-owned.
 
 Navigation permits HTTP(S) and the initial `about:blank` page. Guests have no
-Node, preload or app IPC and use sandbox/context isolation. Popups navigate their
-owning tab; permission prompts are denied until a native permission workflow is
-provided. elastic owns pane size and partitions: browser resizing, installing a
+Node, preload or app IPC and use sandbox/context isolation. A sized `window.open`
+(a sign-in pop-up) opens as its own window in the shared storage, so the provider
+can report back to its opener; it keeps to HTTP(S) and opens nothing further. Any
+other popup navigates its owning tab. Pages may write the clipboard (copy buttons)
+and go full screen; every other permission (camera, microphone, location, reading
+the clipboard) is denied. elastic owns pane size and partitions: browser resizing, installing a
 browser, creating contexts and extensions are unsupported. Playwright's download artifact API is not bridged, and both
 `Browser.` and `Page.setDownloadBehavior` are refused. A download the person starts keeps the native save dialog: the page
 is shown and focused in the focused window, a real key or mouse press reached it
