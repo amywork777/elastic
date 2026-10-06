@@ -136,12 +136,13 @@ export function sidebarSections(input: {
 export function listedSessions(
   sections: readonly SidebarSection[],
   collapsedProjects: readonly string[],
-  { foldersCollapsed = false }: { foldersCollapsed?: boolean } = {},
+  { foldersCollapsed = false, recentsCollapsed = false }: { foldersCollapsed?: boolean; recentsCollapsed?: boolean } = {},
 ): Session[] {
   // In Recents a chat is listed once, in Recents; the folders below it repeat what is there.
   const recents = sections.some((section) => section.kind === "recents");
   const collapsed = new Set(collapsedProjects);
   return sections.flatMap((section) => {
+    if (section.kind === "recents" && recentsCollapsed) return [];
     if (section.kind !== "project") return section.sessions;
     if (recents && foldersCollapsed) return [];
     return collapsed.has(section.id) ? [] : section.sessions;
@@ -159,7 +160,7 @@ export const STATUS_TAG_LABELS: Record<StatusTag, string> = {
 };
 
 /** How many Recents rows show before **Show N more**. */
-export const RECENTS_LIMIT = 10;
+export const RECENTS_LIMIT = 5;
 
 /** Activity since the person last saw the chat. A chat never seen since Recents arrived reads as read. */
 export function isUnread(session: Session): boolean {

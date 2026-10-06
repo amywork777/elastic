@@ -767,7 +767,7 @@ describe("recents", () => {
     expect(isUnread(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(6) }))).toBe(false);
   });
 
-  it("orders pinned, then live chats, then by activity, Done last, and cuts at ten", () => {
+  it("orders pinned, then live chats, then by activity, Done last, and cuts at the limit", () => {
     const rows = [
       session({ id: "pin", title: "Pinned", pinned: true, updatedAt: at(1) }),
       session({ id: "run", title: "Running", status: "running", updatedAt: at(2) }),
@@ -781,7 +781,7 @@ describe("recents", () => {
     const recents = sections.find((section) => section.kind === "recents")!;
     expect(recents.sessions.map((row) => row.id).slice(0, 3)).toEqual(["run", "review", "old9"]);
     expect(recents.sessions).toHaveLength(RECENTS_LIMIT);
-    expect(recents.more).toBe(3);
+    expect(recents.more).toBe(13 - RECENTS_LIMIT);
     const all = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), expanded: true });
     const expandedIds = all.find((section) => section.kind === "recents")!.sessions.map((row) => row.id);
     expect(expandedIds.at(-1)).toBe("done-new");
@@ -803,6 +803,7 @@ describe("recents", () => {
     const listed = listedSessions(sections, [], { foldersCollapsed: true });
     expect(listed).toHaveLength(RECENTS_LIMIT);
     expect(listed[0]!.id).toBe("s11");
+    expect(listedSessions(sections, [], { foldersCollapsed: true, recentsCollapsed: true })).toEqual([]);
   });
 });
 
@@ -835,13 +836,28 @@ describe("Recents sidebar", () => {
     expect(view.container.querySelector("[data-sidebar-running]")).toBeNull();
   });
 
-  it("shows ten and offers the rest", async () => {
+  it("shows five and offers the rest", async () => {
     const user = userEvent.setup();
     useSessions.setState({ ready: true, activeId: null, sessions: Array.from({ length: 13 }, (_, i) => session({ id: `s${i}`, title: `Chat ${i}`, updatedAt: i })) });
     const view = wrap(<Sidebar />);
-    expect(view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")).toHaveLength(10);
-    await user.click(screen.getByRole("button", { name: "Show 3 more" }));
+    expect(RECENTS_LIMIT).toBe(5);
+    expect(view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")).toHaveLength(5);
+    await user.click(screen.getByRole("button", { name: "Show 8 more" }));
     expect(view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")).toHaveLength(13);
+  });
+
+  it("folds Recents from its header, and remembers it", async () => {
+    const user = userEvent.setup();
+    const set = vi.mocked(window.workbench.settings.set);
+    set.mockImplementationOnce(async (patch) => ({ ...useSettings.getState().settings!, ...(patch as Partial<Settings>) }));
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    const view = wrap(<Sidebar />);
+    const header = screen.getByRole("button", { name: /^Recents/ });
+    expect(header).toHaveAttribute("aria-expanded", "true");
+    await user.click(header);
+    await vi.waitFor(() => expect(view.container.querySelectorAll("[data-sidebar-recents] [data-session-row]")).toHaveLength(0));
+    expect(set).toHaveBeenCalledWith({ sidebar: expect.objectContaining({ recentsCollapsed: true }) });
+    expect(screen.getByRole("button", { name: /^Recents/ })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("opens the folders on demand", async () => {
