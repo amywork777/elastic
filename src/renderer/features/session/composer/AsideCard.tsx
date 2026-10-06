@@ -11,6 +11,8 @@ import { useSettings } from "@renderer/state/settings";
 
 import { TRANSCRIPT_COMPONENTS, TRANSCRIPT_REHYPE_PLUGINS } from "../links/components";
 
+import { separateLists } from "@renderer/lib/markdown-lists";
+
 const REMARK_PLUGINS = Object.values(defaultRemarkPlugins);
 
 const RUNNING: Record<Aside["command"], string> = {
@@ -79,7 +81,7 @@ export function AsideCard({ scope, onClosed }: { scope: string; onClosed: () => 
         // Headings at the card's own scale: its title already names the command.
         <div className="prose-transcript mt-1 min-w-0 [overflow-wrap:anywhere] leading-6 [&_h1]:text-[14px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_:is(h1,h2,h3)]:mt-2 [&_:is(h1,h2,h3)]:mb-1 [&_:is(h1,h2,h3):first-child]:mt-0">
           <MessageResponse components={TRANSCRIPT_COMPONENTS} rehypePlugins={TRANSCRIPT_REHYPE_PLUGINS} remarkPlugins={REMARK_PLUGINS}>
-            {aside.markdown}
+            {separateLists(aside.markdown)}
           </MessageResponse>
         </div>
       )}

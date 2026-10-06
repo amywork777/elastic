@@ -23,6 +23,8 @@ import { partsView, type ViewItem } from "../view";
  * `remarkPlugins` *replaces* Streamdown's defaults rather than extending
  * them, so GFM is spread back in first.
  */
+import { separateLists } from "@renderer/lib/markdown-lists";
+
 const REMARK_PLUGINS = [...Object.values(defaultRemarkPlugins), remarkPathLinks];
 import { ActivityGroup } from "./ActivityRow";
 import { PermissionCard } from "./PermissionCard";
@@ -80,7 +82,7 @@ function ViewItemView({
       return (
         <div className="prose-transcript my-2 min-w-0 [overflow-wrap:anywhere] text-[14px] leading-6" data-part="text">
           <MessageResponse components={TRANSCRIPT_COMPONENTS} isAnimating={item.streaming} rehypePlugins={TRANSCRIPT_REHYPE_PLUGINS} remarkPlugins={REMARK_PLUGINS}>
-            {item.text}
+            {separateLists(item.text)}
           </MessageResponse>
         </div>
       );
