@@ -116,7 +116,8 @@ export function SessionRow({
 
   const menuItems = (
     <>
-      <MenuItem icon={<Columns2 />} label="Open beside" onSelect={() => openBeside(session.id)} />
+      {/* The chat with focus has nothing to open beside. */}
+      {selected ? null : <MenuItem icon={<Columns2 />} label="Open beside" onSelect={() => openBeside(session.id)} />}
       <MenuItem
         icon={session.pinned ? <PinOff /> : <Pin />}
         label={session.pinned ? "Unpin" : "Pin"}

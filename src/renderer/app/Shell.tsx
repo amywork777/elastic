@@ -277,7 +277,8 @@ export function useSplitShortcuts(): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const { split, focusSide } = useSessions.getState();
-      if (!split || !isPrimaryModifier(event) || event.shiftKey) return;
+      // Not while a plugin's page covers the chats: the move would happen out of sight.
+      if (!split || !isPrimaryModifier(event) || event.shiftKey || useUi.getState().surface.kind !== "home") return;
       const side = event.key === "\\" && !event.altKey
         ? (split.focus === "left" ? "right" : "left")
         : event.altKey && event.key === "ArrowLeft" ? "left"

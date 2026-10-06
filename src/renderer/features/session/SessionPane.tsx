@@ -65,6 +65,9 @@ export function SessionPane() {
   const windowWidth = useWindowWidth();
   const wide = paneWidth > 0 ? paneWidth >= SIDE_MIN * 2 + 1 : windowWidth >= SPLIT_MIN_WINDOW;
   const { ratio, dragging, onPointerDown, onKeyDown } = useSplitRatio();
+  // Whether the other side is on screen at all, for unread and the sidebar's current rows.
+  const collapsed = Boolean(split) && !wide;
+  useEffect(() => useSessions.getState().setSplitCollapsed(collapsed), [collapsed]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

@@ -78,3 +78,33 @@ it("takes the keyboard to a side on the new-chat screen too", () => {
   expect(document.getElementById("right-box")).toHaveFocus();
   vi.unstubAllGlobals();
 });
+
+it("opens a running chat beside the current one on Cmd-click, and tints the one beside", async () => {
+  const { RunningNow } = await import("@renderer/features/sidebar/RunningNow");
+  useSessions.setState({ sessions: [session("a"), { ...session("b"), status: "running" }, { ...session("c"), status: "running" }] });
+  render(<RunningNow />);
+  fireEvent.click(document.querySelector('[data-running-session="b"]')!, { metaKey: true });
+  expect(useSessions.getState().split).toEqual({ left: "a", right: "b", focus: "right" });
+  useSessions.getState().focusSide("left");
+  await Promise.resolve();
+  expect(document.querySelector('[data-running-session="b"]')).toHaveAttribute("data-beside");
+  expect(document.querySelector('[data-running-session="c"]')).not.toHaveAttribute("data-beside");
+});
+
+it("does not offer Open beside on the chat that has focus", async () => {
+  rows("a");
+  fireEvent.contextMenu(title("a"));
+  await screen.findByRole("menuitem", { name: "Rename" });
+  expect(screen.queryByRole("menuitem", { name: "Open beside" })).toBeNull();
+});
+
+it("leaves the split shortcuts alone while a plugin's page covers the chats", async () => {
+  const { useUi } = await import("@renderer/state/ui");
+  const Probe = () => { useSplitShortcuts(); return null; };
+  render(<Probe />);
+  useSessions.setState({ activeId: "b", split: { left: "a", right: "b", focus: "right" } });
+  useUi.setState({ surface: { kind: "plugins" } as never });
+  fireEvent.keyDown(window, { key: "\\", metaKey: true });
+  expect(useSessions.getState().split?.focus).toBe("right");
+  useUi.setState({ surface: { kind: "home" } });
+});

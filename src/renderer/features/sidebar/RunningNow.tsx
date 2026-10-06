@@ -4,7 +4,8 @@ import { cn } from "cn";
 import { focusComposerOf } from "@renderer/app/pane-focus";
 import { StateGlyph } from "@renderer/features/sidebar/SessionRow";
 import { useProjects } from "@renderer/state/projects";
-import { useSessions } from "@renderer/state/sessions";
+import { isPrimaryModifier } from "@renderer/lib/platform";
+import { sessionsOnScreen, useSessions } from "@renderer/state/sessions";
 import type { Session, SessionStatus } from "@shared/types";
 
 /** A chat is "running" to this list while its agent has a turn going or is waiting on the person. */
@@ -28,6 +29,8 @@ export function RunningNow() {
   const running = useSessions(useShallow((state) => runningSessions(state.sessions)));
   const activeId = useSessions((state) => state.activeId);
   const select = useSessions((state) => state.select);
+  const openBeside = useSessions((state) => state.openBeside);
+  const onScreen = useSessions(useShallow((state) => (state.split ? sessionsOnScreen(state) : [])));
   const projects = useProjects((state) => state.projects);
   if (running.length === 0) return null;
 
@@ -46,11 +49,15 @@ export function RunningNow() {
                 "flex h-7 w-full min-w-0 items-center gap-2 rounded-md px-2 text-left text-[13px] outline-none",
                 "hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 session.id === activeId && "bg-sidebar-accent text-sidebar-accent-foreground",
+                session.id !== activeId && onScreen.includes(session.id) && "bg-sidebar-accent/50",
               )}
+              data-beside={session.id !== activeId && onScreen.includes(session.id) ? "" : undefined}
               data-running-session={session.id}
               key={session.id}
-              onClick={() => {
-                select(session.id);
+              // Cmd-click (Ctrl elsewhere) opens it beside the current chat, as a folder's row does.
+              onClick={(event) => {
+                if (isPrimaryModifier(event)) openBeside(session.id);
+                else select(session.id);
                 focusComposerOf(session.id);
               }}
               type="button"

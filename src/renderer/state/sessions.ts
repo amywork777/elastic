@@ -40,6 +40,9 @@ type SessionsState = {
   /** The folder of a side on the new-chat screen, kept while the other side has focus (and the
    * active project is that side's): a folder just opened is a draft the projects store forgets. */
   splitProjects: Partial<Record<SplitSide, Project>>;
+  /** The pane has no room for two (`SessionPane`): only the focused side is drawn. */
+  splitCollapsed: boolean;
+  setSplitCollapsed: (collapsed: boolean) => void;
   /** A chat created from a side's new-chat screen lands in that side, wherever focus is by then. */
   placeInSide: (side: SplitSide, id: string) => void;
   /** Opens `id` beside the current chat (or, already split, in the other side) and focuses it. */
@@ -98,6 +101,8 @@ export const useSessions = create<SessionsState>((set, get) => ({
   activeId: null,
   split: null,
   splitProjects: {},
+  splitCollapsed: false,
+  setSplitCollapsed: (splitCollapsed) => { if (get().splitCollapsed !== splitCollapsed) set({ splitCollapsed }); },
 
   placeInSide: (side, id) => {
     const split = get().split;
@@ -365,9 +370,10 @@ function dismiss(id: string) {
   else if (activeId === id) useSessions.getState().setActive(null);
 }
 
-/** The chats on screen: both sides when split (a side on the new-chat screen has none), else the active one. */
-export function sessionsOnScreen(state: { split: SplitState | null; activeId: string | null }): string[] {
-  const ids = state.split ? [state.split.left, state.split.right] : [state.activeId];
+/** The chats on screen: both sides when split (a side on the new-chat screen has none, a side
+ * hidden for want of room is not on screen), else the active one. */
+export function sessionsOnScreen(state: { split: SplitState | null; activeId: string | null; splitCollapsed?: boolean }): string[] {
+  const ids = state.split && !state.splitCollapsed ? [state.split.left, state.split.right] : [state.activeId];
   return ids.filter((id): id is string => Boolean(id));
 }
 

@@ -113,3 +113,13 @@ describe("a side on the new-chat screen", () => {
     expect(s().activeId).toBe("a");
   });
 });
+
+describe("a side hidden for want of room", () => {
+  it("is not on screen: it is neither marked read nor shown as current", () => {
+    s().openBeside("b");
+    s().setSplitCollapsed(true);
+    expect(sessionsOnScreen(s())).toEqual(["b"]);
+    s().setSplitCollapsed(false);
+    expect(sessionsOnScreen(s())).toEqual(["a", "b"]);
+  });
+});
