@@ -123,7 +123,7 @@ test("native resize, wheel scrolling, offscreen node clicks and keyboard input u
   await application.evaluate((_, scope) => browserFixture.service.close(scope, "fidelity"), scope);
 });
 
-test("same-directory session isolation, within-session storage sharing, scheme restrictions and disposal", async () => {
+test("same-directory session isolation of pages, one storage for every session (a login carries over), scheme restrictions and disposal", async () => {
   const result = await application.evaluate(async ({ webContents }, { scope, url }) => {
     const other = { ...scope, sessionId: "other-session" };
     await browserFixture.service.open(other, { url, tabId: "project-b" });
@@ -137,5 +137,6 @@ test("same-directory session isolation, within-session storage sharing, scheme r
     browserFixture.service.disposeSession(scope.sessionId);
     return { scopes: scopes.map(t => t.tabId), sessions: partitionSessions.size, blocked, remainingA: browserFixture.service.list(scope).length, remainingB: browserFixture.service.list(other).length };
   }, { scope, url: origin });
-  expect(result).toEqual({ scopes: ["form", "same-root"], sessions: 3, blocked: true, remainingA: 0, remainingB: 1 });
+  // Pages stay each session's own (listing, disposal); their storage is shared (`browser/policy.ts`).
+  expect(result).toEqual({ scopes: ["form", "same-root"], sessions: 1, blocked: true, remainingA: 0, remainingB: 1 });
 });
