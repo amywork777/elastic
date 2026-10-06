@@ -45,7 +45,11 @@ const TooltipContent = React.forwardRef(function TooltipContent({
         {children}
         <TooltipPrimitive.Arrow
           className={cn(
-            "z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-popover fill-popover",
+            // A square turned 45°, half inside the box. Its two outward edges carry the box's
+            // border, so the outline runs on around the point instead of a notch where the
+            // square covers it (Radix turns the arrow's wrapper for each side, so these are
+            // always the outward pair).
+            "z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] border-r border-b border-border bg-popover fill-popover",
             arrowClassName
           )} />
       </TooltipPrimitive.Content>

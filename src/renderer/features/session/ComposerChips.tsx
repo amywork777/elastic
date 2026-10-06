@@ -155,8 +155,10 @@ export function Chip({
         type="button"
       >
         <span className="[&>svg]:size-3.5">{icon}</span>
-        {label ? <span className="truncate text-foreground/90">{label}</span> : null}
-        {detail ? <span className="truncate">{detail}</span> : null}
+        {/* A line taller than the text: `truncate` clips to the line box, and at the chip's
+            leading-none the tails of g and y fell outside it ("Xhigh"). */}
+        {label ? <span className="truncate leading-4 text-foreground/90">{label}</span> : null}
+        {detail ? <span className="truncate leading-4">{detail}</span> : null}
       </button>
     </TooltipHint>
   );
