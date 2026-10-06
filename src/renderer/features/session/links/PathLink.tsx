@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, type AnchorHTMLAttributes, type M
 
 import { cn } from "@renderer/lib/utils";
 import { opensInApp } from "@renderer/lib/in-app-links";
+import { openPreview } from "@renderer/state/preview";
 import { isMac } from "@renderer/lib/platform";
 import { useExplorer } from "@renderer/state/explorer";
 import { usePathKind, usePathLinks } from "@renderer/state/path-links";
@@ -130,10 +131,18 @@ function FileLink({ scope, target, children }: { scope: TranscriptScope; target:
 
   const reference = kind === "file" && target.selector && isReferenceFile(target.path) ? target.selector : "";
   const Icon = kind === "directory" ? Folder : isReferenceFile(target.path) ? Box : FileText;
-  const open = () => {
+  // A page an agent wrote opens rendered (the live preview); ⌘-click (Ctrl elsewhere) for its source.
+  const page = kind === "file" && /\.html?$/i.test(target.path);
+  const open = (event?: MouseEvent<HTMLButtonElement>) => {
     const explorer = useExplorer.getState();
     if (kind === "directory") {
       explorer.revealPath(target.path, true, scope.root);
+      return;
+    }
+    if (page && !(event?.metaKey || event?.ctrlKey)) {
+      void openPreview(target.path, scope.root).then((opened) => {
+        if (!opened) explorer.openFile(target.path, scope.root);
+      });
       return;
     }
     const tab = explorer.openFile(target.path, scope.root);
@@ -142,7 +151,7 @@ function FileLink({ scope, target, children }: { scope: TranscriptScope; target:
     }
   };
   return (
-    <TooltipHint content={reference ? `Open ${target.path} and select ${reference}` : kind === "directory" ? `Reveal ${target.path}` : `Open ${target.path}`}>
+    <TooltipHint content={reference ? `Open ${target.path} and select ${reference}` : kind === "directory" ? `Reveal ${target.path}` : page ? `Preview ${target.path} (${isMac ? "⌘" : "Ctrl"}-click for source)` : `Open ${target.path}`}>
       <button
         className="inline-flex max-w-full items-baseline gap-1 rounded-sm font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         data-path-link={target.path}

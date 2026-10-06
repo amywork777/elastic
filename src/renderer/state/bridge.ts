@@ -16,6 +16,7 @@ import { useAgents } from "./agents";
 import { persistQueues, restoreQueues, useComposer } from "./composer";
 import { networkTurnEvent, watchNetwork } from "./network-resume";
 import { trackViewed } from "./viewed";
+import { previewFilesChanged } from "./preview";
 import { performIntegrationCommand } from "./integration-commands";
 import { useExplorer } from "./explorer";
 import { attachHistory, useHistory } from "./history";
@@ -115,6 +116,8 @@ export function subscribeToMain(): () => void {
     window.workbench.on("files.changed", ({ projectId, root, changes }) => {
       const paths = changes.flatMap(change => change.kind === "moved" ? [change.previousPath, change.path] : [change.path]);
       useExplorer.getState().receiveChanges(projectId, root, changes);
+      // A page an agent is writing reloads in its live preview (`state/preview.ts`).
+      previewFilesChanged(projectId);
       // A path the transcript showed as text may exist now, or one it linked
       // may be gone: the next render asks again.
       usePathLinks.getState().invalidate({ projectId, root }, paths);

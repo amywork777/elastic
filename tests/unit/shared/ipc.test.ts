@@ -112,6 +112,7 @@ describe("the contract", () => {
       "clipboard.writeImage",
       "queues.list",
       "queues.set",
+      "preview.url",
       "dictation.available",
       "dictation.start",
       "dictation.push",

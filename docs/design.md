@@ -805,6 +805,21 @@ starting, asking, failing or ending, never by a reconnect or the keep-alive clos
 opens its chat from anywhere on it; with a tag beside it the title keeps its width and the folder
 name gives way first.
 
+### Live preview
+
+HTML an agent writes opens rendered, like an artifact. A reply's link to an `.html` file, or the
+file tab's **Preview** button, opens the page in the chat's browser tab from the preview server
+(`src/main/preview/server.ts`): the project's folder at `http://127.0.0.1:<port>/<token>/<path>`,
+a loopback address with an unguessable token per folder, so relative CSS, images, scripts and ES
+modules load, the agent can drive the page, and select-and-screenshot-to-prompt work as on any
+page. The server answers only for files whose real path is inside that folder (no `..`, no link
+out), and caches nothing. The renderer reloads a project's preview tabs once its files go quiet
+after a change (`state/preview.ts`, 250 ms), and a preview tab has **View source**. ⌘-click (Ctrl
+elsewhere) on the reply's link opens the source instead.
+
+Links in a reply to localhost (and other loopback names), claude.ai and chatgpt.com open in the
+chat's browser tab too (`lib/in-app-links.ts`); ⌘-click opens the system browser.
+
 ### Dictation
 
 The microphone beside send dictates into the box, transcribed on the Mac by
