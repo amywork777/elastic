@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import { TooltipProvider } from "@workbench/ui/primitives/tooltip";
 import { Sidebar } from "@renderer/features/sidebar/Sidebar";
-import { SESSION_GLYPH_LABELS, folderGroupLabel, listedSessions, sessionGlyphFor, sidebarSections } from "@renderer/lib/sidebar";
+import { RECENTS_LIMIT, SESSION_GLYPH_LABELS, folderGroupLabel, isUnread, listedSessions, recentsSections, sessionGlyphFor, sidebarSections, statusTag } from "@renderer/lib/sidebar";
 import { runUiCommand } from "@renderer/state/bridge";
 import { useExplorer } from "@renderer/state/explorer";
 import { useProjects } from "@renderer/state/projects";
@@ -743,5 +743,64 @@ describe("Running now and the Agents panel", () => {
     expect(screen.getByText("Spare codex")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
+  });
+});
+
+describe("recents", () => {
+  const projects = [project("p1", "elastic"), project("p2", "vizcom")];
+  const at = (minutes: number) => 1_000_000 + minutes * 60_000;
+
+  it("tags a chat from what is happening, and a hand-set tag only once it is finished", () => {
+    expect(statusTag(session({ id: "a", title: "A", status: "running" })).tag).toBe("working");
+    expect(statusTag(session({ id: "a", title: "A", status: "waiting" })).tag).toBe("waiting");
+    expect(statusTag(session({ id: "a", title: "A", status: "error" })).tag).toBe("failed");
+    expect(statusTag(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(1), changedFiles: 2 })).tag).toBe("review");
+    expect(statusTag(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(9), changedFiles: 2 })).tag).toBe("done");
+    expect(statusTag(session({ id: "a", title: "A", status: "running", statusOverride: "done" }))).toEqual({ tag: "working", manual: false });
+    expect(statusTag(session({ id: "a", title: "A", statusOverride: "review" }))).toEqual({ tag: "review", manual: true });
+  });
+
+  it("reads a never-viewed chat as read, and activity after the last view as unread", () => {
+    expect(isUnread(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: null }))).toBe(false);
+    expect(isUnread(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(1) }))).toBe(true);
+    expect(isUnread(session({ id: "a", title: "A", updatedAt: at(5), lastViewedAt: at(6) }))).toBe(false);
+  });
+
+  it("orders pinned, then live chats, then by activity, Done last, and cuts at ten", () => {
+    const rows = [
+      session({ id: "pin", title: "Pinned", pinned: true, updatedAt: at(1) }),
+      session({ id: "run", title: "Running", status: "running", updatedAt: at(2) }),
+      session({ id: "done-new", title: "Done new", updatedAt: at(50), lastViewedAt: at(51) }),
+      session({ id: "review", title: "Review", updatedAt: at(30), lastViewedAt: at(1), changedFiles: 1 }),
+      ...Array.from({ length: 10 }, (_, index) => session({ id: `old${index}`, title: `Old ${index}`, updatedAt: at(3 + index), lastViewedAt: at(1), changedFiles: 1 })),
+      session({ id: "archived", title: "Archived", archived: true, updatedAt: at(99) }),
+    ];
+    const sections = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), expanded: false });
+    expect(sections[0]!.sessions.map((row) => row.id)).toEqual(["pin"]);
+    const recents = sections.find((section) => section.kind === "recents")!;
+    expect(recents.sessions.map((row) => row.id).slice(0, 3)).toEqual(["run", "review", "old9"]);
+    expect(recents.sessions).toHaveLength(RECENTS_LIMIT);
+    expect(recents.more).toBe(3);
+    const all = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), expanded: true });
+    const expandedIds = all.find((section) => section.kind === "recents")!.sessions.map((row) => row.id);
+    expect(expandedIds.at(-1)).toBe("done-new");
+    expect(expandedIds).not.toContain("archived");
+    expect(expandedIds).not.toContain("pin");
+  });
+
+  it("applies hidden folders and the Environment filter to Recents", () => {
+    const rows = [session({ id: "a", title: "A", projectId: "p1" }), session({ id: "b", title: "B", projectId: "p2", gitMode: "worktree" })];
+    const hidden = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), hidden: ["p2"], expanded: true });
+    expect(hidden.find((s) => s.kind === "recents")!.sessions.map((r) => r.id)).toEqual(["a"]);
+    const local = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents", environment: "local" }), expanded: true });
+    expect(local.find((s) => s.kind === "recents")!.sessions.map((r) => r.id)).toEqual(["a"]);
+  });
+
+  it("numbers Mod+1..9 by the rows on screen, folded Folders left out", () => {
+    const rows = Array.from({ length: 12 }, (_, index) => session({ id: `s${index}`, title: `S${index}`, updatedAt: at(index) }));
+    const sections = recentsSections({ sessions: rows, projects, filters: filters({ groupBy: "recents" }), expanded: false });
+    const listed = listedSessions(sections, [], { foldersCollapsed: true });
+    expect(listed).toHaveLength(RECENTS_LIMIT);
+    expect(listed[0]!.id).toBe("s11");
   });
 });
