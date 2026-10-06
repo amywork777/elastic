@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Camera, ExternalLink, FileCode, Globe, MessageSquareQuote, RotateCw, Terminal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, Crosshair, ExternalLink, FileCode, Globe, MessageSquareQuote, RotateCw, Terminal } from "lucide-react";
 import { isPreviewUrl, previewSourcePath } from "@renderer/state/preview";
 import { useExplorer } from "@renderer/state/explorer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,7 +15,7 @@ import { useBrowser } from "@renderer/state/browser";
 import { AgentControlBar } from "./AgentControlBar";
 
 import { EmptyState } from "@workbench/ui/navigation";
-import { createPromptContext } from "@workbench/core/prompt";
+import { createPromptContext, textPart } from "@workbench/core/prompt";
 import { createDesktopPromptContext } from "./host/promptContext";
 
 /** Chrome for a main-owned native page. Its document survives this component. */
@@ -73,6 +73,40 @@ export function BrowserTab({ sessionId, projectId, root, tabId, url }: { session
     void prompt.deliver(context).then(result => {
       setPromptStatus(result.status === "added" ? "Added to prompt" : ("message" in result ? result.message : undefined) ?? "Could not add browser context.");
     }).catch(error => setPromptStatus(error instanceof Error ? error.message : String(error))).finally(() => setAdding(false));
+  };
+
+  // Click-to-prompt: the person picks elements in the page; each pick arrives from main as
+  // `browser.picked` and becomes one chip (its cropped image, its code, where it is).
+  const [picking, setPicking] = useState(false);
+  const pickingRef = useRef(false);
+  useEffect(() => { pickingRef.current = picking; }, [picking]);
+  useEffect(() => {
+    const binding = { sessionId, projectId, root, tabId };
+    const offPicking = window.workbench.on("browser.picking", (event) => {
+      if (event.sessionId === sessionId && event.tabId === tabId) setPicking(event.active);
+    });
+    const offPicked = window.workbench.on("browser.picked", (event) => {
+      if (event.sessionId !== sessionId || event.tabId !== tabId) return;
+      const referenceId = crypto.randomUUID();
+      const bytes = Uint8Array.from(atob(event.image), (char) => char.charCodeAt(0));
+      const context = createPromptContext([
+        { id: referenceId, kind: "reference", reference: { resource: { kind: "url", url: event.url, revision: String(event.generation) }, target: { kind: "whole-resource" }, label: `<${event.tag}> on ${event.title || event.url}` } },
+        { id: crypto.randomUUID(), kind: "attachment", name: "browser-element.png", mimeType: "image/png", about: [referenceId], content: Promise.resolve(new Blob([bytes], { type: "image/png" })) },
+        textPart(`Element <${event.tag}> on ${event.url}\nSelector: ${event.selector}\nSize: ${event.size.width} × ${event.size.height}\n\n${event.html}`, crypto.randomUUID()),
+      ]);
+      void prompt.deliver(context).then((result) => {
+        setPromptStatus(result.status === "added" ? "Added to prompt" : ("message" in result ? result.message : undefined) ?? "Could not add the element.");
+      }).catch((error: unknown) => setPromptStatus(error instanceof Error ? error.message : String(error)));
+    });
+    return () => {
+      offPicking();
+      offPicked();
+      // A tab that goes (hidden, closed, another chat) stops picking: nobody is there to pick.
+      if (pickingRef.current) void window.workbench.browser.pick({ ...binding, active: false }).catch(() => {});
+    };
+  }, [sessionId, projectId, root, tabId, prompt]);
+  const togglePicking = () => {
+    void window.workbench.browser.pick({ sessionId, projectId, root, tabId, active: !picking }).then((result) => setPicking(result.active)).catch(() => setPicking(false));
   };
 
   const errors = target?.errors ?? logs.filter((line) => line.level === "error").length;
@@ -135,6 +169,17 @@ export function BrowserTab({ sessionId, projectId, root, tabId, url }: { session
             <FileCode className="size-3.5" />
           </WebPreviewNavigationButton>
         ) : null}
+        <WebPreviewNavigationButton
+          aria-label="Pick an element to add to prompt"
+          aria-pressed={picking}
+          className={cn(picking && "bg-accent text-foreground")}
+          data-pick-element
+          disabled={!current || !target}
+          onClick={togglePicking}
+          tooltip={picking ? "Click an element · Esc to stop" : "Pick an element to add to prompt"}
+        >
+          <Crosshair className="size-3.5" />
+        </WebPreviewNavigationButton>
         <WebPreviewNavigationButton disabled={!current || !target || adding} onClick={() => addContext("selection")} aria-label="Add selected text to prompt" tooltip="Add selected text to prompt">
           <MessageSquareQuote className="size-3.5" />
         </WebPreviewNavigationButton>
