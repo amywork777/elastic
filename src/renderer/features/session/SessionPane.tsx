@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { FolderOpen } from "lucide-react";
 
 import { Button } from "@renderer/components/ui/button";
@@ -14,11 +14,27 @@ import { SessionHeader } from "./SessionHeader";
 import { SessionView } from "./SessionView";
 import { SplitSideContext } from "./split-side";
 
-/** Below this window width a split shows its focused side only; the other returns when it widens. */
+/** Each side's least width. A pane narrower than two of them (a narrow window, or the explorer
+ * open) shows the focused side only; the other returns when there is room. */
+const SIDE_MIN = 360;
+/** The window width that stands in before the pane has been measured. */
 const SPLIT_MIN_WINDOW = 1100;
 const RATIO_MIN = 0.25;
 const RATIO_MAX = 0.75;
 const clampRatio = (ratio: number) => Math.min(RATIO_MAX, Math.max(RATIO_MIN, ratio));
+
+/** The pane's own width, measured (0 until it has been), and the ref that measures it. */
+function useMeasuredWidth() {
+  const [width, setWidth] = useState(0);
+  const ref = useCallback((node: HTMLElement | null) => {
+    if (!node) return;
+    setWidth(node.getBoundingClientRect().width);
+    const observer = new ResizeObserver(() => setWidth(node.getBoundingClientRect().width));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  return [width, ref] as const;
+}
 
 function useWindowWidth() {
   const [width, setWidth] = useState(() => window.innerWidth);
@@ -45,7 +61,9 @@ export function SessionPane() {
   const activeId = useSessions((state) => state.activeId);
   const split = useSessions((state) => state.split);
   const setActiveSession = useSessions((state) => state.setActive);
-  const wide = useWindowWidth() >= SPLIT_MIN_WINDOW;
+  const [paneWidth, pane] = useMeasuredWidth();
+  const windowWidth = useWindowWidth();
+  const wide = paneWidth > 0 ? paneWidth >= SIDE_MIN * 2 + 1 : windowWidth >= SPLIT_MIN_WINDOW;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -58,8 +76,11 @@ export function SessionPane() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setActiveSession]);
 
-  if (split && wide) return <SplitPane split={split} />;
-  return <OneChat id={activeId} />;
+  return (
+    <div className="h-full min-w-0" data-session-pane ref={pane}>
+      {split && wide ? <SplitPane split={split} /> : <OneChat id={activeId} />}
+    </div>
+  );
 }
 
 function SplitPane({ split }: { split: SplitState }) {
@@ -80,8 +101,10 @@ function SplitPane({ split }: { split: SplitState }) {
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const element = row.current;
     if (!element || event.button !== 0) return;
+    // As the shell's separators do: listeners on the window, no pointer capture, and no text
+    // selection while the gesture lasts, so a drag across a transcript does not highlight it.
     event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    document.body.style.setProperty("user-select", "none");
     const box = element.getBoundingClientRect();
     let latest = ratio;
     setDragging(true);
@@ -92,11 +115,14 @@ function SplitPane({ split }: { split: SplitState }) {
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      document.body.style.removeProperty("user-select");
       setDragging(false);
       void setLayout({ splitRatio: latest });
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   };
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const step = event.key === "ArrowLeft" ? -0.02 : event.key === "ArrowRight" ? 0.02 : 0;

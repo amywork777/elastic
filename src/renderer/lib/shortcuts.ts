@@ -61,6 +61,10 @@ export const SHORTCUTS: readonly Shortcut[] = [
     binding: "Mod+1",
     through: "Mod+9",
   },
+  // Renderer-only: two chats side by side (`useSplitShortcuts` in `Shell`).
+  { id: "split-other-side", group: "Application", label: "Focus the other side of two chats", binding: "Mod+\\" },
+  { id: "split-left", group: "Application", label: "Focus the left chat", binding: "Mod+Alt+Left" },
+  { id: "split-right", group: "Application", label: "Focus the right chat", binding: "Mod+Alt+Right" },
 
   { id: "send", group: "Session", label: "Send", binding: "Enter" },
   {
@@ -134,6 +138,9 @@ const GLYPHS: Record<string, { mac: string; other: string }> = {
   // esc.
   Escape: { mac: "esc", other: "Esc" },
   Backspace: { mac: "⌫", other: "Backspace" },
+  // Keycaps, as Apple prints them; spelled out elsewhere.
+  Left: { mac: "←", other: "Left" },
+  Right: { mac: "→", other: "Right" },
 };
 
 /**

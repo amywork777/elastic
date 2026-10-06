@@ -879,6 +879,24 @@ over remark's tree that escapes every text and keeps only web and mail
 links), so a paste into Slack, Docs or an email keeps its formatting, and as
 the markdown, for a terminal or an editor.
 
+### Two chats side by side
+
+Cmd-click a chat in the sidebar (Ctrl elsewhere), or **Open beside** in its menu, and it opens to
+the right of the current chat (`useSessions.split`, `features/session/SessionPane.tsx`). Each side
+has its own header, transcript and composer; a one-pixel divider (`[data-split-divider]`, arrow
+keys by 2 %) sets the left side's share, kept as `layout.splitRatio` (0.25 to 0.75). The
+**focused side** is the one last clicked or typed into: `activeId` is always its chat, so the
+explorer, where-you-were and every shortcut follow it, and its header carries a quiet accent.
+Picking a chat in the sidebar replaces the focused side; a chat already on the other side takes
+focus there instead, so no chat is shown twice. ⌘N puts the new-chat screen in the focused side
+and the chat it creates lands there. Each header has **Close this side**; archiving or deleting a
+chat on screen closes its side. ⌘\ moves focus to the other side, ⌘⌥← and ⌘⌥→ to that side,
+each into its composer. Both sides count as on screen for unread (`viewed.ts`) and for keeping a
+closed chat's transcript (`acp.ts`). Each side needs 360 px: a pane narrower than two (a narrow
+window, or the explorer open beside it) shows the focused side only, and the other returns when
+there is room. Only the focused side's composer takes the keyboard as it mounts. The split is
+not kept across relaunches.
+
 ## The model, the effort and the mode
 
 The composer has a chip for the model and one for how hard it should think,

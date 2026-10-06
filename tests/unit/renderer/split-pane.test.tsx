@@ -79,3 +79,27 @@ it("moves the divider by keyboard, within a quarter and three quarters", () => {
   for (let i = 0; i < 20; i++) fireEvent.keyDown(divider, { key: "ArrowLeft" });
   expect(divider).toHaveAttribute("aria-valuenow", "25");
 });
+
+it("lets only the focused side's composer take the keyboard as it mounts", async () => {
+  const { useTakesFocus, SplitSideContext } = await import("@renderer/features/session/split-side");
+  const seen: Record<string, boolean> = {};
+  const Probe = ({ name }: { name: string }) => { seen[name] = useTakesFocus(); return null; };
+  render(
+    <>
+      <Probe name="alone" />
+      <SplitSideContext.Provider value="left"><Probe name="left" /></SplitSideContext.Provider>
+      <SplitSideContext.Provider value="right"><Probe name="right" /></SplitSideContext.Provider>
+    </>,
+  );
+  expect(seen).toEqual({ alone: true, left: false, right: true });
+});
+
+it("shows only the focused side when the pane itself is too narrow for two (the explorer open in a wide window)", () => {
+  const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    return { width: this.hasAttribute("data-session-pane") ? 600 : 0, height: 0, x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON() {} } as DOMRect;
+  });
+  render(<SessionPane />);
+  expect(document.querySelectorAll("[data-split-side]")).toHaveLength(0);
+  expect(document.querySelector('[data-session-view="b"]')).not.toBeNull();
+  spy.mockRestore();
+});

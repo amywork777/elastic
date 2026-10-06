@@ -31,6 +31,7 @@ import { Composer } from "./Composer";
 import type { QuickCommandName } from "@renderer/state/asides";
 import { EffortChip, GitModeChip, ModeChip, ModelChip, ProjectChip, type ProviderPick } from "./ComposerChips";
 import { errorMessage, isAuthError } from "./view";
+import { useTakesFocus } from "./split-side";
 
 /**
  * The new-session state (plan §2): "What should we build in <project>?",
@@ -68,6 +69,7 @@ import { errorMessage, isAuthError } from "./view";
 const NEW_SESSION_QUICK: QuickCommandName[] = ["usage"];
 
 export function NewSession({ project }: { project: Project }) {
+  const takesFocus = useTakesFocus();
   const draftKey = newSessionKey(project.id);
   const draftRoot = useComposer((state) => state.draftRoots[draftKey]);
   const settings = useSettings((state) => state.settings);
@@ -520,7 +522,7 @@ export function NewSession({ project }: { project: Project }) {
         <div className="mt-5">
           {context}
           <Composer
-            autoFocus
+            autoFocus={takesFocus}
             chips={chips}
             commands={[]}
             disabled={busy}

@@ -44,8 +44,9 @@ const accelerators = flatten(
 /**
  * Renderer-only by nature: Escape is not a menu key, and F6 moves focus between the renderer's
  * own panes — a menu accelerator would take it from a webview that has focus and do nothing there.
+ * The split's three move focus between the session pane's two sides, the same kind of move.
  */
-const RENDERER_ONLY = new Set(["close-settings", "next-pane", "previous-pane"]);
+const RENDERER_ONLY = new Set(["close-settings", "next-pane", "previous-pane", "split-other-side", "split-left", "split-right"]);
 
 it("lists every packaged menu accelerator in the shortcut table", () => {
   const bindings = new Set(SHORTCUTS.flatMap(bindingsOf));
