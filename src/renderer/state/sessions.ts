@@ -263,7 +263,7 @@ export function listedSessionAt(index: number): Session | null {
       ? recentsSections({ ...input, expanded: useSessions.getState().recentsExpanded })
       : sidebarSections(input),
     sidebar.collapsedProjects,
-    { foldersCollapsed: sidebar.foldersCollapsed },
+    { foldersCollapsed: sidebar.foldersCollapsed, recentsCollapsed: sidebar.recentsCollapsed },
   );
   return (index === 9 ? rows.at(-1) : rows[index - 1]) ?? null;
 }

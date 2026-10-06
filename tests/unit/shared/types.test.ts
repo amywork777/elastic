@@ -104,6 +104,7 @@ describe("Settings", () => {
       collapsedProjects: [],
       pinnedProjects: [],
       foldersCollapsed: true,
+      recentsCollapsed: false,
     });
   });
 

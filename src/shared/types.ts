@@ -590,6 +590,8 @@ export const SidebarSettingsSchema = z.object({
   pinnedProjects: z.array(z.string()).default([]),
   /** In Recents, the Folders section below the list: folded until opened. */
   foldersCollapsed: z.boolean().default(true),
+  /** The Recents list itself, folded to its header. */
+  recentsCollapsed: z.boolean().default(false),
 });
 export type SidebarSettings = z.infer<typeof SidebarSettingsSchema>;
 

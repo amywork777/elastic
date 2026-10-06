@@ -188,7 +188,7 @@ it("no control in the Recents sidebar carries a native title, tags and Show more
       <Sidebar />
     </TooltipProvider>,
   );
-  expect(screen.getByRole("button", { name: "Show 2 more" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Show 7 more" })).toBeInTheDocument();
   expect(screen.getAllByText("Needs review").length).toBeGreaterThan(0);
   expect(titled()).toEqual([]);
   expect(unhinted()).toEqual([]);

@@ -3,7 +3,9 @@ import { SessionRow } from "@renderer/features/sidebar/SessionRow";
 import type { SidebarSection } from "@renderer/lib/sidebar";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
-import { useSidebarSettings } from "@renderer/state/settings";
+import { useSettings, useSidebarSettings } from "@renderer/state/settings";
+import { ChevronRight } from "lucide-react";
+import { cn } from "cn";
 
 /**
  * Recents, the sidebar's main list (`lib/sidebar.ts`, `recentsSections`): what is live on top,
@@ -15,11 +17,25 @@ export function RecentsSection({ section }: { section: SidebarSection }) {
   const expanded = useSessions((state) => state.recentsExpanded);
   const setExpanded = useSessions((state) => state.setRecentsExpanded);
   const projects = useProjects((state) => state.projects);
-  const { showBranch } = useSidebarSettings();
+  const sidebar = useSidebarSettings();
+  const { showBranch, recentsCollapsed } = sidebar;
+  const setSidebar = useSettings((state) => state.setSidebar);
   const more = section.more ?? 0;
   return (
     <section aria-label="Recents" className="mb-1" data-sidebar-recents>
-      <div className="flex h-7 items-center px-2 text-[11px] font-medium text-muted-foreground">Recents</div>
+      {/* The header folds the list, as Folders' does; the state is kept with the other sidebar settings. */}
+      <button
+        aria-expanded={!recentsCollapsed}
+        className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-[11px] font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        data-recents-header
+        onClick={() => void setSidebar({ recentsCollapsed: !recentsCollapsed })}
+        type="button"
+      >
+        <ChevronRight aria-hidden className={cn("size-3 transition-transform", !recentsCollapsed && "rotate-90")} />
+        Recents
+      </button>
+      {recentsCollapsed ? null : (
+      <>
       <div className="flex flex-col gap-px">
         {section.sessions.map((session) => (
           <SessionRow
@@ -46,6 +62,8 @@ export function RecentsSection({ section }: { section: SidebarSection }) {
           {expanded ? "Show less" : `Show ${more} more`}
         </button>
       ) : null}
+      </>
+      )}
     </section>
   );
 }
