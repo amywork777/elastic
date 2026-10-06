@@ -17,6 +17,8 @@ export const browserIpc = {
     capture: invoke(At.extend({ url: z.string().url(), generation: z.number().int().nonnegative(), kind: z.enum(["selection", "screenshot"]) }), z.object({ base64: z.string(), mimeType: z.string(), url: z.string(), generation: z.number() })),
     /** The person takes the page from the agent (its input is refused), or hands it back. */
     takeOver: invoke(At.extend({ takenOver: z.boolean() }), z.object({ takenOver: z.boolean() })),
+    /** Sign out of every site in the browser tab: its shared cookies, storage and cache (Settings › General). */
+    clearData: invoke(z.void(), z.void()),
   },
 };
 

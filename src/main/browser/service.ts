@@ -3,7 +3,8 @@ import { EventEmitter } from "node:events";
 import { type BrowserWindow, WebContentsView } from "electron";
 import { browserMethodSchemas, type BrowserInput, type BrowserMethod, type BrowserTarget } from "../../shared/browser";
 import { browserHarness } from "./harness";
-import { browserPartition, browserScopeKey, type BrowserScope } from "./storage";
+import { SHARED_BROWSER_PARTITION, allowsBrowserPermission, chromeUserAgent, popupWindow } from "./policy";
+import { browserScopeKey, type BrowserScope } from "./storage";
 
 export { browserScopeKey, type BrowserScope };
 type Target = {
@@ -85,7 +86,8 @@ export class BrowserService {
     const existing = this.targets.get(id);
     if (existing) { const target = this.get(scope, id); await target.ready; return this.info(this.get(scope, id)); }
     const url = browserURL(params.url || "about:blank");
-    const partition = browserPartition(scope);
+    // One storage for every chat: a login made in one tab is there in all of them (`policy.ts`).
+    const partition = SHARED_BROWSER_PARTITION;
     const view = new WebContentsView({ webPreferences: {
       partition, nodeIntegration: false, contextIsolation: true, sandbox: true,
       webSecurity: true, backgroundThrottling: false, spellcheck: false,
@@ -94,13 +96,40 @@ export class BrowserService {
     const target: Target = { id, scope: { ...scope }, view, harness: browserHarness(view.webContents), generation: 0, visible: false, ready: Promise.resolve(), logs: [], userInputAt: 0, automatedInputAt: 0, takenOver: false, announcedAt: 0 };
     this.targets.set(id, target);
     const wc = view.webContents;
-    wc.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-    wc.session.setPermissionCheckHandler(() => false);
+    // Copy buttons and full screen; never the camera, microphone, location or reading the clipboard.
+    wc.session.setPermissionRequestHandler((_contents, permission, callback) => callback(allowsBrowserPermission(permission)));
+    wc.session.setPermissionCheckHandler((_contents, permission) => allowsBrowserPermission(permission));
+    // Chrome's user agent without Electron's tokens: Google will not sign in a browser naming Electron.
+    // On the page itself too: it took the session's user agent when it was made, before this ran.
+    const userAgent = chromeUserAgent(wc.getUserAgent());
+    wc.setUserAgent(userAgent);
+    wc.session.setUserAgent(userAgent);
     this.refuseDownloads(wc.session);
-    // No unmanaged windows or privileged scheme navigations may escape the root.
-    wc.setWindowOpenHandler(({ url: popupURL }) => {
-      try { void wc.loadURL(browserURL(popupURL)).catch(() => {}); } catch { /* blocked scheme */ }
+    // A sign-in pop-up gets a real window in the same storage, so the provider can report back to
+    // the page that opened it; anything else opens in this tab. Only http(s) ever loads.
+    wc.setWindowOpenHandler((details) => {
+      const size = popupWindow(details);
+      if (size) {
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            ...size,
+            autoHideMenuBar: true,
+            webPreferences: { partition, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true },
+          },
+        };
+      }
+      try { void wc.loadURL(browserURL(details.url)).catch(() => {}); } catch { /* blocked scheme */ }
       return { action: "deny" };
+    });
+    wc.on("did-create-window", (popup) => {
+      // The pop-up keeps to http(s) and opens nothing further of its own.
+      const keep = (event: Electron.Event, nextURL: string) => {
+        try { browserURL(nextURL); } catch { event.preventDefault(); }
+      };
+      popup.webContents.on("will-navigate", keep);
+      popup.webContents.on("will-redirect", keep);
+      popup.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     });
     const guard = (event: Electron.Event, nextURL: string) => {
       try { browserURL(nextURL); } catch { event.preventDefault(); }

@@ -130,6 +130,7 @@ describe("the contract", () => {
       "browser.clearConsole",
       "browser.capture",
       "browser.takeOver",
+      "browser.clearData",
       // P3 — src/shared/ipc/explorer.ts
       "explorer.list",
       "explorer.paths",

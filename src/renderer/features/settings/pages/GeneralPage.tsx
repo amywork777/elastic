@@ -3,7 +3,9 @@
  * allowed to do outside its own window — start itself, sit in the menu bar,
  * make a noise, count a launch.
  */
+import { useState } from "react";
 import { Play } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@renderer/components/ui/button";
 import { Switch } from "@renderer/components/ui/switch";
@@ -39,6 +41,7 @@ export function GeneralPage() {
   const settings = useSettingsValue();
   const patch = useSettingsPatch();
   const fallbacks = useSettingsFallbacks();
+  const [clearing, setClearing] = useState(false);
 
   return (
     <>
@@ -181,6 +184,32 @@ export function GeneralPage() {
           keywords="os banner system notification centre center"
           onChange={(notificationOsBanners) => patch({ notificationOsBanners })}
           title="System banners"
+        />
+      </SettingCard>
+
+      <SettingCard title="Browser">
+        <SettingRow
+          control={() => (
+            <Button
+              className="h-8"
+              disabled={clearing}
+              onClick={() => {
+                setClearing(true);
+                void window.workbench.browser
+                  .clearData()
+                  .then(() => toast.success("Browser data cleared", { description: "Every site in the browser tab is signed out." }))
+                  .catch(() => toast.error("Could not clear browser data"))
+                  .finally(() => setClearing(false));
+              }}
+              size="sm"
+              variant="secondary"
+            >
+              Clear browser data
+            </Button>
+          )}
+          description="The browser tab keeps one sign-in for every chat. This signs you out of every site and removes its cookies and cache."
+          keywords="cookies cache sign out logout login storage"
+          title="Browser data"
         />
       </SettingCard>
 
