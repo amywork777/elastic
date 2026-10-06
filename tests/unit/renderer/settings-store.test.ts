@@ -40,10 +40,10 @@ it("keeps a newer optimistic write when an older reply lands, and builds the nex
 
   const c = useSettings.getState().setLayout({ sidebarWidth: 300 });
   expect(vi.mocked(window.workbench.settings.set).mock.calls[2]?.[0]).toEqual({
-    layout: { sidebarWidth: 300, sidebarCollapsed: true },
+    layout: { sidebarWidth: 300, sidebarCollapsed: true, splitRatio: 0.5 },
   });
 
-  const final = { ...defaultSettings(), theme: "dark" as const, layout: { sidebarWidth: 300, sidebarCollapsed: true } };
+  const final = { ...defaultSettings(), theme: "dark" as const, layout: { sidebarWidth: 300, sidebarCollapsed: true, splitRatio: 0.5 } };
   answer(1, { ...final, layout: { ...final.layout, sidebarWidth: defaultSettings().layout.sidebarWidth } });
   answer(2, final);
   await Promise.all([b, c]);

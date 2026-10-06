@@ -1,6 +1,6 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { useEffect, useRef, useState } from "react";
-import { Archive, Copy, FolderOpen, MoreHorizontal, Pencil, RotateCcw, Trash2, Unplug } from "lucide-react";
+import { Archive, Copy, FolderOpen, MoreHorizontal, Pencil, RotateCcw, Trash2, Unplug, X } from "lucide-react";
 
 import { ExplorerToggle, HistoryNav, SidebarToggle } from "@renderer/app/PaneToggles";
 import { Button } from "@renderer/components/ui/button";
@@ -11,12 +11,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@renderer/components/ui/dropdown-menu";
+import { cn } from "@renderer/lib/utils";
 import { useAcp } from "@renderer/state/acp";
 import { useSessions } from "@renderer/state/sessions";
 import { useExplorer } from "@renderer/state/explorer";
 import { useProjects } from "@renderer/state/projects";
 import { useSettings } from "@renderer/state/settings";
 import type { Session } from "@shared/types";
+
+import { useSplitSide } from "./split-side";
 
 /**
  * The session's title bar (plan §2): folder icon, the agent's title (the
@@ -29,7 +32,8 @@ import type { Session } from "@shared/types";
  * it is open, here once it is gone — and the explorer's toggle is at the
  * window's right edge — here while the explorer is shut, in the explorer's
  * tab strip once it is open. A collapsed pane is not rendered at all, so each
- * toggle is in the document exactly once.
+ * toggle is in the document exactly once. Split, the left side's header holds the left edge's
+ * controls and the right side's the right edge's, and each has Close this side.
  */
 export function SessionHeader({
   session,
@@ -54,6 +58,10 @@ export function SessionHeader({
   });
   const sidebarCollapsed = useSettings((state) => state.settings?.layout.sidebarCollapsed ?? false);
   const explorerCollapsed = useExplorer((state) => state.collapsed);
+  const side = useSplitSide();
+  const closeSide = useSessions((state) => state.closeSide);
+  // Whose tabs the explorer shows, said quietly: the focused side's header carries an accent.
+  const focused = useSessions((state) => side !== null && state.split?.focus === side);
   const projectName = useProjects(
     (state) => state.projects.find((project) => project.id === session?.projectId)?.name ?? null,
   );
@@ -87,14 +95,14 @@ export function SessionHeader({
 
   return (
     <header
-      className="app-drag flex shrink-0 items-center gap-2 border-b px-3"
+      className={cn("app-drag flex shrink-0 items-center gap-2 border-b px-3", focused && "border-b-primary/50")}
       data-session-header
       style={{ height: "var(--titlebar-height)" }}
     >
       {/* The window's left edge once the sidebar is gone: its toggle and the
           history's two arrows, in the order and at the x they had in the
           sidebar's own strip. */}
-      {sidebarCollapsed ? (
+      {sidebarCollapsed && side !== "right" ? (
         <div className="flex shrink-0 items-center">
           <SidebarToggle />
           <HistoryNav />
@@ -199,7 +207,14 @@ export function SessionHeader({
       <div className="flex-1" />
       {/* The window's right edge while the explorer is shut; open, the
           explorer's own strip holds the toggle at that same edge. */}
-      {session && explorerCollapsed ? (
+      {side ? (
+        <TooltipHint content="Close this side">
+          <Button aria-label="Close this side" className="app-no-drag size-6 text-muted-foreground" onClick={() => closeSide(side)} size="icon-xs" variant="ghost">
+            <X className="size-3.5" />
+          </Button>
+        </TooltipHint>
+      ) : null}
+      {session && explorerCollapsed && side !== "left" ? (
         <div className="app-no-drag flex items-center gap-0.5">
           <ExplorerToggle />
         </div>

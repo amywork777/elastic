@@ -1,3 +1,5 @@
+import { useSessions } from "@renderer/state/sessions";
+
 /**
  * Where focus belongs in each pane, shared by the shell's F6 cycling and by whatever returns the
  * keyboard to the shell from a route of its own (Settings).
@@ -25,7 +27,12 @@ export const TABBABLE = 'button:not([disabled]), [href], input:not([disabled]), 
  * fallback after that frame, for a session with no composer to land on.
  */
 export function focusSessionHome(): void {
-  const pane = () => document.getElementById("session");
+  // Two chats side by side: the focused one's view (the active chat), not the first in the pane.
+  const pane = () => {
+    const root = document.getElementById("session");
+    const active = useSessions.getState().activeId;
+    return (active ? root?.querySelector<HTMLElement>(`[data-session-view="${CSS.escape(active)}"]`) : null) ?? root;
+  };
   const composer = () => pane()?.querySelector<HTMLElement>(PANE_HOMES.session) ?? null;
   const first = composer();
   if (first) {
