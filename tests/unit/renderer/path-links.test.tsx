@@ -240,3 +240,27 @@ describe("a link that belongs in the app", () => {
     expect(open).not.toHaveBeenCalled();
   });
 });
+
+describe("an HTML file in a reply", () => {
+  it("opens its live preview, and ⌘-click opens the source", async () => {
+    const user = userEvent.setup();
+    const preview = await import("@renderer/state/preview");
+    const openPreview = vi.spyOn(preview, "openPreview").mockResolvedValue(true);
+    const openFile = vi.fn(() => ({ id: "f" }));
+    useExplorer.setState({ openFile } as never);
+    usePathLinks.setState({ kinds: { [scopeKey({ projectId: "p1", root: null })]: { "site/index.html": "file" } } });
+    render(
+      <TranscriptScopeContext.Provider value={{ projectId: "p1", root: null }}>
+        <PathLink href="site/index.html">site/index.html</PathLink>
+      </TranscriptScopeContext.Provider>,
+    );
+    const link = await screen.findByRole("button", { name: /site\/index\.html/ });
+    await user.click(link);
+    expect(openPreview).toHaveBeenCalledWith("site/index.html", null);
+    expect(openFile).not.toHaveBeenCalled();
+    await user.keyboard("{Meta>}");
+    await user.click(link);
+    await user.keyboard("{/Meta}");
+    expect(openFile).toHaveBeenCalledWith("site/index.html", null);
+  });
+});

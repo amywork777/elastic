@@ -1,7 +1,7 @@
 import { FileViewer } from "@workbench/ui/file-viewer";
 import type { ViewerHost } from "@workbench/ui/host";
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
-import { GitBranch } from "lucide-react";
+import { Eye, GitBranch } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useResolvedTheme } from "@renderer/hooks/use-theme";
@@ -18,6 +18,8 @@ import { useDesktopViewState } from "./adapters/persistence";
 import { createDesktopRenderers } from "./renderers";
 import { pluginRenderers } from "@renderer/plugins/file-renderers";
 import { OpenWithMenu } from "@renderer/plugins/OpenWithMenu";
+import { Button } from "@renderer/components/ui/button";
+import { openPreview } from "@renderer/state/preview";
 import { usePlugins } from "@renderer/plugins/store";
 import { EXPLORER_TABPANEL_ID, focusTabBody } from "./focus";
 
@@ -82,7 +84,18 @@ export function FileTab({ sessionId, tabId, project, root, path, panel, shown = 
   return <FileViewer file={path} host={host} renderers={composition.renderers} state={state} onStateChange={onStateChange}
     reveal={reveal?.root === root ? reveal : null}
     onError={(error) => toast.error(error.message)}
-    navigationActions={<OpenWithMenu path={path} />}
+    navigationActions={<>
+      {/* A page opens rendered beside its source, and reloads as it is saved (`state/preview.ts`). */}
+      {path && /\.html?$/i.test(path) ? (
+        <TooltipHint content="Open the page rendered, in a browser tab">
+          <Button className="h-6 gap-1 px-1.5 text-xs" data-open-preview onClick={() => void openPreview(path, root ?? null)} size="sm" variant="ghost">
+            <Eye className="size-3.5" />
+            Preview
+          </Button>
+        </TooltipHint>
+      ) : null}
+      <OpenWithMenu path={path} />
+    </>}
     leading={worktree ? <>
       <TooltipHint content={worktree.path}>
         <span className="flex shrink items-center gap-1 truncate rounded-sm px-0.5 text-muted-foreground" data-crumb="worktree">

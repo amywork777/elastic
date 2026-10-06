@@ -20,6 +20,7 @@ import { appHandlers } from "./app";
 import { integrationHandlers } from "./integrations";
 import { clipboardHandlers } from "./clipboard";
 import { queuesHandlers } from "./queues";
+import { previewHandlers } from "./preview";
 import { dictationHandlers } from "./dictation";
 import { providersHandlers } from "./providers";
 import { browserHandlers } from "./browser";
@@ -130,6 +131,7 @@ const handlers = {
   ...integrationHandlers,
   ...clipboardHandlers,
   ...queuesHandlers,
+  ...previewHandlers,
   ...dictationHandlers,
   ...providersHandlers,
   ...browserHandlers,

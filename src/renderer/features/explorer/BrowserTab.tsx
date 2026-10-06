@@ -1,4 +1,6 @@
-import { ArrowLeft, ArrowRight, Camera, ExternalLink, Globe, MessageSquareQuote, RotateCw, Terminal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, ExternalLink, FileCode, Globe, MessageSquareQuote, RotateCw, Terminal } from "lucide-react";
+import { isPreviewUrl, previewSourcePath } from "@renderer/state/preview";
+import { useExplorer } from "@renderer/state/explorer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -122,6 +124,17 @@ export function BrowserTab({ sessionId, projectId, root, tabId, url }: { session
           value={address}
         />
 
+        {/* A live preview of a file in the project: its source is a click away. */}
+        {current && isPreviewUrl(current) && previewSourcePath(current) ? (
+          <WebPreviewNavigationButton
+            aria-label="View source"
+            data-view-source
+            onClick={() => { useExplorer.getState().openFile(previewSourcePath(current)!, root); }}
+            tooltip="View source"
+          >
+            <FileCode className="size-3.5" />
+          </WebPreviewNavigationButton>
+        ) : null}
         <WebPreviewNavigationButton disabled={!current || !target || adding} onClick={() => addContext("selection")} aria-label="Add selected text to prompt" tooltip="Add selected text to prompt">
           <MessageSquareQuote className="size-3.5" />
         </WebPreviewNavigationButton>

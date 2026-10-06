@@ -51,6 +51,7 @@ import { explorerEvents, explorerIpc } from "./explorer";
 import { gitIpc } from "./git";
 import { clipboardContract } from "./clipboard";
 import { queuesContract } from "./queues";
+import { previewContract } from "./preview";
 import { dictationContract, dictationEvents } from "./dictation";
 import { providersContract } from "./providers";
 import { browserEvents, browserIpc } from "./browser";
@@ -205,6 +206,7 @@ export const ipcContract = defineIpc({
 
   ...clipboardContract,
   ...queuesContract,
+  ...previewContract,
   ...dictationContract,
   ...providersContract,
   ...browserIpc,
