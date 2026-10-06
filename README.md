@@ -29,7 +29,7 @@ unchanged, the same plugin Codex runs.
 
 ## Status: beta
 
-elastic is 0.1.1 beta. It works day to day, and rough edges are expected.
+elastic is 0.1.2 beta. It works day to day, and rough edges are expected.
 
 **Known gaps**
 
