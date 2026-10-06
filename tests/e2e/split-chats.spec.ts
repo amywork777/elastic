@@ -62,6 +62,11 @@ test("two chats side by side: both run, the explorer follows focus, the divider 
   await expect(side("left")).not.toContainText("right again");
 
   // The divider moves, and its place is kept in the settings.
+  // Its grab area is wider than its line, on both sides, above what the chats draw beside it.
+  const line = (await page.locator("[data-split-divider]").boundingBox())!;
+  for (const dx of [-3, -2, 2, 3]) {
+    expect(await page.evaluate(([x, y]) => Boolean(document.elementFromPoint(x!, y!)?.closest("[data-split-divider]")), [line.x + dx, line.y + line.height / 2])).toBe(true);
+  }
   await dragSeparator(page, page.locator("[data-split-divider]"), -150);
   await expect.poll(async () => (await page.evaluate(() => window.workbench.settings.get())).layout.splitRatio).toBeLessThan(0.45);
 

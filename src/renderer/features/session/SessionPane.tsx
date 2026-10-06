@@ -90,7 +90,7 @@ export function SessionPane() {
       aria-valuemax={RATIO_MAX * 100}
       aria-valuemin={RATIO_MIN * 100}
       aria-valuenow={Math.round(ratio * 100)}
-      className={cn("relative w-px shrink-0 cursor-col-resize bg-border outline-none after:absolute after:inset-y-0 after:-inset-x-[3px] focus-visible:bg-ring", dragging && "bg-ring")}
+      className={cn("relative z-10 w-px shrink-0 cursor-col-resize bg-border outline-none after:absolute after:inset-y-0 after:-inset-x-[3px] focus-visible:bg-ring", dragging && "bg-ring")}
       data-split-divider
       key="divider"
       onKeyDown={onKeyDown}

@@ -114,3 +114,16 @@ it("shows only the focused side when the pane itself is too narrow for two (the 
   expect(side("right")).not.toHaveAttribute("hidden");
   spy.mockRestore();
 });
+
+it("stops a composer from taking the keyboard once its side has lost focus, even if it mounted focused", async () => {
+  const { useTakesFocus, SplitSideContext } = await import("@renderer/features/session/split-side");
+  useSessions.setState({ activeId: "a", split: { left: "a", right: null, focus: "left" } });
+  let takes: boolean | null = null;
+  const Probe = () => { takes = useTakesFocus(); return null; };
+  render(<SplitSideContext.Provider value="left"><Probe /></SplitSideContext.Provider>);
+  expect(takes).toBe(true);
+  act(() => useSessions.getState().focusSide("right"));
+  expect(takes).toBe(false);
+  act(() => useSessions.getState().focusSide("left"));
+  expect(takes).toBe(false);
+});
