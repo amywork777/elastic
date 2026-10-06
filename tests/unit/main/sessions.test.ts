@@ -1111,6 +1111,37 @@ describe("SessionManager", () => {
    * Codex session's whole `initialize` goes (README, "Opening a session").
    * A second session finds the pool empty and spawns its own.
    */
+  it("marks a chat viewed without making it active", async () => {
+    const { manager, cwd } = await setup();
+    const session = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });
+    const before = manager.get(session.id)!.updatedAt;
+    const viewed = manager.markViewed(session.id, before + 5_000);
+    expect(viewed.lastViewedAt).toBe(before + 5_000);
+    expect(manager.get(session.id)!.updatedAt).toBe(before);
+  });
+
+  it("keeps a manual tag until the next turn starts", async () => {
+    const { manager, cwd } = await setup();
+    const session = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });
+    expect(manager.setTag(session.id, "done").statusOverride).toBe("done");
+    await manager.prompt(session.id, [{ type: "text", text: "hello" }]);
+    expect(manager.get(session.id)!.statusOverride).toBeNull();
+  });
+
+  it("does not count a reconnect or an eviction as activity", async () => {
+    const { manager, cwd } = await setup({ snapshots: memorySnapshots() });
+    const session = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });
+    await manager.prompt(session.id, [{ type: "text", text: "hello" }]);
+    const active = manager.get(session.id)!.updatedAt;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    manager.close(session.id);
+    const afterClose = manager.get(session.id)!.updatedAt;
+    await manager.load(session.id);
+    expect({ afterClose, afterLoad: manager.get(session.id)!.updatedAt }).toEqual({ afterClose: active, afterLoad: active });
+    await manager.prompt(session.id, [{ type: "text", text: "again" }]);
+    expect(manager.get(session.id)!.updatedAt).toBeGreaterThan(active);
+  });
+
   it("hands the warm adapter to the first session and spawns for the second", async () => {
     const { manager, cwd } = await setup();
     await manager.warmAgents();

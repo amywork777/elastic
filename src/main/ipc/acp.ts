@@ -203,6 +203,8 @@ export const acpHandlers = {
       return session;
     }),
     setPinned: ({ id, pinned }) => surfacing(() => sessionManager.setPinned(id, pinned)),
+    markViewed: ({ id }) => surfacing(() => sessionManager.markViewed(id)),
+    setTag: ({ id, tag }) => surfacing(() => sessionManager.setTag(id, tag)),
     activity: () => sessionManager.activity(),
     close: ({ id }) => surfacing(async () => { forgetSession(id); await sessionManager.close(id); }),
     delete: ({ id }) =>

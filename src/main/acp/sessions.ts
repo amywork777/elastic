@@ -42,7 +42,7 @@ import { DELETED_WHILE_STARTING } from "../../shared/ipc/errors";
 import type { AgentProcess } from "../../shared/ipc/acp";
 import type { AgentProvider, Launch } from "../../shared/agents";
 import type { ProviderSet } from "../../shared/providers";
-import type { GitMode, Session, SessionStatus } from "../../shared/types";
+import type { GitMode, Session, SessionStatus, SessionTag } from "../../shared/types";
 import { startTimer } from "../timer";
 import { PROBE_WAIT_MS, type AgentDetector } from "../agents/detect";
 import { agentProvider } from "../agents/registry";
@@ -1132,7 +1132,8 @@ export class SessionManager {
     console.info(
       `[acp] load ${id.slice(0, 8)} ${session.agentId} warm=${warmed ? "yes" : "no"} ${timer.format()}`,
     );
-    this.update(id, { status: "idle" });
+    // A reconnect is housekeeping, not activity (`isActivity`): the row keeps its place in Recents.
+    this.update(id, { status: "idle" }, { touch: false });
     this.deps.broadcast("session.state", { sessionId: id, state: connection.state });
     return connection.state;
   }
@@ -1372,6 +1373,22 @@ export class SessionManager {
    * it, and a sidebar sorted by last activity must not jump when someone
    * pins the oldest row in the list.
    */
+  /** The person saw this chat (window focused, chat open). Not activity: `updatedAt` stays. */
+  markViewed(id: string, at: number = Date.now()): Session {
+    const session = this.require(id);
+    const next = this.deps.repo.upsert({ ...session, lastViewedAt: at });
+    this.broadcastIndex();
+    return next;
+  }
+
+  /** A tag set by hand, or null for automatic; the next turn's start clears it. Not activity. */
+  setTag(id: string, tag: SessionTag | null): Session {
+    const session = this.require(id);
+    const next = this.deps.repo.upsert({ ...session, statusOverride: tag });
+    this.broadcastIndex();
+    return next;
+  }
+
   setPinned(id: string, pinned: boolean): Session {
     const session = this.require(id);
     const next = this.deps.repo.upsert({ ...session, pinned });
@@ -2006,9 +2023,13 @@ export class SessionManager {
         }
         break;
       }
-      case "prompt/start":
+      case "prompt/start": {
+        // A tag set by hand speaks for a finished chat; a new turn makes it say nothing.
+        const row = this.deps.repo.get(id);
+        if (row?.statusOverride) this.deps.repo.upsert({ ...row, statusOverride: null });
         this.setStatus(id, "running");
         break;
+      }
       case "prompt/end":
         this.setStatus(id, "idle");
         break;
@@ -2098,13 +2119,23 @@ export class SessionManager {
       }
       return;
     }
-    this.update(id, { status });
+    this.update(id, { status }, { touch: SessionManager.isActivity(session.status, status) });
     this.deps.broadcast("session.status", { sessionId: id, status, error });
   }
 
-  private update(id: string, patch: Partial<Session>): Session {
+  /**
+   * What moves a chat in Recents and marks it unread: a turn starting, asking, failing, or ending.
+   * A reconnect (connecting, then idle) and an eviction (closed) are the app's housekeeping, and
+   * stamping them made every chat the keep-alive closed jump to the top as news.
+   */
+  private static isActivity(previous: SessionStatus, next: SessionStatus): boolean {
+    if (next === "running" || next === "waiting" || next === "error") return true;
+    return next === "idle" && (previous === "running" || previous === "waiting");
+  }
+
+  private update(id: string, patch: Partial<Session>, { touch = true }: { touch?: boolean } = {}): Session {
     const session = this.require(id);
-    const next = this.deps.repo.upsert({ ...session, ...patch, updatedAt: Date.now() });
+    const next = this.deps.repo.upsert({ ...session, ...patch, ...(touch ? { updatedAt: Date.now() } : {}) });
     this.broadcastIndex();
     return next;
   }
