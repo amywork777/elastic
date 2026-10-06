@@ -29,7 +29,7 @@ unchanged, the same plugin Codex runs.
 
 ## Status: beta
 
-elastic is 0.1.0 beta. It works day to day, and rough edges are expected.
+elastic is 0.1.1 beta. It works day to day, and rough edges are expected.
 
 **Known gaps**
 
@@ -83,7 +83,8 @@ Appearance). Plugin views pick the theme up live.
 
 ```sh
 npm install
-npm run dev          # the app, with hot reload
+npm start            # build and run the production app: what to use day to day
+npm run dev          # the app, with hot reload (slower: development React, unbundled)
 npm run build        # out/ (skills, main, preload, renderer, the app's MCP server)
 ```
 
