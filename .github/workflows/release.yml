@@ -13,6 +13,13 @@ on:
 permissions:
   contents: write
 
+# One tag push has been seen to start two runs a second apart. They raced to create the draft
+# and one failed uploading to a draft the other had made. Queue them instead: the second finds
+# the first's draft and re-uploads the same files over it.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   mac:
     name: Package (macOS)
@@ -50,7 +57,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="v$(cat VERSION)"
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --title "elastic $tag" --notes "elastic $tag"
+          # A draft is not attached to its tag until published (`gh release view <tag>` misses it),
+          # so it is looked up by the tag name it carries.
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq "[.[] | select(.tag_name == \"$tag\")][0].id // empty")
+          [ -n "$existing" ] || gh release create "$tag" --draft --title "elastic $tag" --notes "elastic $tag"
           # latest-mac.yml is the update feed electron-updater reads; without it a
           # published release is invisible to installed apps.
           gh release upload "$tag" release/*.dmg release/*.zip release/*.blockmap release/latest-mac.yml --clobber
