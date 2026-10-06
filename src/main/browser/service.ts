@@ -23,6 +23,8 @@ type Target = {
   takenOver: boolean;
   /** The person is picking elements in the page (`pick`): an agent's input is refused meanwhile. */
   picking: boolean;
+  /** Which picking session is current: a loop from an earlier one sees a different number and leaves. */
+  pickSession: number;
   /** Where the agent last pressed, drawn over the page for a moment (`pointAt`). */
   cursor?: WebContentsView; cursorTimer?: ReturnType<typeof setTimeout>;
   /** The last `activity` event, so a burst of input announces itself twice a second, not per event. */
@@ -100,7 +102,7 @@ export class BrowserService {
       webSecurity: true, backgroundThrottling: false, spellcheck: false,
     } });
     view.setBounds({ x: 0, y: 0, width: 1000, height: 700 });
-    const target: Target = { id, scope: { ...scope }, view, harness: browserHarness(view.webContents), generation: 0, visible: false, ready: Promise.resolve(), logs: [], userInputAt: 0, automatedInputAt: 0, takenOver: false, picking: false, announcedAt: 0 };
+    const target: Target = { id, scope: { ...scope }, view, harness: browserHarness(view.webContents), generation: 0, visible: false, ready: Promise.resolve(), logs: [], userInputAt: 0, automatedInputAt: 0, takenOver: false, picking: false, pickSession: 0, announcedAt: 0 };
     this.targets.set(id, target);
     const wc = view.webContents;
     // Copy buttons and full screen; never the camera, microphone, location or reading the clipboard.
@@ -352,6 +354,8 @@ export class BrowserService {
     return true;
   }
   private hide(target: Target) {
+    // Hidden (another tab shown, the app reloaded, its window closed): nobody can pick in it now.
+    if (target.picking) this.endPicking(target);
     target.visible = false;
     this.hideCursor(target);
     if (target.view.webContents.isFocused() && target.owner && !target.owner.isDestroyed()) target.owner.webContents.focus();
@@ -448,7 +452,10 @@ export class BrowserService {
     if (target.picking) return { active: true };
     const wc = target.view.webContents;
     target.picking = true;
+    target.pickSession += 1;
     this.events.emit("picking", { sessionId: target.scope.sessionId, tabId: id, active: true });
+    // The page takes the keyboard, so the picker hears Esc at once.
+    wc.focus();
     try {
       await wc.executeJavaScriptInIsolatedWorld(PICK_WORLD, [{ code: PICKER_SOURCE }]);
     } catch {
@@ -462,23 +469,28 @@ export class BrowserService {
   private async pickLoop(target: Target) {
     const wc = target.view.webContents;
     const generation = target.generation;
-    while (target.picking && !wc.isDestroyed()) {
+    const session = target.pickSession;
+    const current = () => target.picking && target.pickSession === session && target.generation === generation;
+    while (current() && !wc.isDestroyed()) {
       let next: Pick | null;
       try {
         next = await wc.executeJavaScriptInIsolatedWorld(PICK_WORLD, [{ code: "globalThis.__elasticPicker ? globalThis.__elasticPicker.next() : null" }], true) as Pick | null;
       } catch {
         next = null;
       }
-      if (!target.picking || target.generation !== generation) return;
+      if (!current()) return;
       if (!next) {
         this.endPicking(target);
         return;
       }
-      const crop = clampRect(next.rect, next.viewport);
+      // The page measures in CSS pixels; the crop is in the view's, which differ by the page's zoom.
+      const zoom = wc.getZoomFactor();
+      const scale = (r: { x?: number; y?: number; width: number; height: number }) => ({ x: (r.x ?? 0) * zoom, y: (r.y ?? 0) * zoom, width: r.width * zoom, height: r.height * zoom });
+      const crop = clampRect(scale(next.rect), scale(next.viewport));
       if (!crop) continue;
       try {
         const image = (await wc.capturePage(crop)).toPNG().toString("base64");
-        if (!target.picking || target.generation !== generation) return;
+        if (!current()) return;
         this.events.emit("picked", {
           sessionId: target.scope.sessionId, tabId: target.id, url: wc.getURL(), title: wc.getTitle(), generation,
           image, html: next.html, selector: next.selector, tag: next.tag, size: next.size,

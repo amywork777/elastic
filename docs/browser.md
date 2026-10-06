@@ -217,9 +217,10 @@ The crosshair in a browser tab's toolbar starts pick mode (click-to-prompt). Mai
 picker (`src/shared/browser-picker.ts`, `PICKER_SOURCE`) in an isolated world of the page
 (`BrowserService.pick`, world 1999): the page's scripts can neither see the overlay nor call or
 forge the picker. Hovering outlines the element under the pointer; a click picks it without
-reaching the page's own handlers; Shift keeps picking; Esc, the button, or the page navigating
-ends the mode. Main awaits one pick at a time, crops it from the page (`capturePage`, padded and
-clamped to the viewport) and broadcasts `browser.picked`; the tab turns each into a prompt chip:
+reaching the page's own handlers, and picking goes on until Esc (in the page or the app), the
+button, the page navigating, or the tab being hidden ends it. Only the person's own input counts:
+a page script dispatching clicks or keys is ignored. Main awaits one pick at a time, crops it from
+the page (`capturePage`, scaled by the page's zoom, padded and clamped to the viewport) and broadcasts `browser.picked`; the tab turns each into a prompt chip:
 the cropped image (`browser-element.png`) and a text part with the element's tag, URL, selector,
 size and trimmed HTML (4 KB, no scripts or styles). An agent's input to the page is refused while
 the person is picking, and a tab that is hidden or closed stops picking.

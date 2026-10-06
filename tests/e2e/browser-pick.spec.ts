@@ -77,3 +77,24 @@ test("a picked element becomes a chip, the page's handler does not run, and Esc 
   }, origin);
   await expect(page.locator("[data-pick-element]")).toHaveAttribute("aria-pressed", "false", { timeout: 10_000 });
 });
+
+test("a page dispatching its own clicks and keys neither picks nor ends picking", async () => {
+  await page.locator("[data-pick-element]").click();
+  await expect(page.locator("[data-pick-element]")).toHaveAttribute("aria-pressed", "true");
+  const composer = page.locator("[data-session-view] .ProseMirror").first();
+  const chips = async () => ((await composer.textContent()) ?? "").split("Element <").length - 1;
+  const before = await chips();
+  await inShop(`(() => {
+    const buy = document.getElementById("buy"), r = buy.getBoundingClientRect();
+    const at = { bubbles: true, cancelable: true, clientX: r.left + 5, clientY: r.top + 5 };
+    buy.dispatchEvent(new PointerEvent("pointermove", at));
+    buy.dispatchEvent(new MouseEvent("click", at));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  })()`);
+  await page.waitForTimeout(500);
+  expect(await chips()).toBe(before);
+  expect(await inShop<string>("document.title")).toBe("Shop");
+  await expect(page.locator("[data-pick-element]")).toHaveAttribute("aria-pressed", "true");
+  await page.locator("[data-pick-element]").click();
+  await expect(page.locator("[data-pick-element]")).toHaveAttribute("aria-pressed", "false");
+});

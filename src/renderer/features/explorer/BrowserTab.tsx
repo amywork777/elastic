@@ -105,6 +105,17 @@ export function BrowserTab({ sessionId, projectId, root, tabId, url }: { session
       if (pickingRef.current) void window.workbench.browser.pick({ ...binding, active: false }).catch(() => {});
     };
   }, [sessionId, projectId, root, tabId, prompt]);
+  // Esc in the app (the keyboard is not in the page) stops picking too.
+  useEffect(() => {
+    if (!picking) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      void window.workbench.browser.pick({ sessionId, projectId, root, tabId, active: false }).then((result) => setPicking(result.active)).catch(() => setPicking(false));
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [picking, sessionId, projectId, root, tabId]);
   const togglePicking = () => {
     void window.workbench.browser.pick({ sessionId, projectId, root, tabId, active: !picking }).then((result) => setPicking(result.active)).catch(() => setPicking(false));
   };

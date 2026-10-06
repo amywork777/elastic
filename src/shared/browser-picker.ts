@@ -14,8 +14,6 @@ export type Pick = {
   selector: string;
   tag: string;
   size: { width: number; height: number };
-  /** Shift was held: the person goes on picking. */
-  more: boolean;
 };
 
 /** A selector that finds `element` again: its id when unique, else a path from the nearest unique ancestor. */
@@ -73,21 +71,25 @@ export function clampRect(rect: PickRect, viewport: { width: number; height: num
 }
 
 /**
- * Pick mode in this world: hovering outlines the element under the pointer (drawn in a closed
- * shadow root, so the page cannot style or read it), a click picks it without reaching the page's
- * own handlers, Shift keeps picking, Esc ends. `__elasticPicker.next()` resolves the next pick or
- * null when picking ends; `stop()` ends it from outside.
+ * Pick mode in this world. A full-page layer of our own (a closed shadow root, so the page can
+ * neither style nor read it) takes every pointer event while picking, so nothing under it is
+ * clicked: not the page's controls, not a frame's. Hovering outlines the element under the
+ * pointer; a click picks it; Esc ends. Every key is kept from the page meanwhile. Only the
+ * person's own input counts (`trusted`, `event.isTrusted` unless a test stands in): a page
+ * script dispatching a click, a key or a move is ignored. The outline is hidden for two frames
+ * before a pick is handed over, so the crop main takes is the page and not our overlay.
+ * `__elasticPicker.next()` resolves the next pick or null when picking ends; `stop()` ends it.
  */
-export function installPicker(): void {
+export function installPicker(trusted: (event: Event) => boolean = (event) => event.isTrusted): void {
   const scope = globalThis as unknown as { __elasticPicker?: { next(): Promise<Pick | null>; stop(): void } };
   if (scope.__elasticPicker) return;
   const host = document.createElement("div");
-  host.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483647";
+  host.style.cssText = "position:fixed;inset:0;pointer-events:auto;cursor:crosshair;z-index:2147483647;background:transparent";
   const root = host.attachShadow({ mode: "closed" });
   const outline = document.createElement("div");
-  outline.style.cssText = "position:fixed;border:2px solid #2563eb;background:rgba(37,99,235,.08);border-radius:3px;display:none;box-sizing:border-box";
+  outline.style.cssText = "position:fixed;border:2px solid #2563eb;background:rgba(37,99,235,.08);border-radius:3px;display:none;box-sizing:border-box;pointer-events:none";
   const label = document.createElement("div");
-  label.style.cssText = "position:fixed;font:11px/16px system-ui,sans-serif;color:#fff;background:#2563eb;padding:0 6px;border-radius:3px;display:none;white-space:nowrap";
+  label.style.cssText = "position:fixed;font:11px/16px system-ui,sans-serif;color:#fff;background:#2563eb;padding:0 6px;border-radius:3px;display:none;white-space:nowrap;pointer-events:none";
   root.append(outline, label);
   document.documentElement.append(host);
 
@@ -101,6 +103,10 @@ export function installPicker(): void {
       resolve(pick);
     } else queued.push(pick);
   };
+  const frame = (run: () => void) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(run) : setTimeout(run, 16));
+  /** The page's element under the pointer: our layer is the topmost, so the next one down. */
+  const under = (x: number, y: number): Element | null =>
+    document.elementsFromPoint(x, y).find((element) => element !== host && element !== document.documentElement) ?? null;
   const show = (element: Element | null) => {
     hovered = element;
     if (!element) {
@@ -117,44 +123,48 @@ export function installPicker(): void {
     event.stopImmediatePropagation();
   };
   const onMove = (event: PointerEvent) => {
-    const element = document.elementFromPoint(event.clientX, event.clientY);
-    if (element && element !== host) show(element);
+    if (!trusted(event)) return;
+    host.style.visibility = "visible";
+    show(under(event.clientX, event.clientY));
   };
   const onClick = (event: MouseEvent) => {
     swallow(event);
-    const element = (event.target instanceof Element && event.target !== host ? event.target : hovered);
+    if (!trusted(event)) return;
+    const element = under(event.clientX, event.clientY) ?? hovered;
     if (!element) return;
     const box = element.getBoundingClientRect();
-    deliver({
+    const pick: Pick = {
       rect: { x: box.left, y: box.top, width: box.width, height: box.height },
       viewport: { width: innerWidth, height: innerHeight },
       html: trimHtml(element.outerHTML),
       selector: cssSelector(element),
       tag: element.tagName.toLowerCase(),
       size: { width: Math.round(box.width), height: Math.round(box.height) },
-      more: event.shiftKey,
-    });
+    };
+    // Out of the picture before main crops it; back with the next move.
+    host.style.visibility = "hidden";
+    frame(() => frame(() => deliver(pick)));
   };
   const onKey = (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return;
     swallow(event);
-    stop();
+    if (event.type === "keydown" && event.key === "Escape" && trusted(event)) stop();
   };
+  const POINTER = ["pointerdown", "pointerup", "mousedown", "mouseup", "dblclick", "contextmenu", "auxclick"];
   const stop = () => {
     removeEventListener("pointermove", onMove, true);
-    for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "dblclick", "contextmenu"]) removeEventListener(type, swallow, true);
+    for (const type of POINTER) removeEventListener(type, swallow, true);
     removeEventListener("click", onClick, true);
     removeEventListener("keydown", onKey, true);
-    document.removeEventListener("keydown", onKey, true);
+    removeEventListener("keyup", onKey, true);
     host.remove();
     delete scope.__elasticPicker;
     deliver(null);
   };
   addEventListener("pointermove", onMove, true);
-  for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup", "dblclick", "contextmenu"]) addEventListener(type, swallow, true);
+  for (const type of POINTER) addEventListener(type, swallow, true);
   addEventListener("click", onClick, true);
   addEventListener("keydown", onKey, true);
-  document.addEventListener("keydown", onKey, true);
+  addEventListener("keyup", onKey, true);
   scope.__elasticPicker = {
     next: () => (queued.length > 0 ? Promise.resolve(queued.shift()!) : new Promise<Pick | null>((resolve) => { waiting = resolve; })),
     stop,
