@@ -785,6 +785,26 @@ screen, marked stale under a "Could not refresh" line with Try again.
 
 The composer's paperclip opens one picker for files and photos.
 
+### Recents
+
+The sidebar's main list (`groupBy: "recents"`, the default; installs from before it are moved to
+it once, `settings.defaultSidebarToRecentsOnce`). Pinned chats first, then every listed chat with
+what is live (a turn going, a question waiting) on top, the rest by last activity, Done after
+them; ten rows, then **Show N more** for the launch. The folder sections fold under one
+**Folders** header below (`foldersCollapsed`), and the Running strip is not drawn: Recents puts
+running chats on top already. The rules are pure functions in `lib/sidebar.ts`
+(`recentsSections`, `statusTag`, `isUnread`).
+
+A row's tag: Working, Waiting on you, Failed while true; a finished chat takes the tag the person
+set by hand (right-click; cleared when its next turn starts), else **Needs review** when it is
+unread and changed files, else **Done**. **Unread** is activity after the last time the person saw
+the chat with the window focused (`state/viewed.ts`, `sessions.markViewed`); a chat never seen
+since Recents arrived reads as read. Only turns are activity: `updatedAt` is stamped by a turn
+starting, asking, failing or ending, never by a reconnect or the keep-alive closing a chat
+(`SessionManager.isActivity`), so those neither reorder Recents nor mark a chat unread. A row
+opens its chat from anywhere on it; with a tag beside it the title keeps its width and the folder
+name gives way first.
+
 ### Dictation
 
 The microphone beside send dictates into the box, transcribed on the Mac by

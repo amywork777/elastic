@@ -158,6 +158,13 @@ export function SessionRow({
           data-status={session.status}
           data-status-tag={tagged?.tag}
           data-unread={unread ? "" : undefined}
+          // The whole row opens the chat, not only its title: the folder name and the tag beside
+          // it are part of what is clicked. Controls in the row keep their own clicks. The keyboard's
+          // way in is the title button, so this pointer-only handler adds no second tab stop.
+          onClick={(event) => {
+            if (editing || (event.target as HTMLElement).closest("button, input, a, [role=menuitem]")) return;
+            onSelect();
+          }}
         >
           {unread && sessionGlyphFor(session.status) === "idle" ? (
             <span className="flex size-4 shrink-0 items-center justify-center self-center leading-none" data-session-glyph="unread">
@@ -202,7 +209,10 @@ export function SessionRow({
                 // here: read as the row's description, it is heard from the one place focus lands.
                 aria-describedby={statusText ? statusId : undefined}
                 className={cn(
-                  "min-w-0 flex-1 truncate text-left text-[13px] focus-visible:outline-none",
+                  "min-w-0 truncate text-left text-[13px] focus-visible:outline-none",
+                  // With a tag beside it the title is what must stay readable: it claims its own width
+                  // (basis auto, not flex-1's zero) and the folder name gives way first.
+                  tagged ? "min-w-16 flex-auto" : "flex-1",
                   unread && "font-semibold",
                   tagged?.tag === "done" && !selected && "text-sidebar-foreground/75",
                 )}
@@ -223,7 +233,10 @@ export function SessionRow({
           )}
           {projectName ? (
             <span
-              className="max-w-[40%] shrink-0 truncate text-[11px] text-muted-foreground"
+              className={cn(
+                "truncate text-[11px] text-muted-foreground",
+                tagged ? "min-w-0 max-w-[30%] shrink-[100]" : "max-w-[40%] shrink-0",
+              )}
               data-session-project
             >
               {projectName}

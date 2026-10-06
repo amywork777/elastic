@@ -862,3 +862,29 @@ describe("Recents sidebar", () => {
     expect(window.workbench.sessions.setTag).toHaveBeenCalledWith({ id: "a", tag: "review" });
   });
 });
+
+describe("Recents row layout", () => {
+  it("lets the folder name give way before the title when a tag shares the row", () => {
+    useProjects.setState({ projects: [project("p1", "a-very-long-folder-name-for-the-row")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ groupBy: "recents" }) }, ready: true });
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha", updatedAt: 9, lastViewedAt: 1, changedFiles: 1 })] });
+    const view = wrap(<Sidebar />);
+    const row = view.container.querySelector('[data-sidebar-recents] [data-session-row="a"]')!;
+    expect(row.querySelector("[data-session-row-title]")!.className).toContain("min-w-16");
+    expect(row.querySelector("[data-session-row-title]")!.className).toContain("flex-auto");
+    expect(row.querySelector("[data-session-project]")!.className).toContain("shrink-[100]");
+    expect(row.querySelector("[data-session-project]")!.className).not.toContain("shrink-0");
+  });
+});
+
+describe("a row's click target", () => {
+  it("opens the chat from anywhere on the row, the folder name and tag included", async () => {
+    const user = userEvent.setup();
+    useProjects.setState({ projects: [project("p1", "elastic")], ready: true, activeId: "p1", draft: null });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters({ groupBy: "recents" }) }, ready: true });
+    useSessions.setState({ ready: true, activeId: null, sessions: [session({ id: "a", title: "Alpha" })] });
+    const view = wrap(<Sidebar />);
+    await user.click(view.container.querySelector('[data-sidebar-recents] [data-session-row="a"] [data-session-project]')!);
+    expect(useSessions.getState().activeId).toBe("a");
+  });
+});
