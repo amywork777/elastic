@@ -14,9 +14,10 @@
 /* Streamdown renders markdown with Tailwind classes of its own — the
  * heading sizes, list indents, table rules — and they live in its dist, which
  * is outside every path above. Without these lines a README's H1 is body
- * text in bold. */
-@source "../../../../../node_modules/streamdown/dist/*.js";
-@source "../../../../../node_modules/@streamdown/code/dist/*.js";
+ * text in bold, and a list loses its bullets (`tests/unit/renderer/tailwind-sources.test.ts`
+ * checks these paths exist: a wrong one is silently no classes). */
+@source "../../../node_modules/streamdown/dist/*.js";
+@source "../../../node_modules/@streamdown/code/dist/*.js";
 
 @import "@workbench/ui/tokens.css";
 @import "@workbench/ui/styles.css";
@@ -286,4 +287,32 @@
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* A reply's lists (`.prose-transcript`, the transcript and the quick-command card). Streamdown
+ * sets them `list-inside`, so a wrapped line ran back under its bullet; here the marker hangs
+ * outside the text and items sit closer than paragraphs do. Unlayered, so it wins over the
+ * utilities Streamdown puts on the same elements. */
+.prose-transcript :is(ul, ol) {
+  list-style-position: outside;
+  padding-left: 1.25rem;
+  /* Closer to the label above it than to what comes next: the label reads as the list's. */
+  margin-block: 0.25rem 0.875rem;
+}
+/* A line right above a list is the list's label ("**Look**"): it keeps close to it. */
+.prose-transcript p:has(+ :is(ul, ol)) {
+  margin-bottom: 0.25rem;
+}
+.prose-transcript :is(ul, ol) :is(ul, ol) {
+  margin-block: 0.125rem;
+}
+.prose-transcript li {
+  padding-block: 0.125rem;
+  padding-left: 0.25rem;
+}
+.prose-transcript li > p {
+  margin-block: 0;
+}
+.prose-transcript li::marker {
+  color: var(--color-muted-foreground);
 }
