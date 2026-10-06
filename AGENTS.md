@@ -194,7 +194,11 @@ the rule is about.
   `CODEX_ADAPTER` in `src/main/agents/registry.ts` name one version each,
   launched through `npm exec --yes --prefer-offline --no-audit --no-fund
   --no-update-notifier --package=<pkg>@<version>` and
-  never a global install (`tests/unit/main/registry.test.ts`). Bump by the
+  never a global install (`tests/unit/main/registry.test.ts`). Once npm's
+  `_npx` cache holds that exact version, the same adapter is spawned as
+  `node <its bin>` instead, so `npm exec` does not stay resident in front of
+  every chat (`src/main/agents/direct-launch.ts`; anything it cannot account
+  for keeps the `npm exec` line). Bump by the
   recipe: `npm view <package> version`, change the constant, run
   `scripts/acp-harness.mjs` for that agent in a scratch directory, re-record
   its fixture (README, "ACP").

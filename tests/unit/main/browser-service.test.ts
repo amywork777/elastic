@@ -195,14 +195,15 @@ it("does not evict a page re-opened under the same id when the old one reports d
   expect(service.list(scope).map(tab => tab.tabId)).toEqual(["x"]);
 });
 
-it("reads console messages from the details event, and still from the deprecated positional form", async () => {
+it("reads console messages from the details event, with a one-parameter listener", async () => {
   await service.open(scope, { tabId: "log", url: "https://example.com/" });
   contents("log").emit("console-message", { level: "warning", message: "from details" });
   contents("log").emit("console-message", { level: "error", message: "boom" });
-  contents("log").emit("console-message", {}, 3, "positional");
   expect(service.metadata(scope, "log").logs).toEqual([
-    { level: "warn", message: "from details" }, { level: "error", message: "boom" }, { level: "error", message: "positional" },
+    { level: "warn", message: "from details" }, { level: "error", message: "boom" },
   ]);
+  // Electron warns for a listener that declares the deprecated positional parameters.
+  expect(contents("log").listeners("console-message").every((listener) => listener.length <= 1)).toBe(true);
 });
 
 it("drops its app-window `closed` listener when the page closes", async () => {

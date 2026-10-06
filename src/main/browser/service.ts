@@ -112,13 +112,12 @@ export class BrowserService {
     wc.on("before-mouse-event", (_event, mouse) => { if (mouse.type === "mouseDown") target.userInputAt = Date.now(); });
     wc.on("will-navigate", guard);
     wc.on("will-redirect", guard);
-    // The event carries `level` ("info" | "warning" | "error" | "debug") and
-    // `message`; the positional (numeric level, message) form is deprecated but
-    // read as a fallback.
-    wc.on("console-message", ((event: { level?: unknown; message?: unknown }, level?: number, message?: string) => {
-      const severity = typeof event.level === "string" ? (event.level === "error" ? "error" : event.level === "warning" ? "warn" : "log")
-        : (level ?? 0) >= 3 ? "error" : level === 2 ? "warn" : "log";
-      this.log(target, severity, typeof event.message === "string" ? event.message : message ?? "");
+    // The event carries `level` ("info" | "warning" | "error" | "debug") and `message`. One
+    // parameter only: Electron prints a deprecation warning for every listener that declares the
+    // old positional (level, message) ones, once per browser tab.
+    wc.on("console-message", ((event: { level?: unknown; message?: unknown }) => {
+      const severity = event.level === "error" ? "error" : event.level === "warning" ? "warn" : "log";
+      this.log(target, severity, typeof event.message === "string" ? event.message : "");
     }) as never);
     // `close()` has already dropped the target, and the id may be a newer page's
     // by the time Chromium reports this one destroyed (archive, then a quick unarchive).

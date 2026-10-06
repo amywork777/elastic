@@ -40,7 +40,7 @@ import type {
 import type { IpcEventChannel, IpcEventPayload } from "../../shared/ipc";
 import { DELETED_WHILE_STARTING } from "../../shared/ipc/errors";
 import type { AgentProcess } from "../../shared/ipc/acp";
-import type { Launch } from "../../shared/agents";
+import type { AgentProvider, Launch } from "../../shared/agents";
 import type { ProviderSet } from "../../shared/providers";
 import type { GitMode, Session, SessionStatus } from "../../shared/types";
 import { startTimer } from "../timer";
@@ -144,6 +144,12 @@ export type SessionManagerDeps = {
    * `tests/fake-agent`; nothing else sets this.
    */
   launchOverride?: (agentId: string) => Launch | null;
+  /**
+   * The launch actually spawned, given the provider's and the environment: `node <bin>` for an
+   * adapter npm already holds, rather than `npm exec` resident in front of it
+   * (`../agents/direct-launch.ts`). Absent, the provider's launch as it is.
+   */
+  resolveLaunch?: (launch: Launch, env: Record<string, string>) => Promise<Launch>;
 
   /**
    * P7: the git mode as a directory (plan §9). Injected rather than imported
@@ -878,8 +884,7 @@ export class SessionManager {
     const connection = new SessionConnection({
       sessionId: probeId,
       agentId: input.agentId,
-      launch: launch ?? provider.launch,
-      env: await this.environment(),
+      ...(await this.launchAndEnvironment(provider, launch)),
       cwd: input.cwd,
       mcpServers:
         this.deps.mcpServers?.({ id: probeId, projectId: input.projectId ?? "", cwd: input.cwd, agentId: input.agentId }) ?? [],
@@ -929,22 +934,22 @@ export class SessionManager {
     }
     if (!existsSync(cwd)) throw new Error(`${cwd} does not exist`);
     const asideId = `aside:${input.agentId}:${this.deps.newId()}`;
-    const connection: SessionConnection = new SessionConnection({
+    const asideOptions = {
       sessionId: asideId,
-      agentId: input.agentId,
-      launch: this.deps.launchOverride?.(provider.id) ?? provider.launch,
-      env: await this.environment(),
-      cwd,
       // No tools beyond the agent's own: an aside answers, it does not act.
       mcpServers: [],
-      skillsRoot: null,
-      spawnTerminal: this.deps.spawnTerminal,
-      clientVersion: this.deps.clientVersion,
       onStderr: () => undefined,
-      onEvent: (event) => {
+      onEvent: (event: SessionEvent) => {
         if (event.type === "permission/request") connection.client.cancelPendingPermissions();
       },
-    });
+    };
+    // The spare adapter when there is one (`./warm.ts`): an aside is asked for to be quick, and
+    // the spare has already paid the spawn and `initialize`, most of an aside's wait. Taking it
+    // starts its replacement, as a chat's create does.
+    const adapterOptions = await this.adapterOptions(input.agentId, cwd);
+    const spare = this.warm.take(input.agentId, cwd, adapterOptionsKey(adapterOptions), provider.capabilities.sessionCwd === true);
+    const connection: SessionConnection = spare ?? new SessionConnection({ ...adapterOptions, ...asideOptions });
+    if (spare) spare.adopt({ ...asideOptions, ...(spare.cwd === cwd ? {} : { cwd }) });
     const run = async () => {
       if (source) {
         await connection.forkSession(source);
@@ -1623,6 +1628,23 @@ export class SessionManager {
    * The environment an adapter is spawned with: the login shell's, with
    * `runtimePath`'s directories in front of `PATH`.
    */
+  /**
+   * What an adapter is spawned with: the override when one is in force (the e2e suite), else
+   * the provider's launch resolved against the environment (`resolveLaunch`), which the
+   * environment has to be read for first.
+   */
+  private async launchAndEnvironment(
+    provider: AgentProvider,
+    override: Launch | null = this.deps.launchOverride?.(provider.id) ?? null,
+  ): Promise<{ launch: Launch; env: Record<string, string> }> {
+    const env = await this.environment();
+    if (override) return { launch: override, env };
+    const launch = this.deps.resolveLaunch
+      ? await this.deps.resolveLaunch(provider.launch, env).catch(() => provider.launch)
+      : provider.launch;
+    return { launch, env };
+  }
+
   private async environment(): Promise<Record<string, string>> {
     const env = await this.deps.detector.environment();
     const dirs = this.deps.runtimePath?.() ?? [];
@@ -1658,8 +1680,7 @@ export class SessionManager {
     }
     return {
       agentId,
-      launch: this.deps.launchOverride?.(provider.id) ?? provider.launch,
-      env: await this.environment(),
+      ...(await this.launchAndEnvironment(provider)),
       cwd,
       // The skills root, to every agent (plan §8, as revised).
       skillsRoot: this.deps.skills?.root() ?? null,

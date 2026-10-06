@@ -14,6 +14,7 @@ import type { IpcHandlers } from "../../shared/ipc";
 import type { acpContract } from "../../shared/ipc/acp";
 import type { AgentSnapshot } from "../acp/agent-options";
 import { spawnPtyTerminal } from "../acp/pty-backend";
+import { directLaunch } from "../agents/direct-launch";
 import { AgentOptionStore } from "../acp/agent-options";
 import { BTW_PREAMBLE, SessionManager } from "../acp/sessions";
 import { sessionRuntimePath } from "../runtime-path";
@@ -109,6 +110,7 @@ export const sessionManager: SessionManager = new SessionManager({
   // The transcript on this machine, so a row clicked paints before its agent
   // has said a word (migration 10, `src/main/acp/snapshots.ts`).
   snapshots: sessionStates,
+  resolveLaunch: (launch, env) => directLaunch(launch, env),
   launchOverride: fakeAgent
     ? () => ({
         // Electron's own binary, told to be plain Node.

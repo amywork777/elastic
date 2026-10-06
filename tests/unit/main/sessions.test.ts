@@ -1130,6 +1130,27 @@ describe("SessionManager", () => {
   });
 
   /**
+   * A quick command is asked for to be quick: it takes the spare adapter, which has already paid
+   * the spawn and `initialize`, and the pool starts a replacement. The spare is closed with the
+   * aside, never handed to a chat afterwards.
+   */
+  it("runs a quick command on the spare adapter and replaces it", async () => {
+    const { manager, cwd } = await setup();
+    const session = await manager.create({ projectId: "p1", agentId: "claude-code", cwd, gitMode: "none" });
+    manager.close(session.id);
+    await manager.warmAgents();
+    await until(() => (manager.warmed("claude-code") ? true : undefined));
+    const spareBefore = (await manager.activity()).processes.find((process) => process.kind === "spare")!.pid;
+
+    const { markdown } = await manager.aside({ agentId: "claude-code", cwd, projectId: "p1", forkOf: null, text: "/usage" });
+    expect(markdown.length).toBeGreaterThan(0);
+
+    await until(() => (manager.warmed("claude-code") ? true : undefined));
+    const spareAfter = (await manager.activity()).processes.find((process) => process.kind === "spare")!.pid;
+    expect(spareAfter).not.toBe(spareBefore);
+  });
+
+  /**
    * Claude takes its folder from `session/new`, so the warm adapter serves a chat in any folder,
    * and the client's confinement moves with it: a write lands in the new chat's folder.
    */
