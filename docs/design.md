@@ -790,7 +790,7 @@ The composer's paperclip opens one picker for files and photos.
 The sidebar's main list (`groupBy: "recents"`, the default; installs from before it are moved to
 it once, `settings.defaultSidebarToRecentsOnce`). Pinned chats first, then every listed chat with
 what is live (a turn going, a question waiting) on top, the rest by last activity, Done after
-them; ten rows, then **Show N more** for the launch. The folder sections fold under one
+them; five rows, then **Show N more** for the launch, and the Recents header folds the list (`recentsCollapsed`). The folder sections fold under one
 **Folders** header below (`foldersCollapsed`), and the Running strip is not drawn: Recents puts
 running chats on top already. The rules are pure functions in `lib/sidebar.ts`
 (`recentsSections`, `statusTag`, `isUnread`).
