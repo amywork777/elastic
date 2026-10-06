@@ -17,6 +17,8 @@ export const browserIpc = {
     capture: invoke(At.extend({ url: z.string().url(), generation: z.number().int().nonnegative(), kind: z.enum(["selection", "screenshot"]) }), z.object({ base64: z.string(), mimeType: z.string(), url: z.string(), generation: z.number() })),
     /** The person takes the page from the agent (its input is refused), or hands it back. */
     takeOver: invoke(At.extend({ takenOver: z.boolean() }), z.object({ takenOver: z.boolean() })),
+    /** Click-to-prompt: start or stop picking elements in the page; picks arrive as `browser.picked`. */
+    pick: invoke(At.extend({ active: z.boolean() }), z.object({ active: z.boolean() })),
     /** Sign out of every site in the browser tab: its shared cookies, storage and cache (Settings › General). */
     clearData: invoke(z.void(), z.void()),
   },
@@ -25,4 +27,12 @@ export const browserIpc = {
 export const browserEvents = {
   /** An agent is driving this page (its CDP input, at most twice a second per page). */
   "browser.activity": z.object({ sessionId: z.string(), tabId: z.string() }),
+  /** An element the person picked: its cropped image (base64 PNG), trimmed HTML and selector. */
+  "browser.picked": z.object({
+    sessionId: z.string(), tabId: z.string(), url: z.string(), title: z.string(), generation: z.number(),
+    image: z.string(), html: z.string(), selector: z.string(), tag: z.string(),
+    size: z.object({ width: z.number(), height: z.number() }),
+  }),
+  /** Pick mode started or ended in a page (Esc, the button, or the page navigating). */
+  "browser.picking": z.object({ sessionId: z.string(), tabId: z.string(), active: z.boolean() }),
 } as const;

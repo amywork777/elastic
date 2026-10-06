@@ -129,7 +129,7 @@ Object.defineProperty(window, "workbench", {
     // attach a `.catch`, so a `vi.fn()` returning undefined fails at the call
     // site rather than at the assertion.
     browser: {
-      capture: vi.fn(), ensure: vi.fn(), metadata: vi.fn(), navigate: vi.fn(), input: vi.fn(),
+      capture: vi.fn(), ensure: vi.fn(), metadata: vi.fn(), navigate: vi.fn(), input: vi.fn(), pick: vi.fn(async ({ active }: { active: boolean }) => ({ active })),
       present: vi.fn(async () => undefined), close: vi.fn(async () => undefined), clearConsole: vi.fn(async () => undefined),
     },
     terminal: {

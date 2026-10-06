@@ -4,6 +4,11 @@ import { type BrowserWindow, WebContentsView } from "electron";
 import { browserMethodSchemas, type BrowserInput, type BrowserMethod, type BrowserTarget } from "../../shared/browser";
 import { browserHarness } from "./harness";
 import { SHARED_BROWSER_PARTITION, allowsBrowserPermission, chromeUserAgent, popupWindow } from "./policy";
+import { PICKER_SOURCE, clampRect, type Pick } from "../../shared/browser-picker";
+
+/** The isolated world click-to-prompt's picker runs in: the page's scripts cannot reach it. */
+const PICK_WORLD = 1999;
+const PICKING_REFUSAL = "The person is picking an element in this page; try again when they are done.";
 import { browserScopeKey, type BrowserScope } from "./storage";
 
 export { browserScopeKey, type BrowserScope };
@@ -16,6 +21,10 @@ type Target = {
   bounds?: BrowserBounds;
   /** The person took the tab over: an agent's input is refused until they hand it back. */
   takenOver: boolean;
+  /** The person is picking elements in the page (`pick`): an agent's input is refused meanwhile. */
+  picking: boolean;
+  /** Which picking session is current: a loop from an earlier one sees a different number and leaves. */
+  pickSession: number;
   /** Where the agent last pressed, drawn over the page for a moment (`pointAt`). */
   cursor?: WebContentsView; cursorTimer?: ReturnType<typeof setTimeout>;
   /** The last `activity` event, so a burst of input announces itself twice a second, not per event. */
@@ -93,7 +102,7 @@ export class BrowserService {
       webSecurity: true, backgroundThrottling: false, spellcheck: false,
     } });
     view.setBounds({ x: 0, y: 0, width: 1000, height: 700 });
-    const target: Target = { id, scope: { ...scope }, view, harness: browserHarness(view.webContents), generation: 0, visible: false, ready: Promise.resolve(), logs: [], userInputAt: 0, automatedInputAt: 0, takenOver: false, announcedAt: 0 };
+    const target: Target = { id, scope: { ...scope }, view, harness: browserHarness(view.webContents), generation: 0, visible: false, ready: Promise.resolve(), logs: [], userInputAt: 0, automatedInputAt: 0, takenOver: false, picking: false, pickSession: 0, announcedAt: 0 };
     this.targets.set(id, target);
     const wc = view.webContents;
     // Copy buttons and full screen; never the camera, microphone, location or reading the clipboard.
@@ -136,7 +145,12 @@ export class BrowserService {
     };
     // A new document, not a pushState or fragment change: a single-page app
     // moving its own history keeps the generation "Add to prompt" captured.
-    wc.on("did-start-navigation", details => { if (details.isMainFrame && !details.isSameDocument) target.generation += 1; });
+    wc.on("did-start-navigation", details => {
+      if (!details.isMainFrame || details.isSameDocument) return;
+      target.generation += 1;
+      // A pick from the page that was is no pick: the mode ends with it.
+      if (target.picking) this.endPicking(target);
+    });
     wc.on("before-input-event", (_event, input) => { if (input.type === "keyDown" || input.type === "rawKeyDown") target.userInputAt = Date.now(); });
     wc.on("before-mouse-event", (_event, mouse) => { if (mouse.type === "mouseDown") target.userInputAt = Date.now(); });
     wc.on("will-navigate", guard);
@@ -259,6 +273,7 @@ export class BrowserService {
     if (target.takenOver) {
       throw new Error("The person has taken over this browser tab. Wait until they hand it back, then try again.");
     }
+    if (target.picking) throw new Error(PICKING_REFUSAL);
     target.automatedInputAt = Date.now();
     if (method === "Input.dispatchMouseEvent" && params.type === "mousePressed" && typeof params.x === "number" && typeof params.y === "number") {
       this.pointAt(target, params.x, params.y);
@@ -339,6 +354,8 @@ export class BrowserService {
     return true;
   }
   private hide(target: Target) {
+    // Hidden (another tab shown, the app reloaded, its window closed): nobody can pick in it now.
+    if (target.picking) this.endPicking(target);
     target.visible = false;
     this.hideCursor(target);
     if (target.view.webContents.isFocused() && target.owner && !target.owner.isDestroyed()) target.owner.webContents.focus();
@@ -396,7 +413,10 @@ export class BrowserService {
       else throw new Error("Supply a URL or an available navigation direction.");
       return this.info(target);
     }
-    if (method === "input") await this.input(target, browserMethodSchemas.input.parse(params).input);
+    if (method === "input") {
+      if (target.picking) throw new Error(PICKING_REFUSAL);
+      await this.input(target, browserMethodSchemas.input.parse(params).input);
+    }
     return this.info(target);
   }
   async captureContext(scope: BrowserScope, id: string, expected: { url: string; generation: number; kind: "selection" | "screenshot" }) {
@@ -417,6 +437,78 @@ export class BrowserService {
     check();
     return { base64, mimeType: expected.kind === "screenshot" ? "image/png" : "text/plain", url: expected.url, generation: expected.generation };
   }
+  /**
+   * Click-to-prompt: the person picks elements in the page. The picker runs in an isolated world
+   * (`PICKER_SOURCE`), out of reach of the page's scripts; picks come back one awaited call at a
+   * time, each cropped from the page (`capturePage`) and sent on as `picked`. Ends on Esc, on the
+   * person's word (`active: false`), or when the page navigates.
+   */
+  async pick(scope: BrowserScope, id: string, active: boolean): Promise<{ active: boolean }> {
+    const target = this.get(scope, id);
+    if (!active) {
+      if (target.picking) this.endPicking(target);
+      return { active: false };
+    }
+    if (target.picking) return { active: true };
+    const wc = target.view.webContents;
+    target.picking = true;
+    target.pickSession += 1;
+    this.events.emit("picking", { sessionId: target.scope.sessionId, tabId: id, active: true });
+    // The page takes the keyboard, so the picker hears Esc at once.
+    wc.focus();
+    try {
+      await wc.executeJavaScriptInIsolatedWorld(PICK_WORLD, [{ code: PICKER_SOURCE }]);
+    } catch {
+      this.endPicking(target);
+      return { active: false };
+    }
+    void this.pickLoop(target);
+    return { active: true };
+  }
+
+  private async pickLoop(target: Target) {
+    const wc = target.view.webContents;
+    const generation = target.generation;
+    const session = target.pickSession;
+    const current = () => target.picking && target.pickSession === session && target.generation === generation;
+    while (current() && !wc.isDestroyed()) {
+      let next: Pick | null;
+      try {
+        next = await wc.executeJavaScriptInIsolatedWorld(PICK_WORLD, [{ code: "globalThis.__elasticPicker ? globalThis.__elasticPicker.next() : null" }], true) as Pick | null;
+      } catch {
+        next = null;
+      }
+      if (!current()) return;
+      if (!next) {
+        this.endPicking(target);
+        return;
+      }
+      // The page measures in CSS pixels; the crop is in the view's, which differ by the page's zoom.
+      const zoom = wc.getZoomFactor();
+      const scale = (r: { x?: number; y?: number; width: number; height: number }) => ({ x: (r.x ?? 0) * zoom, y: (r.y ?? 0) * zoom, width: r.width * zoom, height: r.height * zoom });
+      const crop = clampRect(scale(next.rect), scale(next.viewport));
+      if (!crop) continue;
+      try {
+        const image = (await wc.capturePage(crop)).toPNG().toString("base64");
+        if (!current()) return;
+        this.events.emit("picked", {
+          sessionId: target.scope.sessionId, tabId: target.id, url: wc.getURL(), title: wc.getTitle(), generation,
+          image, html: next.html, selector: next.selector, tag: next.tag, size: next.size,
+        });
+      } catch {
+        // A page that went while being cropped: the next call answers null and ends the mode.
+      }
+    }
+  }
+
+  private endPicking(target: Target) {
+    if (!target.picking) return;
+    target.picking = false;
+    const wc = target.view.webContents;
+    if (!wc.isDestroyed()) void wc.executeJavaScriptInIsolatedWorld(PICK_WORLD, [{ code: "globalThis.__elasticPicker && globalThis.__elasticPicker.stop()" }]).catch(() => {});
+    this.events.emit("picking", { sessionId: target.scope.sessionId, tabId: target.id, active: false });
+  }
+
   clearConsole(scope: BrowserScope, id: string) { this.get(scope, id).logs = []; }
   metadata(scope: BrowserScope, id: string, logs = true) { return this.info(this.get(scope, id), logs); }
   private async input(target: Target, input: BrowserInput) {

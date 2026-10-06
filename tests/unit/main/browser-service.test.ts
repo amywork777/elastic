@@ -5,7 +5,7 @@
  * Chromium's side is `tests/e2e/browser-service.spec.ts`.
  */
 import { EventEmitter } from "node:events";
-import { beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const electron = await vi.hoisted(async () => {
   const { EventEmitter } = await import("node:events");
@@ -27,6 +27,8 @@ const electron = await vi.hoisted(async () => {
     async loadURL(url: string) { this.url = url; }
     getURL() { return this.url; } getTitle() { return ""; } isLoading() { return false; } getZoomFactor() { return 1; }
     executeJavaScript = vi.fn(async () => undefined);
+    executeJavaScriptInIsolatedWorld = vi.fn(async () => undefined);
+    capturePage = vi.fn(async () => ({ toPNG: () => Buffer.from("png") }));
     isDestroyed() { return this.destroyed; } isFocused() { return this.focused; }
     // Chromium reports `destroyed` after close() returns; a test can hold it back.
     close() { this.destroyed = true; if (!electron.state.deferDestroy) this.emit("destroyed"); }
@@ -281,4 +283,92 @@ it("draws an agent's press where it lands, announces it twice a second at most, 
   service.setTakenOver(scope, "drive", false);
   expect(() => press("drive", 1, 1)).not.toThrow();
   clock.mockRestore();
+});
+
+it("picks until the person stops, crops each pick, and refuses the agent's input meanwhile", async () => {
+  await service.open(scope, { tabId: "k", url: "https://example.com/" });
+  const page = contents("k") as unknown as { executeJavaScriptInIsolatedWorld: ReturnType<typeof vi.fn>; capturePage: ReturnType<typeof vi.fn> };
+  const pick = { rect: { x: 10, y: 10, width: 50, height: 20 }, viewport: { width: 800, height: 600 }, html: "<b>x</b>", selector: "#x", tag: "b", size: { width: 50, height: 20 }, more: false };
+  let release!: (value: unknown) => void;
+  page.executeJavaScriptInIsolatedWorld
+    .mockResolvedValueOnce(undefined)
+    .mockResolvedValueOnce(pick)
+    .mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+  const picked: unknown[] = [];
+  service.events.on("picked", (event) => picked.push(event));
+  await service.pick(scope, "k", true);
+  await expect(service.invoke("input", scope, { tabId: "k", input: { action: "point", x: 1, y: 1 } })).rejects.toThrow(/picking/);
+  await vi.waitFor(() => expect(picked).toHaveLength(1));
+  expect(picked[0]).toMatchObject({ tabId: "k", selector: "#x", tag: "b", image: Buffer.from("png").toString("base64") });
+  expect(page.capturePage).toHaveBeenCalledWith({ x: 6, y: 6, width: 58, height: 28 });
+  release(null);
+});
+
+it("ends pick mode when the page navigates, and when the person turns it off", async () => {
+  await service.open(scope, { tabId: "n", url: "https://example.com/" });
+  const page = contents("n") as unknown as { executeJavaScriptInIsolatedWorld: ReturnType<typeof vi.fn>; emit: (event: string, details: unknown) => void };
+  // Installing and stopping answer at once; waiting for the next pick waits until the mode ends.
+  page.executeJavaScriptInIsolatedWorld.mockImplementation(async (_world: number, [script]: [{ code: string }]) => (script.code.includes(".next()") ? new Promise(() => {}) : undefined));
+  const states: boolean[] = [];
+  service.events.on("picking", (event: { active: boolean }) => states.push(event.active));
+  await service.pick(scope, "n", true);
+  page.emit("did-start-navigation", { isMainFrame: true, isSameDocument: false });
+  expect(states).toEqual([true, false]);
+  await service.pick(scope, "n", true);
+  await service.pick(scope, "n", false);
+  expect(states).toEqual([true, false, true, false]);
+});
+
+describe("pick mode, hardened", () => {
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+  type Page = { executeJavaScriptInIsolatedWorld: ReturnType<typeof vi.fn>; capturePage: ReturnType<typeof vi.fn>; focus: ReturnType<typeof vi.fn>; getZoomFactor: () => number };
+
+  it("gives the page the keyboard, so Esc ends picking at once", async () => {
+    await service.open(scope, { tabId: "f", url: "https://example.com/" });
+    const page = contents("f") as unknown as Page;
+    page.executeJavaScriptInIsolatedWorld.mockImplementation(async (_w: number, [s]: [{ code: string }]) => (s.code.includes(".next()") ? new Promise(() => {}) : undefined));
+    await service.pick(scope, "f", true);
+    expect(page.focus).toHaveBeenCalled();
+  });
+
+  it("ends picking when the page is hidden (the app reloaded, its window closed, another tab shown)", async () => {
+    const window = owner();
+    await service.open(scope, { tabId: "h", url: "https://example.com/" });
+    const page = contents("h") as unknown as Page;
+    page.executeJavaScriptInIsolatedWorld.mockImplementation(async (_w: number, [s]: [{ code: string }]) => (s.code.includes(".next()") ? new Promise(() => {}) : undefined));
+    const states: boolean[] = [];
+    service.events.on("picking", (event: { tabId: string; active: boolean }) => { if (event.tabId === "h") states.push(event.active); });
+    service.present(scope, "h", window, "lease", bounds);
+    await service.pick(scope, "h", true);
+    service.present(scope, "h", window, "lease", null);
+    expect(states).toEqual([true, false]);
+  });
+
+  it("does not let the last session's late answer end a new one", async () => {
+    await service.open(scope, { tabId: "s", url: "https://example.com/" });
+    const page = contents("s") as unknown as Page;
+    const waits: Array<(value: unknown) => void> = [];
+    page.executeJavaScriptInIsolatedWorld.mockImplementation(async (_w: number, [s]: [{ code: string }]) => (s.code.includes(".next()") ? new Promise((resolve) => waits.push(resolve)) : undefined));
+    const states: boolean[] = [];
+    service.events.on("picking", (event: { tabId: string; active: boolean }) => { if (event.tabId === "s") states.push(event.active); });
+    await service.pick(scope, "s", true);
+    await settle();
+    await service.pick(scope, "s", false);
+    await service.pick(scope, "s", true);
+    await settle();
+    waits[0]!(null); // the first session's next(), answered by its stop() only now
+    await settle();
+    expect(states).toEqual([true, false, true]);
+  });
+
+  it("crops a zoomed page where the element really is", async () => {
+    await service.open(scope, { tabId: "z", url: "https://example.com/" });
+    const page = contents("z") as unknown as Page;
+    page.getZoomFactor = () => 2;
+    const pick = { rect: { x: 10, y: 10, width: 50, height: 20 }, viewport: { width: 400, height: 300 }, html: "<b>x</b>", selector: "#x", tag: "b", size: { width: 50, height: 20 } };
+    page.executeJavaScriptInIsolatedWorld.mockResolvedValueOnce(undefined).mockResolvedValueOnce(pick).mockReturnValue(new Promise(() => {}));
+    await service.pick(scope, "z", true);
+    await vi.waitFor(() => expect(page.capturePage).toHaveBeenCalled());
+    expect(page.capturePage).toHaveBeenCalledWith({ x: 16, y: 16, width: 108, height: 48 });
+  });
 });

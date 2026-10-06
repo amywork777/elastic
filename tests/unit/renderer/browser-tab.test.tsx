@@ -67,3 +67,14 @@ it("drops a half-typed address on Escape, so the page's next URL shows", () => {
   act(() => useBrowser.setState({ targets: { page: { ...target, url: "https://example.com/next" } } }));
   expect(input).toHaveValue("https://example.com/next");
 });
+
+it("stops picking on Esc in the app too, when the keyboard is not in the page", async () => {
+  renderTab();
+  const pick = window.workbench.browser.pick as ReturnType<typeof vi.fn>;
+  pick.mockClear();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: /pick an element/i })); });
+  expect(screen.getByRole("button", { name: /pick an element/i })).toHaveAttribute("aria-pressed", "true");
+  await act(async () => { fireEvent.keyDown(document.body, { key: "Escape" }); });
+  expect(pick).toHaveBeenLastCalledWith(expect.objectContaining({ tabId: "page", active: false }));
+  expect(screen.getByRole("button", { name: /pick an element/i })).toHaveAttribute("aria-pressed", "false");
+});
