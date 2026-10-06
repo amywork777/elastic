@@ -860,6 +860,48 @@ type Watcher = {
   close: () => Promise<void>;
 };
 
+/**
+ * Close a chokidar watcher without holding the main thread for the whole of it.
+ *
+ * chokidar keeps one `fs.watch` per directory and its `close()` runs every one of their closers
+ * in a single synchronous loop. Each costs about 4 ms on macOS, so a root of 550 folders (this
+ * repository) held the main thread for 2 s, and a chat switch between larger folders for about
+ * 10 s: the window stopped answering and macOS showed the beachball. Here the closers run in
+ * slices of `sliceMs`, with the event loop let through between slices, and `close()` comes last,
+ * when there is nothing left for it to close but its own bookkeeping.
+ *
+ * Reads chokidar's `_closers` (pinned at 5.0.0, `tests/unit/main/explorer-close-gradually.test.ts`);
+ * a watcher without it is closed the ordinary way.
+ */
+export async function closeGradually(
+  watcher: Watcher & { closed?: boolean; _closers?: Map<string, Array<() => unknown>> },
+  { sliceMs = 8 }: { sliceMs?: number } = {},
+): Promise<void> {
+  const closers = watcher._closers;
+  if (!(closers instanceof Map)) return watcher.close();
+  // Closed first: chokidar adds no watch to a closed watcher, so the map only shrinks from here.
+  watcher.closed = true;
+  const pending: Promise<unknown>[] = [];
+  let sliceStart = performance.now();
+  for (const [directory, list] of [...closers]) {
+    closers.delete(directory);
+    for (const closer of list) {
+      try {
+        const result = closer();
+        if (result instanceof Promise) pending.push(result.catch(() => undefined));
+      } catch {
+        // One directory's watch that will not close is not a reason to keep the rest open.
+      }
+    }
+    if (performance.now() - sliceStart >= sliceMs) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      sliceStart = performance.now();
+    }
+  }
+  await Promise.all(pending);
+  await watcher.close();
+}
+
 type WatchedRoot = {
   watcher: Watcher | null;
   direct: Map<string, FSWatcher>;
@@ -1062,7 +1104,7 @@ export class FileWatchers {
           if (owner.watcher !== watcher) return;
           owner.watcher = null;
           console.error(`[explorer] ${root}: out of file handles; watching open folders and files only`);
-          void watcher.close();
+          void closeGradually(watcher);
           return;
         }
         console.error(`[explorer] watch ${root}`, error);
@@ -1236,7 +1278,7 @@ export class FileWatchers {
     this.clearTimer(root);
     this.pending.delete(root);
     for (const direct of existing.direct.values()) direct.close();
-    await existing.watcher?.close();
+    if (existing.watcher) await closeGradually(existing.watcher);
   }
 
   async closeAll(): Promise<void> {

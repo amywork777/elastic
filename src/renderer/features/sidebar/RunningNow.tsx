@@ -1,6 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "cn";
 
+import { focusComposerOf } from "@renderer/app/pane-focus";
 import { StateGlyph } from "@renderer/features/sidebar/SessionRow";
 import { useProjects } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
@@ -48,7 +49,10 @@ export function RunningNow() {
               )}
               data-running-session={session.id}
               key={session.id}
-              onClick={() => select(session.id)}
+              onClick={() => {
+                select(session.id);
+                focusComposerOf(session.id);
+              }}
               type="button"
             >
               <StateGlyph status={session.status} />

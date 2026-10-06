@@ -14,6 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@renderer/components/ui/dropdown-menu";
+import { focusComposerOf } from "@renderer/app/pane-focus";
 import { MenuKind } from "@renderer/features/sidebar/menu";
 import { ProjectMenuItems } from "@renderer/features/sidebar/project-menu";
 import { SessionRow } from "@renderer/features/sidebar/SessionRow";
@@ -190,7 +191,10 @@ export function SessionSection({ section }: { section: SidebarSection }) {
           {section.sessions.map((session) => (
             <SessionRow
               key={session.id}
-              onSelect={() => selectSession(session.id)}
+              onSelect={() => {
+                selectSession(session.id);
+                focusComposerOf(session.id);
+              }}
               projectName={
                 // A pinned row has left its project's section, and a flat
                 // list has no section to say it — so the row says it.

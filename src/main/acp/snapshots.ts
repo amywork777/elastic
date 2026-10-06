@@ -175,6 +175,34 @@ function fitToBudget(state: SessionState): SessionState {
 }
 
 /**
+ * Put back the keys JSON dropped. A tool call that has not answered holds `input` or `output`
+ * as `undefined`, `JSON.stringify` leaves such a key out, and the schema requires the key (zod 4
+ * reads a missing `z.unknown()` as absent, not as undefined). Without this every snapshot with
+ * one such call failed to parse and was deleted, and a chat switch waited on the agent's replay
+ * with the composer shut. Walks the parsed JSON in place; anything not shaped like a turn list is
+ * left for the schema to refuse.
+ */
+function withDroppedKeys(raw: unknown): unknown {
+  const restore = (parts: unknown): void => {
+    if (!Array.isArray(parts)) return;
+    for (const part of parts) {
+      if (!part || typeof part !== "object") continue;
+      const record = part as Record<string, unknown>;
+      if (record.type === "tool_call") {
+        if (!("input" in record)) record.input = undefined;
+        if (!("output" in record)) record.output = undefined;
+        restore(record.children);
+      } else if (record.type === "subagent") {
+        restore(record.parts);
+      }
+    }
+  };
+  const turns = (raw as { turns?: unknown } | null)?.turns;
+  if (Array.isArray(turns)) for (const turn of turns) restore((turn as { parts?: unknown } | null)?.parts);
+  return raw;
+}
+
+/**
  * The debounced writer. One pending write per session, coalesced: a turn that
  * streams for a minute is one row written a second after it stops.
  */
@@ -236,7 +264,7 @@ export class SessionSnapshotWriter {
     if (raw === null || raw === undefined) {
       return null;
     }
-    const parsed = SessionStateSchema.safeParse(raw);
+    const parsed = SessionStateSchema.safeParse(withDroppedKeys(raw));
     if (!parsed.success) {
       this.forget(sessionId);
       return null;

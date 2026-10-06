@@ -34,3 +34,27 @@ export function focusSessionHome(): void {
   }
   window.requestAnimationFrame(() => (composer() ?? pane()?.querySelector<HTMLElement>(TABBABLE))?.focus());
 }
+
+/**
+ * Put the keyboard in this chat's composer once it is on screen: what a click on a chat in the
+ * sidebar is for. Without it focus stayed on the sidebar's row, and the first keys typed after a
+ * switch went nowhere. The chat's view mounts in a later commit and its editor a frame after that,
+ * and a chat that is reconnecting opens its composer when the agent is back, so this looks once a
+ * frame for up to `frames`. It gives up as soon as focus has gone anywhere but where it started
+ * (or the page): someone who clicked elsewhere meanwhile keeps their focus.
+ */
+export function focusComposerOf(sessionId: string, frames = 150): void {
+  const started = document.activeElement;
+  const attempt = (left: number) => {
+    const current = document.activeElement;
+    if (current !== started && current !== document.body && current !== null) return;
+    const view = document.querySelector(`[data-session-view="${CSS.escape(sessionId)}"]`);
+    const composer = view?.querySelector<HTMLElement>(PANE_HOMES.session);
+    if (composer) {
+      composer.focus();
+      return;
+    }
+    if (left > 0) window.requestAnimationFrame(() => attempt(left - 1));
+  };
+  window.requestAnimationFrame(() => attempt(frames));
+}

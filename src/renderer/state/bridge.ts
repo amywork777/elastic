@@ -13,7 +13,8 @@ import type { IpcEventPayload } from "@shared/ipc";
 import { useAcp } from "./acp";
 import { useAgentOptions } from "./agent-options";
 import { useAgents } from "./agents";
-import { useComposer } from "./composer";
+import { persistQueues, restoreQueues, useComposer } from "./composer";
+import { networkTurnEvent, watchNetwork } from "./network-resume";
 import { performIntegrationCommand } from "./integration-commands";
 import { useExplorer } from "./explorer";
 import { attachHistory, useHistory } from "./history";
@@ -89,6 +90,8 @@ export function subscribeToMain(): () => void {
       // the next queued prompt (`state/composer.ts`).
       if (event.type === "prompt/start" || event.type === "prompt/end" || event.type === "prompt/error") {
         useComposer.getState().turnEvent(sessionId, event.type);
+        // A turn the network cut off continues once the Mac is back online (`network-resume.ts`).
+        networkTurnEvent(sessionId, event);
       } else if (before !== "idle" && useAcp.getState().sessions[sessionId]?.status === "idle") {
         // The other way to idle: a permission asked outside a turn and answered leaves the
         // session waiting, then idle, with no `prompt/end` to say so (`drain` is a no-op when
@@ -296,6 +299,8 @@ function toggleLayout(key: "sidebarCollapsed") {
 
 /** First read of everything the shell needs. */
 let stopTracking: (() => void) | null = null;
+let stopSavingQueues: (() => void) | null = null;
+let stopWatchingNetwork: (() => void) | null = null;
 let stopUnhiding: (() => void) | null = null;
 
 export async function hydrate(): Promise<void> {
@@ -314,6 +319,10 @@ export async function hydrate(): Promise<void> {
   // Open where the person was (the session and the rail's page), then keep that current.
   restoreWhereYouWere();
   stopTracking ??= trackWhereYouWere();
+  // The prompts queued before the last quit, paused; then every change is saved as it happens.
+  await restoreQueues();
+  stopSavingQueues ??= persistQueues();
+  stopWatchingNetwork ??= watchNetwork();
   // After the restore: reopening where the person was is not going to a hidden folder.
   stopUnhiding ??= unhideOnOpen();
   const state = useSessions.getState();

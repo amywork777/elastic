@@ -11,6 +11,8 @@ import path from "node:path";
 
 import { z } from "zod";
 
+import { PersistedQueuedPromptSchema, type PersistedQueuedPrompt } from "../../shared/ipc/queues";
+
 import { effortModelKey, effortOption } from "../../shared/acp/options";
 import {
   ConfigOptionSchema,
@@ -497,6 +499,8 @@ function safeJson(value: string): unknown {
 const WINDOW_STATE_KEY = "__window";
 /** The agent detector's last table (`src/main/agents/cache.ts`), under the same terms. */
 const AGENTS_CACHE_KEY = "__agents";
+/** Each chat's queued prompts (`src/shared/ipc/queues.ts`), by session id, under the same terms. */
+const QUEUES_KEY = "__queues";
 
 function readRaw(): Record<string, unknown> {
   const rows = db().prepare("SELECT key, value FROM settings").all() as {
@@ -617,5 +621,34 @@ export const settings = {
 
   setAgentsCache(value: unknown): void {
     writeRaw({ [AGENTS_CACHE_KEY]: value });
+  },
+};
+
+/**
+ * The prompts queued behind each chat's turn, so a quit does not spend them. One row for all
+ * chats: a queue is a handful of prompts, written when it changes. A value that no longer parses
+ * is dropped prompt by prompt, never the whole set.
+ */
+export const queuedPrompts = {
+  list(): Record<string, PersistedQueuedPrompt[]> {
+    const stored = readRaw()[QUEUES_KEY];
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) return {};
+    const queues: Record<string, PersistedQueuedPrompt[]> = {};
+    for (const [sessionId, queue] of Object.entries(stored as Record<string, unknown>)) {
+      if (!Array.isArray(queue)) continue;
+      const kept = queue.flatMap((item) => {
+        const parsed = PersistedQueuedPromptSchema.safeParse(item);
+        return parsed.success ? [parsed.data] : [];
+      });
+      if (kept.length > 0) queues[sessionId] = kept;
+    }
+    return queues;
+  },
+
+  set(sessionId: string, queue: PersistedQueuedPrompt[]): void {
+    const all = queuedPrompts.list();
+    if (queue.length === 0) delete all[sessionId];
+    else all[sessionId] = queue;
+    writeRaw({ [QUEUES_KEY]: all });
   },
 };

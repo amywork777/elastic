@@ -359,3 +359,29 @@ describe("the snapshot and the commands list", () => {
     expect(snapshot.availableCommands.map((command) => command.name)).toEqual(["review"]);
   });
 });
+
+/**
+ * A tool call that has not answered (or never does) holds `output: undefined`, and JSON drops
+ * an undefined key. The schema wants the key, so every snapshot with such a call failed to parse,
+ * was deleted as unreadable, and every chat switch waited for the agent's replay instead of
+ * painting at once: the composer stayed shut for seconds.
+ */
+describe("a tool call without output", () => {
+  it("survives the trip to disk and back, nested calls included", () => {
+    const store = memoryStore();
+    const clock = manualSchedule();
+    const writer = new SessionSnapshotWriter({ store, schedule: clock.schedule });
+    const pending = toolCall({ id: "outer", status: "pending", input: undefined, output: undefined, children: [toolCall({ id: "inner", output: undefined })] });
+    writer.save("s1", stateWith([turn("t1", [pending])]));
+    clock.fire();
+    expect(store.rows.get("s1")).not.toContain('"output"');
+
+    const read = writer.read("s1");
+    expect(read).not.toBeNull();
+    const part = read!.turns[0]!.parts[0]!;
+    expect(part.type === "tool_call" && part.output).toBeUndefined();
+    expect(part.type === "tool_call" && part.children[0]!.type === "tool_call" && part.children[0]!.id).toBe("inner");
+    // Kept: it was readable.
+    expect(store.rows.has("s1")).toBe(true);
+  });
+});

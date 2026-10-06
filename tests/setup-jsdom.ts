@@ -71,6 +71,10 @@ Object.defineProperty(window, "workbench", {
       delete: vi.fn(async () => undefined),
       activity: vi.fn(async () => ({ processes: [], keepAlive: 4 })),
     },
+    queues: {
+      list: vi.fn(async () => ({})),
+      set: vi.fn(async () => undefined),
+    },
     agents: {
       list: vi.fn(async () => []),
       refresh: vi.fn(async () => []),

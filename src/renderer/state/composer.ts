@@ -713,3 +713,65 @@ export function appContextPromptBlocks(contexts: readonly AppContext[]): PromptB
 export function appContextSummary(contexts: readonly AppContext[]): string {
   return contexts.flatMap((entry) => entry.blocks.flatMap((block) => block.type === "text" ? [block.text] : [])).join("\n\n");
 }
+
+/** How long a queue is quiet before it is saved: a reorder or an edit is several changes at once. */
+const QUEUE_SAVE_MS = 300;
+
+/**
+ * Put back the queues saved before the last quit (`queues.list`), each paused: what was queued
+ * behind a turn that the quit ended should not fire at a chat the moment the app opens. The
+ * queue row says it is paused and its Resume sends it. A queue already holding prompts (typed
+ * since launch) is left as it is. A failure to read is no queue, never a launch that fails.
+ */
+export async function restoreQueues(): Promise<void> {
+  let saved: Record<string, { id: string; text: string; content: PromptBlock[] }[]>;
+  try {
+    saved = await window.workbench.queues.list();
+  } catch {
+    return;
+  }
+  const listed = new Set(useSessions.getState().sessions.map((session) => session.id));
+  useComposer.setState((state) => {
+    const queues = { ...state.queues };
+    const paused = { ...state.paused };
+    for (const [sessionId, queue] of Object.entries(saved)) {
+      if (!listed.has(sessionId) || (queues[sessionId]?.length ?? 0) > 0 || queue.length === 0) continue;
+      queues[sessionId] = queue.map((item) => ({ id: item.id, text: item.text, content: item.content }));
+      paused[sessionId] = true;
+    }
+    return { queues, paused };
+  });
+}
+
+/**
+ * Save each chat's queue when it changes, so quitting does not spend it. What is saved is what
+ * can be sent: the row's text and the prompt's blocks (the draft's files are renderer-only).
+ * Returns the unsubscribe.
+ */
+export function persistQueues(): () => void {
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const save = (sessionId: string) => {
+    timers.delete(sessionId);
+    const queue = (useComposer.getState().queues[sessionId] ?? []).map(({ id, text, content }) => ({ id, text, content }));
+    void window.workbench.queues.set({ sessionId, queue }).catch((error: unknown) => {
+      console.warn(`[composer] the queue of ${sessionId.slice(0, 8)} was not saved: ${String(error)}`);
+    });
+  };
+  const unsubscribe = useComposer.subscribe((state, previous) => {
+    if (state.queues === previous.queues) return;
+    for (const sessionId of new Set([...Object.keys(state.queues), ...Object.keys(previous.queues)])) {
+      if (state.queues[sessionId] === previous.queues[sessionId]) continue;
+      const pending = timers.get(sessionId);
+      if (pending) clearTimeout(pending);
+      timers.set(sessionId, setTimeout(() => save(sessionId), QUEUE_SAVE_MS));
+    }
+  });
+  return () => {
+    unsubscribe();
+    // On the way out: whatever is pending is written now rather than lost with the window.
+    for (const [sessionId, timer] of timers) {
+      clearTimeout(timer);
+      save(sessionId);
+    }
+  };
+}

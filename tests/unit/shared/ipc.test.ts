@@ -108,6 +108,8 @@ describe("the contract", () => {
       "clipboard.writeText",
       "clipboard.readText",
       "clipboard.writeImage",
+      "queues.list",
+      "queues.set",
       "dictation.available",
       "dictation.start",
       "dictation.push",
