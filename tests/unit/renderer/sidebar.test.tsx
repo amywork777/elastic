@@ -50,8 +50,9 @@ const session = (overrides: Partial<Session> & { id: string; title: string }): S
   ...overrides,
 });
 
+/** Folders unless a test asks for Recents: most tests here are about the folder sections. */
 const filters = (overrides: Partial<SidebarSettings> = {}): SidebarSettings =>
-  SidebarSettingsSchema.parse(overrides);
+  SidebarSettingsSchema.parse({ groupBy: "project", ...overrides });
 
 /* -------------------------------------------------------------------------- */
 /* The selector                                                                */
@@ -314,7 +315,7 @@ describe("Sidebar", () => {
   beforeEach(() => {
     useProjects.setState({ projects: [], ready: true, activeId: null, draft: null });
     useSessions.setState({ sessions: [], ready: true, activeId: null });
-    useSettings.setState({ settings: defaultSettings(), ready: true });
+    useSettings.setState({ settings: { ...defaultSettings(), sidebar: filters() }, ready: true });
     useUi.setState({
       route: "app",
       settingsSection: "general",
