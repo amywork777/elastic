@@ -190,6 +190,12 @@ export function electronBuilder(targets, { version, notarize, signed = false }) 
     // Read by src/main/updater.ts (`installsItself`): Squirrel.Mac installs an
     // update only into a signed app, so an unsigned build offers the release page.
     ...(signed ? ["--config.extraMetadata.elasticSigned=true"] : []),
+    // Without a certificate the Mac app is still signed, ad-hoc ("-"), as a whole bundle. Left
+    // alone, only the linker's signature on the main binary is there, the bundle's resources are
+    // unsealed, and a downloaded copy is refused as "damaged" rather than as from an unidentified
+    // developer. The entitlements carry disable-library-validation, which ad-hoc signing under the
+    // hardened runtime needs to load Electron's own frameworks.
+    ...(!signed && targets.includes("--mac") ? ["--config.mac.identity=-"] : []),
     ...(notarize ? ["--config.mac.notarize=true"] : []),
     // Publishing is the release workflow's job, never a local build's: it uploads
     // the artifacts to the GitHub Release it already tags.

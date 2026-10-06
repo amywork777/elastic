@@ -26,13 +26,14 @@ describe("the build scripts' commands", () => {
   });
 
   it("run electron-builder with this Node, from its own cli.js", () => {
-    const [command, args] = electronBuilder(["--mac", "--arm64"], { version: "1.2.3", notarize: true });
+    const [command, args] = electronBuilder(["--mac", "--arm64"], { version: "1.2.3", notarize: true, signed: true });
     expect(command).toBe(process.execPath);
     expect(args[0]).toMatch(/[\\/]electron-builder[\\/]cli\.js$/);
     expect(fs.existsSync(args[0]!)).toBe(true);
     expect(args.slice(1)).toEqual([
       "--mac", "dmg", "zip", "--arm64",
       "--config.extraMetadata.version=1.2.3",
+      "--config.extraMetadata.elasticSigned=true",
       "--config.mac.notarize=true",
       "--publish", "never",
     ]);
@@ -43,6 +44,15 @@ describe("the build scripts' commands", () => {
     const [, unsigned] = electronBuilder(["--mac"], { version: "1.2.3", notarize: false });
     expect(signed).toContain("--config.extraMetadata.elasticSigned=true");
     expect(unsigned.some((arg) => arg.includes("elasticSigned"))).toBe(false);
+  });
+
+  it("sign an unsigned Mac build ad-hoc, as a whole bundle, and never a signed one or another os", () => {
+    const [, unsigned] = electronBuilder(["--mac"], { version: "1.2.3", notarize: false });
+    const [, signed] = electronBuilder(["--mac"], { version: "1.2.3", notarize: false, signed: true });
+    const [, windows] = electronBuilder(["--win"], { version: "1.2.3", notarize: false });
+    expect(unsigned).toContain("--config.mac.identity=-");
+    expect(signed.some((arg) => arg.includes("mac.identity"))).toBe(false);
+    expect(windows.some((arg) => arg.includes("mac.identity"))).toBe(false);
   });
 
   it("never name npx, a .cmd/.bat shim, or a shell", () => {
