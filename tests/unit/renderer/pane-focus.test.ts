@@ -44,3 +44,25 @@ it("falls back to the pane's first control when there is no composer after the f
   flushFrame();
   expect(document.getElementById("toggle")).toHaveFocus();
 });
+
+it("lands in the focused chat's composer when two are side by side", async () => {
+  const { useSessions } = await import("@renderer/state/sessions");
+  useSessions.setState({ activeId: "b", split: { left: "a", right: "b", focus: "right" } });
+  document.body.innerHTML = `<div id="session">
+    <div data-session-view="a"><div data-composer-input contenteditable="true" id="ca"></div></div>
+    <div data-session-view="b"><div data-composer-input contenteditable="true" id="cb"></div></div></div>`;
+  focusSessionHome();
+  expect(document.getElementById("cb")).toHaveFocus();
+  useSessions.setState({ activeId: null, split: null });
+});
+
+it("lands in the focused side's composer when that side is on the new-chat screen", async () => {
+  const { useSessions } = await import("@renderer/state/sessions");
+  useSessions.setState({ activeId: null, split: { left: "a", right: null, focus: "right" } });
+  document.body.innerHTML = `<div id="session">
+    <div data-split-side="left"><div data-session-view="a"><div data-composer-input contenteditable="true" id="ca"></div></div></div>
+    <div data-split-side="right" data-split-focused><div data-new-session><div data-composer-input contenteditable="true" id="cn"></div></div></div></div>`;
+  focusSessionHome();
+  expect(document.getElementById("cn")).toHaveFocus();
+  useSessions.setState({ activeId: null, split: null });
+});

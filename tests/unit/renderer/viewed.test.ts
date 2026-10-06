@@ -65,3 +65,14 @@ describe("marking the open chat viewed", () => {
     expect(window.workbench.sessions.markViewed).toHaveBeenCalledWith({ id: "s1" });
   });
 });
+
+describe("two chats side by side", () => {
+  it("marks both viewed when the window comes back with them on screen", () => {
+    useSessions.setState({ sessions: [row({ id: "a" }), row({ id: "b" })], activeId: "b", split: { left: "a", right: "b", focus: "right" } });
+    vi.mocked(window.workbench.sessions.markViewed).mockClear();
+    window.dispatchEvent(new Event("focus"));
+    expect(window.workbench.sessions.markViewed).toHaveBeenCalledWith({ id: "a" });
+    expect(window.workbench.sessions.markViewed).toHaveBeenCalledWith({ id: "b" });
+    useSessions.setState({ split: null });
+  });
+});

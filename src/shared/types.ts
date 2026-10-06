@@ -533,6 +533,8 @@ export const PANE_LIMITS = {
 export const PaneLayoutSchema = z.object({
   sidebarWidth: z.number().min(0).default(PANE_LIMITS.sidebar.default),
   sidebarCollapsed: z.boolean().default(false),
+  /** Two chats side by side: the left side's share of the pane. */
+  splitRatio: z.number().min(0.25).max(0.75).default(0.5),
 });
 export type PaneLayout = z.infer<typeof PaneLayoutSchema>;
 

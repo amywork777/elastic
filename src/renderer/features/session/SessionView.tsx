@@ -28,6 +28,7 @@ import { ContinueBar, LinkedChats, continueWith, type ContinueTarget } from "./C
 import { TranscriptScopeContext, type TranscriptScope } from "./links/PathLink";
 import { PlanCard } from "./PlanCard";
 import { SessionHeader } from "./SessionHeader";
+import { useTakesFocus } from "./split-side";
 import { Transcript } from "./Transcript";
 import { isAuthError, planClock, planPinned } from "./view";
 
@@ -50,6 +51,7 @@ import { isAuthError, planClock, planPinned } from "./view";
 const CHAT_QUICK: QuickCommandName[] = ["usage", "context", "btw"];
 
 export function SessionView({ session }: { session: Session }) {
+  const takesFocus = useTakesFocus();
   const state = useAcp((store) => store.sessions[session.id] ?? null);
   const loading = useAcp((store) => store.loading[session.id] ?? false);
   const reconnecting = useAcp((store) => store.reconnecting[session.id] ?? false);
@@ -384,7 +386,7 @@ export function SessionView({ session }: { session: Session }) {
             />
           ) : null}
           <Composer
-            autoFocus
+            autoFocus={takesFocus}
             chips={
               <>
                 {chips?.leading ?? null}

@@ -1,6 +1,6 @@
 import { isUnread } from "@renderer/lib/sidebar";
 
-import { useSessions } from "./sessions";
+import { sessionsOnScreen, useSessions } from "./sessions";
 import { useUi } from "./ui";
 
 /**
@@ -13,19 +13,22 @@ export function trackViewed(): () => void {
   /** The chat opened and not yet marked: opening is a view even when nothing is new in it. */
   let opened: string | null = null;
   const check = () => {
-    const { activeId, sessions, markViewed } = useSessions.getState();
+    const state = useSessions.getState();
     // On screen means the chat pane is showing: a plugin's page or the plugin store covers it.
-    if (!activeId || !document.hasFocus() || useUi.getState().surface.kind !== "home") return;
-    const session = sessions.find((candidate) => candidate.id === activeId);
-    if (!session) return;
-    if (opened === activeId || session.lastViewedAt === null || isUnread(session)) {
-      opened = null;
-      void markViewed(activeId).catch(() => {});
+    if (!document.hasFocus() || useUi.getState().surface.kind !== "home") return;
+    // Both chats when two are side by side.
+    for (const id of sessionsOnScreen(state)) {
+      const session = state.sessions.find((candidate) => candidate.id === id);
+      if (!session) continue;
+      if (opened === id || session.lastViewedAt === null || isUnread(session)) {
+        if (opened === id) opened = null;
+        void state.markViewed(id).catch(() => {});
+      }
     }
   };
   const unsubscribe = useSessions.subscribe((state, previous) => {
     if (state.activeId !== previous.activeId) opened = state.activeId;
-    if (state.activeId !== previous.activeId || state.sessions !== previous.sessions) check();
+    if (state.activeId !== previous.activeId || state.sessions !== previous.sessions || state.split !== previous.split) check();
   });
   const unsurface = useUi.subscribe((state, previous) => {
     if (state.surface !== previous.surface) check();

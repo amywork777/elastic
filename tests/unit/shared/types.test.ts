@@ -21,7 +21,7 @@ describe("Settings", () => {
     expect(settings.branchPrefix).toBe("elastic/");
     // Pixels, and only the sidebar's pair: the session is elastic and the
     // explorer's width is per project, in the renderer.
-    expect(settings.layout).toEqual({ sidebarWidth: 230, sidebarCollapsed: false });
+    expect(settings.layout).toEqual({ sidebarWidth: 230, sidebarCollapsed: false, splitRatio: 0.5 });
   });
 
 
