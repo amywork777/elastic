@@ -49,6 +49,7 @@ export const browserHandlers = {
     clearConsole: request => browserService.clearConsole(scope(request), request.tabId),
     capture: request => browserService.captureContext(scope(request), request.tabId, request),
     takeOver: request => browserService.setTakenOver(scope(request), request.tabId, request.takenOver),
+    pick: request => browserService.pick(scope(request), request.tabId, request.active),
     clearData: async () => {
       const shared = session.fromPartition(SHARED_BROWSER_PARTITION);
       await shared.clearStorageData();
@@ -61,3 +62,6 @@ export const browserHandlers = {
 browserService.events.on("activity", ({ sessionId, tabId }: { sessionId: string; tabId: string }) => {
   broadcast("browser.activity", { sessionId, tabId });
 });
+// Click-to-prompt: each pick, and the mode starting or ending, to the window showing the tab.
+browserService.events.on("picked", (event) => broadcast("browser.picked", event));
+browserService.events.on("picking", (event) => broadcast("browser.picking", event));
