@@ -76,9 +76,22 @@ test("two chats side by side: both run, the explorer follows focus, the divider 
   await side("right").locator(".ProseMirror").first().click();
   await expect(browserTabs).toHaveCount(1);
 
+  // Cmd+N in the focused (right) side: its new-chat screen, and the chat it makes lands there.
+  await page.getByRole("button", { name: "Toggle explorer" }).first().click();
+  await side("right").locator(".ProseMirror").first().click();
+  await page.keyboard.press(`${mod}+n`);
+  await expect(side("right").locator("[data-new-session]")).toBeVisible();
+  await expect(side("left").locator(`[data-session-view="${b}"]`)).toBeVisible();
+  await send(`[data-split-side="right"] [data-new-session]`, "third chat");
+  await expect(side("right").locator("[data-session-view]")).toHaveAttribute("data-session-status", "idle", { timeout: 20_000 });
+  const c = (await side("right").locator("[data-session-view]").getAttribute("data-session-view"))!;
+  expect([a, b]).not.toContain(c);
+  await expect(side("left").locator(`[data-session-view="${b}"]`)).toBeVisible();
+
   // Close the right side: the left chat has the pane alone.
   await side("right").getByRole("button", { name: "Close this side" }).click();
   await expect(page.locator("[data-split-side]")).toHaveCount(0);
   await expect(page.locator(`[data-session-view="${b}"]`)).toBeVisible();
   await expect(page.locator(`[data-session-view="${a}"]`)).toHaveCount(0);
+  await expect(page.locator(`[data-session-view="${c}"]`)).toHaveCount(0);
 });

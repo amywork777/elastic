@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { FolderOpen } from "lucide-react";
 
 import { Button } from "@renderer/components/ui/button";
@@ -6,7 +6,7 @@ import { useOpenFolderOrToast } from "@renderer/hooks/use-open-folder";
 import { isPrimaryModifier } from "@renderer/lib/platform";
 import { cn } from "@renderer/lib/utils";
 import { useActiveProject } from "@renderer/state/projects";
-import { useSessions, type SplitSide, type SplitState } from "@renderer/state/sessions";
+import { useSessions, type SplitSide } from "@renderer/state/sessions";
 import { useSettings } from "@renderer/state/settings";
 
 import { NewSession } from "./NewSession";
@@ -64,6 +64,7 @@ export function SessionPane() {
   const [paneWidth, pane] = useMeasuredWidth();
   const windowWidth = useWindowWidth();
   const wide = paneWidth > 0 ? paneWidth >= SIDE_MIN * 2 + 1 : windowWidth >= SPLIT_MIN_WINDOW;
+  const { ratio, dragging, onPointerDown, onKeyDown } = useSplitRatio();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -76,19 +77,49 @@ export function SessionPane() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setActiveSession]);
 
+  // One row of frames keyed by their chat, whether one chat or two: a chat keeps its view (its
+  // scroll, its paged-in history, its composer) as the split opens or closes, and a side the pane
+  // is too narrow for is hidden rather than unmounted.
+  const frames = split
+    ? (["left", "right"] as const).map((side) => ({ side, id: split[side] }))
+    : [{ side: null, id: activeId }];
+  const divider = split && wide ? (
+    <div
+      aria-label="Resize the two chats"
+      aria-orientation="vertical"
+      aria-valuemax={RATIO_MAX * 100}
+      aria-valuemin={RATIO_MIN * 100}
+      aria-valuenow={Math.round(ratio * 100)}
+      className={cn("relative w-px shrink-0 cursor-col-resize bg-border outline-none after:absolute after:inset-y-0 after:-inset-x-[3px] focus-visible:bg-ring", dragging && "bg-ring")}
+      data-split-divider
+      key="divider"
+      onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
+      role="separator"
+      tabIndex={0}
+    />
+  ) : null;
+
   return (
-    <div className="h-full min-w-0" data-session-pane ref={pane}>
-      {split && wide ? <SplitPane split={split} /> : <OneChat id={activeId} />}
+    <div className="flex h-full min-w-0" data-session-pane data-split={split ? "" : undefined} ref={pane}>
+      {frames.flatMap(({ side, id }, index) => [
+        index === 1 ? divider : null,
+        <Frame
+          hidden={Boolean(split && !wide && split.focus !== side)}
+          id={id}
+          key={id ?? `new-${side ?? "left"}`}
+          share={!split || !wide ? 1 : side === "left" ? ratio : 1 - ratio}
+          side={side}
+        />,
+      ])}
     </div>
   );
 }
 
-function SplitPane({ split }: { split: SplitState }) {
-  const focusSide = useSessions((state) => state.focusSide);
+/** The divider's share: follows a drag as it happens, and is written once, at its end. */
+function useSplitRatio() {
   const stored = useSettings((state) => state.settings?.layout.splitRatio ?? 0.5);
   const setLayout = useSettings((state) => state.setLayout);
-  // The ratio on screen: follows a drag as it happens, and the setting once written (a drag's end
-  // writes it once, not on every move).
   const [ratio, setRatio] = useState(stored);
   const [dragging, setDragging] = useState(false);
   const [seen, setSeen] = useState(stored);
@@ -96,16 +127,15 @@ function SplitPane({ split }: { split: SplitState }) {
     setSeen(stored);
     setRatio(stored);
   }
-  const row = useRef<HTMLDivElement | null>(null);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const element = row.current;
-    if (!element || event.button !== 0) return;
+    const row = event.currentTarget.parentElement;
+    if (!row || event.button !== 0) return;
     // As the shell's separators do: listeners on the window, no pointer capture, and no text
     // selection while the gesture lasts, so a drag across a transcript does not highlight it.
     event.preventDefault();
     document.body.style.setProperty("user-select", "none");
-    const box = element.getBoundingClientRect();
+    const box = row.getBoundingClientRect();
     let latest = ratio;
     setDragging(true);
     const move = (moved: PointerEvent) => {
@@ -132,46 +162,39 @@ function SplitPane({ split }: { split: SplitState }) {
     setRatio(next);
     void setLayout({ splitRatio: next });
   };
+  return { ratio, dragging, onPointerDown, onKeyDown };
+}
 
-  const sideOf = (side: SplitSide) => (
+/** One chat's place in the pane: the whole of it, or one side of a split. */
+function Frame({ side, id, share, hidden }: { side: SplitSide | null; id: string | null; share: number; hidden: boolean }) {
+  const focusSide = useSessions((state) => state.focusSide);
+  const focused = useSessions((state) => side !== null && state.split?.focus === side);
+  const take = () => { if (side && useSessions.getState().split?.focus !== side) focusSide(side); };
+  return (
     <SplitSideContext.Provider value={side}>
       <div
-        className="flex h-full min-w-[360px] flex-col overflow-hidden"
-        data-split-focused={split.focus === side ? "" : undefined}
-        data-split-side={side}
-        onFocusCapture={() => { if (useSessions.getState().split?.focus !== side) focusSide(side); }}
-        onPointerDownCapture={() => { if (useSessions.getState().split?.focus !== side) focusSide(side); }}
-        style={{ flex: `${side === "left" ? ratio : 1 - ratio} 1 0%` }}
+        className={cn("flex h-full min-w-0 flex-col overflow-hidden", side && "min-w-[360px]", hidden && "hidden")}
+        data-split-focused={focused ? "" : undefined}
+        data-split-side={side ?? undefined}
+        hidden={hidden}
+        onFocusCapture={take}
+        onPointerDownCapture={take}
+        style={{ flex: `${share} 1 0%` }}
       >
-        <OneChat id={split[side]} />
+        <OneChat id={id} side={side} />
       </div>
     </SplitSideContext.Provider>
   );
-
-  return (
-    <div className="flex h-full min-w-0" data-split ref={row}>
-      {sideOf("left")}
-      <div
-        aria-label="Resize the two chats"
-        aria-orientation="vertical"
-        aria-valuemax={RATIO_MAX * 100}
-        aria-valuemin={RATIO_MIN * 100}
-        aria-valuenow={Math.round(ratio * 100)}
-        className={cn("relative w-px shrink-0 cursor-col-resize bg-border outline-none after:absolute after:inset-y-0 after:-inset-x-[3px] focus-visible:bg-ring", dragging && "bg-ring")}
-        data-split-divider
-        onKeyDown={onKeyDown}
-        onPointerDown={onPointerDown}
-        role="separator"
-        tabIndex={0}
-      />
-      {sideOf("right")}
-    </div>
-  );
 }
 
-/** One chat, or the new-chat screen for the active project when `id` is null. */
-function OneChat({ id }: { id: string | null }) {
-  const project = useActiveProject();
+/**
+ * One chat, or the new-chat screen when `id` is null: for the active project, or, in the side of
+ * a split that does not have focus, for the folder that side was left on.
+ */
+function OneChat({ id, side }: { id: string | null; side: SplitSide | null }) {
+  const active = useActiveProject();
+  const kept = useSessions((state) => (side && state.split?.focus !== side ? state.splitProjects[side] : undefined));
+  const project = kept ?? active;
   const session = useSessions((state) => (id ? state.sessions.find((candidate) => candidate.id === id) ?? null : null));
   const openFolder = useOpenFolderOrToast();
 

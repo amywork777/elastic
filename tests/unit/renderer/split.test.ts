@@ -76,3 +76,40 @@ describe("two chats side by side", () => {
     expect(s().activeId).toBe("c");
   });
 });
+
+describe("two chats side by side, from history and links", () => {
+  it("moves focus instead of showing a chat twice when it is set active from elsewhere (back/forward, continued-in links)", () => {
+    s().openBeside("b");
+    s().focusSide("left");
+    s().setActive("b");
+    expect(s().split).toEqual({ left: "a", right: "b", focus: "right" });
+    expect(s().activeId).toBe("b");
+  });
+});
+
+describe("a side on the new-chat screen", () => {
+  it("keeps its own folder when focus moves to a chat in another one, and gets it back on return", async () => {
+    const { useProjects } = await import("@renderer/state/projects");
+    const folder = { id: "q", name: "Q", path: "/q" } as never;
+    useSessions.setState({ sessions: [{ id: "a", projectId: "p", archived: false }, { id: "b", projectId: "p", archived: false }] as never });
+    useProjects.setState({ projects: [{ id: "p", name: "P", path: "/p" }] as never, activeId: "p", draft: null });
+    s().openBeside("b");
+    s().setActive(null);
+    useProjects.getState().selectDirectory(folder); // a folder just opened: a draft project
+    s().focusSide("left");
+    expect(s().splitProjects.right).toEqual(folder);
+    expect(useProjects.getState().activeId).toBe("p");
+    s().focusSide("right");
+    expect(useProjects.getState().activeId).toBe("q");
+    expect(useProjects.getState().draft).toEqual(folder);
+  });
+
+  it("receives the chat it created even when focus has moved to the other side meanwhile", () => {
+    s().openBeside("b");
+    s().setActive(null);
+    s().focusSide("left");
+    s().placeInSide("right", "c");
+    expect(s().split).toEqual({ left: "a", right: "c", focus: "left" });
+    expect(s().activeId).toBe("a");
+  });
+});

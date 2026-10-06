@@ -4,7 +4,7 @@ import { create } from "zustand";
 
 import { listedSessions, recentsSections, sidebarSections, type SidebarSection } from "@renderer/lib/sidebar";
 import { errorMessage } from "@shared/ipc/errors";
-import type { GitMode, Session, SessionTag } from "@shared/types";
+import type { GitMode, Project, Session, SessionTag } from "@shared/types";
 
 import { useAgents } from "./agents";
 import { useProjects } from "./projects";
@@ -37,6 +37,11 @@ type SessionsState = {
   ready: boolean;
   activeId: string | null;
   split: SplitState | null;
+  /** The folder of a side on the new-chat screen, kept while the other side has focus (and the
+   * active project is that side's): a folder just opened is a draft the projects store forgets. */
+  splitProjects: Partial<Record<SplitSide, Project>>;
+  /** A chat created from a side's new-chat screen lands in that side, wherever focus is by then. */
+  placeInSide: (side: SplitSide, id: string) => void;
   /** Opens `id` beside the current chat (or, already split, in the other side) and focuses it. */
   openBeside: (id: string) => void;
   focusSide: (side: SplitSide) => void;
@@ -92,6 +97,13 @@ export const useSessions = create<SessionsState>((set, get) => ({
   ready: false,
   activeId: null,
   split: null,
+  splitProjects: {},
+
+  placeInSide: (side, id) => {
+    const split = get().split;
+    if (!split || split[side] !== null) return;
+    set({ split: { ...split, [side]: id }, ...(split.focus === side ? { activeId: id } : {}) });
+  },
 
   openBeside: (id) => {
     const { split, activeId } = get();
@@ -112,9 +124,20 @@ export const useSessions = create<SessionsState>((set, get) => ({
     const split = get().split;
     if (!split) return;
     const id = split[side];
+    const projects = useProjects.getState();
+    // Leaving a new-chat screen: remember its folder, which the active project stops being.
+    const leaving = split.focus !== side && split[split.focus] === null
+      ? projects.projects.find((project) => project.id === projects.activeId) ?? (projects.draft?.id === projects.activeId ? projects.draft : null)
+      : null;
+    const splitProjects = leaving ? { ...get().splitProjects, [split.focus]: leaving } : get().splitProjects;
     const session = id ? get().sessions.find((candidate) => candidate.id === id) : undefined;
-    if (session && useProjects.getState().activeId !== session.projectId) useProjects.getState().setActive(session.projectId);
-    set({ split: { ...split, focus: side }, activeId: id });
+    const kept = id === null ? splitProjects[side] : undefined;
+    if (session && projects.activeId !== session.projectId) projects.setActive(session.projectId);
+    else if (kept && projects.activeId !== kept.id) {
+      if (projects.projects.some((project) => project.id === kept.id)) projects.setActive(kept.id);
+      else projects.selectDirectory(kept);
+    }
+    set({ split: { ...split, focus: side }, activeId: id, splitProjects });
   },
 
   closeSide: (side) => {
@@ -132,12 +155,14 @@ export const useSessions = create<SessionsState>((set, get) => ({
 
   setActive: (activeId) => {
     const split = get().split;
+    // A chat already on the other side takes focus there; it is never shown twice (back/forward
+    // and the continued-in links come here, not through `select`).
+    if (split && activeId !== null && split[other(split.focus)] === activeId) return get().focusSide(other(split.focus));
     set(split ? { activeId, split: { ...split, [split.focus]: activeId } } : { activeId });
   },
 
   select: (id) => {
     const split = get().split;
-    // A chat already on the other side takes focus there; it is never shown twice.
     if (split && split[other(split.focus)] === id) return get().focusSide(other(split.focus));
     const session = get().sessions.find((candidate) => candidate.id === id);
     if (session && useProjects.getState().activeId !== session.projectId) {

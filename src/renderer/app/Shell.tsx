@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { PANE_HOMES, TABBABLE, focusComposerOf } from "@renderer/app/pane-focus";
+import { PANE_HOMES, TABBABLE, focusComposerOfSide } from "@renderer/app/pane-focus";
 import { useSessions } from "@renderer/state/sessions";
 import { PaneSeparator } from "@renderer/app/PaneSeparator";
 import { ExplorerPane, useExplorerShortcuts } from "@renderer/features/explorer/ExplorerPane";
@@ -286,8 +286,7 @@ export function useSplitShortcuts(): void {
       if (!side) return;
       event.preventDefault();
       focusSide(side);
-      const id = useSessions.getState().activeId;
-      if (id) focusComposerOf(id);
+      focusComposerOfSide(side);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

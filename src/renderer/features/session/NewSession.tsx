@@ -31,7 +31,7 @@ import { Composer } from "./Composer";
 import type { QuickCommandName } from "@renderer/state/asides";
 import { EffortChip, GitModeChip, ModeChip, ModelChip, ProjectChip, type ProviderPick } from "./ComposerChips";
 import { errorMessage, isAuthError } from "./view";
-import { useTakesFocus } from "./split-side";
+import { useSplitSide, useTakesFocus } from "./split-side";
 
 /**
  * The new-session state (plan §2): "What should we build in <project>?",
@@ -70,6 +70,7 @@ const NEW_SESSION_QUICK: QuickCommandName[] = ["usage"];
 
 export function NewSession({ project }: { project: Project }) {
   const takesFocus = useTakesFocus();
+  const side = useSplitSide();
   const draftKey = newSessionKey(project.id);
   const draftRoot = useComposer((state) => state.draftRoots[draftKey]);
   const settings = useSettings((state) => state.settings);
@@ -320,8 +321,12 @@ export function NewSession({ project }: { project: Project }) {
     // create that outlasted a click on another thread does not pull them back, nor does one
     // that outlasted a move to another project's new-session screen (`activeId` is null there
     // too, with this screen unmounted).
-    const activeNow = useSessions.getState().activeId;
-    if (activeNow === sessionId || (activeNow === null && mounted.current)) {
+    // Two chats side by side: the chat lands in the side it was started from, wherever focus has
+    // gone meanwhile, as long as that side still shows this screen.
+    const { split, placeInSide, activeId: activeNow } = useSessions.getState();
+    if (split && side && split[side] === null && mounted.current) {
+      placeInSide(side, sessionId);
+    } else if (activeNow === sessionId || (activeNow === null && mounted.current && !split)) {
       setActiveSession(sessionId);
     }
     setBusy(false);

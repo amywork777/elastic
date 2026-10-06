@@ -27,11 +27,14 @@ export const TABBABLE = 'button:not([disabled]), [href], input:not([disabled]), 
  * fallback after that frame, for a session with no composer to land on.
  */
 export function focusSessionHome(): void {
-  // Two chats side by side: the focused one's view (the active chat), not the first in the pane.
+  // Two chats side by side: the focused side (its chat or its new-chat screen), not the first in the pane.
   const pane = () => {
     const root = document.getElementById("session");
-    const active = useSessions.getState().activeId;
-    return (active ? root?.querySelector<HTMLElement>(`[data-session-view="${CSS.escape(active)}"]`) : null) ?? root;
+    const { split, activeId } = useSessions.getState();
+    if (!split) return root;
+    return root?.querySelector<HTMLElement>(`[data-split-side="${split.focus}"]`)
+      ?? (activeId ? root?.querySelector<HTMLElement>(`[data-session-view="${CSS.escape(activeId)}"]`) : null)
+      ?? root;
   };
   const composer = () => pane()?.querySelector<HTMLElement>(PANE_HOMES.session) ?? null;
   const first = composer();
@@ -51,11 +54,20 @@ export function focusSessionHome(): void {
  * (or the page): someone who clicked elsewhere meanwhile keeps their focus.
  */
 export function focusComposerOf(sessionId: string, frames = 150): void {
+  focusComposerWithin(`[data-session-view="${CSS.escape(sessionId)}"]`, frames);
+}
+
+/** As `focusComposerOf`, for one side of two chats side by side, on its new-chat screen too. */
+export function focusComposerOfSide(side: "left" | "right", frames = 150): void {
+  focusComposerWithin(`[data-split-side="${side}"]`, frames);
+}
+
+function focusComposerWithin(selector: string, frames: number): void {
   const started = document.activeElement;
   const attempt = (left: number) => {
     const current = document.activeElement;
     if (current !== started && current !== document.body && current !== null) return;
-    const view = document.querySelector(`[data-session-view="${CSS.escape(sessionId)}"]`);
+    const view = document.querySelector(selector);
     const composer = view?.querySelector<HTMLElement>(PANE_HOMES.session);
     if (composer) {
       composer.focus();

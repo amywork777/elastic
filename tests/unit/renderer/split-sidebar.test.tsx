@@ -65,3 +65,16 @@ it("moves focus between sides with Cmd-backslash and Cmd-Option-arrows", () => {
   fireEvent.keyDown(window, { key: "ArrowLeft", metaKey: true, altKey: true });
   expect(useSessions.getState().split?.focus).toBe("left");
 });
+
+it("takes the keyboard to a side on the new-chat screen too", () => {
+  const Probe = () => { useSplitShortcuts(); return null; };
+  render(<Probe />);
+  document.body.insertAdjacentHTML("beforeend", `<div data-split-side="left"><div data-composer-input contenteditable="true" id="left-box"></div></div>
+    <div data-split-side="right"><div data-composer-input contenteditable="true" id="right-box"></div></div>`);
+  useSessions.setState({ activeId: "a", split: { left: "a", right: null, focus: "left" } });
+  document.getElementById("left-box")!.focus();
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 0; });
+  fireEvent.keyDown(window, { key: "ArrowRight", metaKey: true, altKey: true });
+  expect(document.getElementById("right-box")).toHaveFocus();
+  vi.unstubAllGlobals();
+});

@@ -59,17 +59,28 @@ it("shows the new-chat screen in a side with no chat", () => {
   expect(side("right").querySelector("[data-new-session]")).not.toBeNull();
 });
 
-it("shows only the focused side in a narrow window, and both again when it widens", () => {
+it("shows only the focused side in a narrow window, keeping the other mounted, and both again when it widens", () => {
   Object.defineProperty(window, "innerWidth", { configurable: true, value: 900 });
   render(<SessionPane />);
-  expect(document.querySelectorAll("[data-split-side]")).toHaveLength(0);
-  expect(document.querySelector('[data-session-view="b"]')).not.toBeNull();
-  expect(document.querySelector('[data-session-view="a"]')).toBeNull();
+  expect(side("left")).toHaveAttribute("hidden");
+  expect(side("right")).not.toHaveAttribute("hidden");
+  expect(document.querySelector("[data-split-divider]")).toBeNull();
   act(() => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 1400 });
     window.dispatchEvent(new Event("resize"));
   });
-  expect(document.querySelectorAll("[data-split-side]")).toHaveLength(2);
+  expect(side("left")).not.toHaveAttribute("hidden");
+  expect(document.querySelector("[data-split-divider]")).not.toBeNull();
+});
+
+it("keeps a chat's view (not a fresh one) as the split opens and closes", () => {
+  useSessions.setState({ activeId: "a", split: null });
+  render(<SessionPane />);
+  const view = document.querySelector('[data-session-view="a"]');
+  act(() => useSessions.getState().openBeside("b"));
+  expect(document.querySelector('[data-session-view="a"]')).toBe(view);
+  act(() => useSessions.getState().closeSide("right"));
+  expect(document.querySelector('[data-session-view="a"]')).toBe(view);
 });
 
 it("moves the divider by keyboard, within a quarter and three quarters", () => {
@@ -99,7 +110,7 @@ it("shows only the focused side when the pane itself is too narrow for two (the 
     return { width: this.hasAttribute("data-session-pane") ? 600 : 0, height: 0, x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON() {} } as DOMRect;
   });
   render(<SessionPane />);
-  expect(document.querySelectorAll("[data-split-side]")).toHaveLength(0);
-  expect(document.querySelector('[data-session-view="b"]')).not.toBeNull();
+  expect(side("left")).toHaveAttribute("hidden");
+  expect(side("right")).not.toHaveAttribute("hidden");
   spy.mockRestore();
 });
