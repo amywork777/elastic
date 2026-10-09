@@ -1,15 +1,29 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
-import { ArrowDown, ChevronRight, Paperclip } from "lucide-react";
-import { memo, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
-import { useStickToBottomContext } from "use-stick-to-bottom";
+import { ArrowDown, ChevronRight, Paperclip, Pencil } from "lucide-react";
+import { createContext, memo, useContext, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useStickToBottomContext, type StickToBottomContext } from "use-stick-to-bottom";
 
+import { toast } from "sonner";
+
+import { focusComposerOf } from "@renderer/app/pane-focus";
 import { isHandoff } from "@renderer/lib/handoff";
+import { isPrimaryModifier } from "@renderer/lib/platform";
 import { cn } from "@renderer/lib/utils";
+import { useSessions } from "@renderer/state/sessions";
+import { useUi } from "@renderer/state/ui";
 import { Conversation, ConversationContent } from "@renderer/components/ai-elements/conversation";
 import type { Part, SessionState, Turn } from "@shared/acp/types";
+import { errorMessage } from "@shared/ipc/errors";
+
+import { Button } from "@renderer/components/ui/button";
 
 import { CopyReplyButton, replyMarkdown } from "./CopyReply";
+import { EditPromptCard } from "./EditPrompt";
+import { drawnParts } from "./find";
+import { FindBar } from "./FindBar";
 import { PartsList } from "./parts/PartsList";
+import { sentAtFull, sentAtLabel } from "./sent-at";
+import { useSplitSide } from "./split-side";
 import { StatusLine } from "./StatusLine";
 import { statusLine } from "./view";
 
@@ -33,10 +47,16 @@ export function Transcript({
   state,
   onRetry,
   onReconnect,
+  onEditPrompt,
+  projectId,
 }: {
   state: SessionState;
   onRetry: () => void;
   onReconnect: () => void;
+  /** "Edit" on a past prompt (`EditPrompt.tsx`): without it, prompts offer no pencil. */
+  onEditPrompt?: (turn: Turn, text: string, restore: boolean) => Promise<void>;
+  /** The session's project, for the edit's restore preview. */
+  projectId?: string;
 }) {
   const status = statusLine(state);
   // How many of the earliest turns are not mounted. It is set once, when the
@@ -85,9 +105,34 @@ export function Transcript({
   const last = state.turns.at(-1);
   const streaming = last?.role === "agent" && last.endedAt === null && state.status !== "waiting";
 
+  const find = useFindKey(state.sessionId);
+  const edit = useEditing(state, onEditPrompt, projectId);
+  const frame = useRef<HTMLDivElement | null>(null);
+  const stick = useRef<StickToBottomContext | null>(null);
+
   return (
+    <EditContext.Provider value={edit}>
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col" ref={frame}>
+      {/* Outside the log: the bar is chrome over the transcript, not a message in it. */}
+      {find.open ? (
+        <div className="absolute top-2 right-4 z-10">
+          <FindBar
+            container={frame}
+            firstMounted={start}
+            focusToken={find.token}
+            onClose={find.close}
+            onMountFrom={(index) => setUnmounted((current) => Math.min(current, index))}
+            onReveal={(range) => revealRange(range, stick.current)}
+            owner={state.sessionId}
+            turns={state.turns}
+          />
+        </div>
+      ) : null}
     <Conversation aria-busy={streaming} className="min-h-0 min-w-0 flex-1" data-transcript initial="instant">
+      <StickBridge intoRef={stick} />
       <ConversationContent className="mx-auto min-w-0 w-full max-w-[720px] gap-4 px-6 pt-6 pb-4">
+        {/* Room above the first turn while the bar is open, so a match at the very top is not under it. */}
+        {find.open ? <div aria-hidden className="h-8 shrink-0" data-find-room /> : null}
         {/* A box of its own, with the column's gap: a `display: contents` element has been dropped
             from Chromium's accessibility tree, and the silence would go with it. Empty it is
             `hidden` (`EarlierTurns` draws nothing for a transcript that opened whole): a
@@ -101,7 +146,137 @@ export function Transcript({
       </ConversationContent>
       <JumpToLatest />
     </Conversation>
+    </div>
+    </EditContext.Provider>
   );
+}
+
+/** What a prompt needs to offer "Edit": which prompt is open, and the doors in and out. */
+type Editing = {
+  /** The prompt open in the editor, if one is. */
+  openId: string | null;
+  /** The chat's latest prompt: only its files have a checkpoint, and only its turn can be running. */
+  latestId: string | null;
+  running: boolean;
+  projectId: string;
+  sessionId: string;
+  open: (turnId: string) => void;
+  /** Close the editor and hand focus back to the prompt's Edit button. */
+  close: (turnId: string) => void;
+  send: (turn: Turn, text: string, restore: boolean) => Promise<void>;
+};
+const EditContext = createContext<Editing | null>(null);
+
+/**
+ * One prompt open for editing at a time, per transcript. A context rather than props, so the
+ * memoised turns are not drawn again for every token of a streaming reply: the value changes only
+ * when the open prompt, the latest prompt or the running state does.
+ */
+function useEditing(state: SessionState, onEditPrompt: ((turn: Turn, text: string, restore: boolean) => Promise<void>) | undefined, projectId: string | undefined): Editing | null {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const latestId = state.turns.findLast((turn) => turn.role === "user")?.id ?? null;
+  const running = state.status === "running" || state.status === "waiting";
+  // The latest callback, read when Send is pressed, so a new closure each render is no new value.
+  const sendRef = useRef(onEditPrompt);
+  useLayoutEffect(() => {
+    sendRef.current = onEditPrompt;
+  });
+  const sessionId = state.sessionId;
+  const enabled = !!onEditPrompt && !!projectId;
+  return useMemo(() => {
+    if (!enabled || !projectId) return null;
+    const focusEdit = (turnId: string) =>
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-turn="${CSS.escape(turnId)}"] [data-edit-prompt]`)?.focus());
+    return {
+      openId,
+      latestId,
+      running,
+      projectId,
+      sessionId,
+      open: setOpenId,
+      close: (turnId) => {
+        setOpenId(null);
+        focusEdit(turnId);
+      },
+      send: async (turn, text, restore) => {
+        try {
+          await sendRef.current?.(turn, text, restore);
+          setOpenId(null);
+        } catch (error) {
+          // Refused: the editor stays, with what was typed, and focus stays on its Send.
+          toast.error(`Could not send the edited prompt: ${errorMessage(error)}`);
+        }
+      },
+    };
+  }, [enabled, projectId, sessionId, openId, latestId, running]);
+}
+
+/**
+ * Mod+F in a chat: open the find bar, or, open already, put the keyboard back
+ * in its box with the query selected. Only for the chat that has focus — the
+ * focused side of two — and only from the session pane or the sidebar: with
+ * focus in the explorer, Mod+F is the editor's, the terminal's or the page's
+ * own find (Monaco binds it; a browser tab's page has the key before this
+ * window does), and a dialog over the window keeps its keys. Bound here, not
+ * as a menu accelerator, for the same reason: an accelerator fires before
+ * Monaco sees the key. Closing hands focus back to what had it.
+ */
+function useFindKey(sessionId: string): { open: boolean; token: number; close: () => void } {
+  const side = useSplitSide();
+  const focused = useSessions((store) => side === null || store.split === null || store.split.focus === side);
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState(0);
+  const returnTo = useRef<HTMLElement | null>(null);
+  const onKey = useEffectEvent((event: KeyboardEvent) => {
+    if (!focused || event.defaultPrevented || !isPrimaryModifier(event) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "f") return;
+    if (useUi.getState().surface.kind !== "home") return;
+    const active = document.activeElement;
+    if (active instanceof Element && active.closest("#explorer, [role=dialog], [role=alertdialog]")) return;
+    event.preventDefault();
+    if (!open && active instanceof HTMLElement && !active.closest("[data-find-bar]")) returnTo.current = active;
+    setOpen(true);
+    setToken((value) => value + 1);
+  });
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onKey(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+  const close = () => {
+    setOpen(false);
+    const back = returnTo.current;
+    returnTo.current = null;
+    // The bar unmounts under the focus it holds: back where it came from, else this chat's box.
+    requestAnimationFrame(() => {
+      if (back?.isConnected) back.focus();
+      else focusComposerOf(sessionId, 2);
+    });
+  };
+  return { open, token, close };
+}
+
+/** Hands the transcript's stick-to-bottom context out, for the find bar's scroll. */
+function StickBridge({ intoRef }: { intoRef: React.RefObject<StickToBottomContext | null> }) {
+  const context = useStickToBottomContext();
+  useLayoutEffect(() => {
+    intoRef.current = context;
+  });
+  return null;
+}
+
+/**
+ * Scroll a match to the middle of the transcript. The pane stops sticking to
+ * the bottom first, or a reply still streaming would pull it straight back down.
+ */
+function revealRange(range: Range, stick: StickToBottomContext | null): void {
+  const scroller = stick?.scrollRef.current;
+  if (!scroller) return;
+  stick.stopScroll();
+  const box = range.getBoundingClientRect();
+  const pane = scroller.getBoundingClientRect();
+  // The top band is under the find bar.
+  if (box.top >= pane.top + 56 && box.bottom <= pane.bottom - 24) return;
+  scroller.scrollTop += box.top - pane.top - (pane.height - box.height) / 2;
 }
 
 /** How many turns a transcript mounts when it opens, and how many more each step up mounts. */
@@ -287,7 +462,11 @@ const TurnView = memo(function TurnView({
           Stopped at the agent&apos;s limit. Send &quot;continue&quot; to go on.
         </p>
       ) : null}
-      {reply ? <CopyReplyButton latest={!foldWork} markdown={reply} /> : null}
+      {reply ? (
+        <CopyReplyButton latest={!foldWork} markdown={reply}>
+          <SentAt at={turn.endedAt ?? turn.startedAt} />
+        </CopyReplyButton>
+      ) : null}
     </div>
   );
 });
@@ -308,11 +487,9 @@ export function workedFor(ms: number): string {
  */
 function WorkFold({ turn, fold, children }: { turn: Turn; fold: boolean; children: (parts: Part[]) => React.ReactNode }) {
   const [expanded, setExpanded] = useState(false);
-  let answer = turn.parts.length;
-  while (answer > 0 && (turn.parts[answer - 1]!.type === "text" || turn.parts[answer - 1]!.type === "error")) answer -= 1;
-  const work = turn.parts.slice(0, answer);
-  const hasWork = work.some((part) => part.type === "tool_call" || part.type === "subagent" || part.type === "thought" || part.type === "plan");
-  if (!fold || !hasWork || answer === turn.parts.length || turn.endedAt === null) return <>{children(turn.parts)}</>;
+  // The rule lives in `find.ts`, which counts a turn that is not mounted by what it would draw.
+  const drawn = drawnParts(turn, fold);
+  if (!drawn.folded) return <>{children(turn.parts)}</>;
   return (
     <>
       <button
@@ -322,10 +499,10 @@ function WorkFold({ turn, fold, children }: { turn: Turn; fold: boolean; childre
         onClick={() => setExpanded((value) => !value)}
         type="button"
       >
-        Worked for {workedFor(turn.endedAt - turn.startedAt)}
+        Worked for {workedFor((turn.endedAt ?? turn.startedAt) - turn.startedAt)}
         <ChevronRight className={cn("size-3.5 transition-transform", expanded && "rotate-90")} />
       </button>
-      {children(expanded ? turn.parts : turn.parts.slice(answer))}
+      {children(expanded ? turn.parts : drawn.parts)}
     </>
   );
 }
@@ -358,6 +535,7 @@ function HandoffTurn({ text, turnId }: { text: string; turnId: string }) {
 }
 
 function UserTurn({ turn }: { turn: Turn }) {
+  const edit = useContext(EditContext);
   const text = turn.parts
     .filter((part): part is Extract<Turn["parts"][number], { type: "text" }> => part.type === "text")
     .map((part) => part.text)
@@ -371,12 +549,22 @@ function UserTurn({ turn }: { turn: Turn }) {
     return <HandoffTurn text={text} turnId={turn.id} />;
   }
   return (
-    <div className="flex w-full flex-col items-end gap-1.5" data-turn={turn.id} data-role="user">
+    <div className="group/turn flex w-full flex-col items-end gap-1.5" data-turn={turn.id} data-role="user">
       {/* The bubble carries no `select-text` of its own: the whole transcript
           selects (`styles/globals.css`), which is what a person means when
           they drag across a reply and their own prompt in one go. */}
-      {text ? (
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-secondary px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+      {edit?.openId === turn.id ? (
+        <EditPromptCard
+          latest={edit.latestId === turn.id}
+          onCancel={() => edit.close(turn.id)}
+          onSend={(edited, restore) => edit.send(turn, edited, restore)}
+          projectId={edit.projectId}
+          running={edit.running}
+          sessionId={edit.sessionId}
+          turn={turn}
+        />
+      ) : text ? (
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-secondary px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]" data-find-text>
           {text}
         </div>
       ) : null}
@@ -404,7 +592,45 @@ function UserTurn({ turn }: { turn: Turn }) {
           ))}
         </div>
       ) : null}
+      <div className="-mt-1 flex h-6 items-center gap-0.5" data-prompt-actions>
+        <SentAt at={turn.startedAt} />
+        {edit && text && edit.openId !== turn.id ? (
+          <TooltipHint content="Edit and send again">
+            <Button
+              aria-label="Edit this prompt"
+              className="size-6 text-muted-foreground opacity-0 group-hover/turn:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+              data-edit-prompt
+              onClick={() => edit.open(turn.id)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Pencil className="size-3" />
+            </Button>
+          </TooltipHint>
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+/**
+ * When a message was sent, quietly: a small muted time that shows while the
+ * turn is hovered or holds keyboard focus (`sent-at.ts` says how short), the
+ * whole date in its tooltip and in what a screen reader is told.
+ */
+function SentAt({ at }: { at: number }) {
+  const full = sentAtFull(at);
+  return (
+    <TooltipHint content={full}>
+      <time
+        aria-label={`Sent ${full}`}
+        className="px-1 text-[11px] leading-6 text-muted-foreground tabular-nums opacity-0 transition-opacity group-hover/turn:opacity-100 group-focus-within/turn:opacity-100"
+        data-sent-at
+        dateTime={new Date(at).toISOString()}
+      >
+        {sentAtLabel(at)}
+      </time>
+    </TooltipHint>
   );
 }
 

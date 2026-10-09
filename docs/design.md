@@ -307,7 +307,7 @@ agent's `limits` turn), `session-cancelled`, `session-error`,
 `session-resumed`, `session-auth`, `activity-collapsed-light`,
 `activity-expanded-light` and `transcript-links`. From
 `transcript-layout.spec.ts`: `transcript-light`, `transcript-dark` and
-`transcript-expanded`; from `browser-service.spec.ts`, `browser-use-native`
+`transcript-expanded`; from `transcript-find.spec.ts`, `transcript-find`; from `edit-prompt.spec.ts`, `edit-prompt`; from `browser-service.spec.ts`, `browser-use-native`
 (the native page as Browser Use captured it). From `plugins.spec.ts`: `plugins-browse`, `plugins-detail`, `plugins-file-view` (a CSV in the Tables plugin's view), `plugins-rail-page` and `color-theme-nord` (the Appearance page with Nord chosen). The committed
 `tests/e2e/__screenshots__/` (`file-markdown-editable`,
 `file-markdown-raw-blocks`, `file-tree-deep`) is older evidence no spec
@@ -906,6 +906,75 @@ clipboard item: as HTML (`src/renderer/lib/markdown-html.ts`, a small printer
 over remark's tree that escapes every text and keeps only web and mail
 links), so a paste into Slack, Docs or an email keeps its formatting, and as
 the markdown, for a terminal or an editor.
+
+**When it was sent.** A hovered message, or one holding keyboard focus, shows
+its time small and muted: under a prompt's bubble (when it was sent) and
+beside a reply's Copy (when it finished). Today is a time, then "Yesterday …",
+a weekday within the week, the day this year and the day with its year before
+that; the whole date is the tooltip and what a screen reader is told
+(`src/renderer/features/session/sent-at.ts`, `SentAt` in `Transcript.tsx`).
+
+### Find in the chat
+
+Mod+F opens a small bar over the top of the focused chat's transcript
+(`features/session/FindBar.tsx`). Typing paints every match and moves to the
+one nearest the bottom; Enter or ↓ is the next match, Shift+Enter or ↑ the
+previous, wrapping, with "3 of 12" beside the box; Escape or × closes it and
+focus goes back to what had it. The matches are painted with the CSS Custom
+Highlight API (`::highlight(transcript-find)` in `styles/globals.css`), so the
+transcript's DOM is never rewritten to mark a word.
+
+The whole chat is searched, not only the turns mounted (`TRANSCRIPT_WINDOW`).
+A mounted turn is counted from its DOM, which is what the person sees; a turn
+that is not mounted is counted from its data, mirroring what it would draw —
+a prompt's bubble, a reply's prose, only the answer of a reply folded under
+"Worked for …", markdown's punctuation taken out (`find.ts`). Going to a
+match in an unmounted turn mounts the window down to it first; its DOM count
+then replaces the data's, which can differ by a match (a link's URL).
+
+Mod+F is not a menu accelerator, deliberately: an accelerator would fire
+before Monaco's own find. It is the chat's only from the session pane or the
+sidebar — with focus in the explorer the key is the editor's, the terminal's
+or the page's — and only for the focused side of two chats.
+
+### Editing a past prompt
+
+A hovered or focused prompt has a pencil beside its time
+(`features/session/EditPrompt.tsx`). It opens the prompt in place of its
+bubble; Enter sends, Shift+Enter is a new line, Escape gives the bubble back
+and focus to the pencil. Send never rewrites this chat: ACP has no rewind, and
+the turns after the prompt happened. It starts a **new chat**, linked "Edited
+from …" (and "Edited in …" back, `links.kind`), whose agent has the
+conversation up to, not including, the prompt, and sends the edited prompt
+there, its images and attached files kept.
+
+That context is a real fork where the agent can make one: both pinned adapters
+take `session/fork` with a fork point, `_meta.jetbrains.air.fork` (JetBrains
+AIR's extension; claude-agent-acp cuts the Claude session at that message,
+codex-acp forks the Codex thread through the turn holding it), and both stamp
+an ACP `messageId` on their agent chunks, which the reducer keeps as the agent
+turn's `replyId`. `SessionManager.create` with `edit.forkAt` forks the source
+chat at the reply right before the prompt and opens the fork with
+`session/load`, so the new chat's transcript replays the history it starts
+from (`SessionConnection.forkAt`). The chat's first prompt has nothing before
+it and starts fresh. With no id to cut at (a transcript filed before
+`replyId`, a prompt that followed another prompt), or a fork the agent
+refuses (`ForkRefused`: no `fork` capability, message not found), the chat
+starts fresh and is first handed the "Continue with …" summary of the turns
+before the prompt (`lib/edit-prompt.ts`); `links.forked` says which it got.
+Editing the latest prompt while its turn runs stops the turn first.
+
+**Files are never changed silently.** The conversation forks; the working
+tree does not. For the chat's latest prompt, "Also restore files to before
+this prompt" (off by default) asks main which files differ from the turn's
+checkpoint (`git.restorePreview`, the `turnHead` mark) and lists them, restored
+or deleted, before Send — now "Restore N files and send" — puts them back
+(`git.restoreTurn`, `restoreTree` in `src/main/projects/git.ts`): through git's
+own checkout from a throwaway index, the person's staging untouched, ignored
+files and untracked files over `SNAPSHOT_MAX_BYTES` left alone, and the state
+before pinned at `refs/elastic/<session id>/restore` first. It is refused while
+a turn runs. An earlier prompt offers no restore: each turn's mark replaces the
+last, so no checkpoint of its files is kept.
 
 ### Two chats side by side
 

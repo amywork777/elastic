@@ -82,6 +82,28 @@ function cwdFor(request: { projectId: string; sessionId?: string }): string {
   return rootOf(request.projectId);
 }
 
+/** Sessions with a restore in flight: a second click waits for nothing, it is refused. */
+const restoringNow = new Set<string>();
+
+/**
+ * A session whose files may be put back to its turn mark: one that exists, has a mark, and whose
+ * agent is not writing them — a turn running, a question open, a connection starting — since a
+ * restore under a live turn would race its edits.
+ */
+function restorable(projectId: string, sessionId: string): Session & { turnHead: string } {
+  const session = sessionOf(projectId, sessionId);
+  if (!session) {
+    throw new IpcError("that session is no longer open");
+  }
+  if (session.status === "running" || session.status === "waiting" || session.status === "connecting") {
+    throw new IpcError("wait for the turn to finish, or stop it, first");
+  }
+  if (!session.turnHead) {
+    throw new IpcError("no checkpoint was recorded for this chat's files");
+  }
+  return session as Session & { turnHead: string };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Worktrees                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -327,6 +349,26 @@ export const gitHandlers = {
           env: await loginEnv(),
         });
       }),
+
+    restorePreview: ({ projectId, sessionId }) =>
+      fsCall(async () => {
+        const session = restorable(projectId, sessionId);
+        return git.restorePreview(session.cwd, session.turnHead);
+      }),
+
+    restoreTurn: async ({ projectId, sessionId }) => {
+      const session = restorable(projectId, sessionId);
+      if (restoringNow.has(sessionId)) {
+        throw new IpcError("a restore is already running for this chat");
+      }
+      restoringNow.add(sessionId);
+      try {
+        const { restored, removed, kept } = await fsCall(() => git.restoreTree(session.cwd, session.turnHead, `${session.id}/restore`));
+        return { restored, removed, kept };
+      } finally {
+        restoringNow.delete(sessionId);
+      }
+    },
 
     worktrees: ({ projectId }) => fsCall(() => worktreesOf(projectOf(projectId))),
 

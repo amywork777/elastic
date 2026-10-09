@@ -316,3 +316,15 @@
 .prose-transcript li::marker {
   color: var(--color-muted-foreground);
 }
+
+/* Find in the chat (`features/session/find.ts`): every match, and the one the
+ * bar is on. Painted by the CSS Custom Highlight API, so the transcript's DOM
+ * is never rewritten to mark a word. The text keeps its own colour on the
+ * soft tint; the current match is solid, and dark text on it in both themes. */
+::highlight(transcript-find) {
+  background-color: color-mix(in oklab, #facc15 45%, transparent);
+}
+::highlight(transcript-find-current) {
+  background-color: #f59e0b;
+  color: #111;
+}

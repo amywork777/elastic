@@ -171,6 +171,8 @@ describe("the contract", () => {
       "git.unifiedDiff",
       "git.commit",
       "git.pullRequest",
+      "git.restorePreview",
+      "git.restoreTurn",
       "git.worktrees",
       "git.removeWorktree",
       "integrations.reply",

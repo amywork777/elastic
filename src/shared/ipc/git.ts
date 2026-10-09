@@ -138,6 +138,17 @@ export type Worktree = z.infer<typeof WorktreeSchema>;
 /* The contract                                                                */
 /* -------------------------------------------------------------------------- */
 
+/** What a restore to a turn's mark changes, or would change, repository-relative (`restoreTree`, `restorePreview`). */
+export const RestoreResultSchema = z.object({
+  /** Put back to their contents in the mark. */
+  restored: z.array(z.string()),
+  /** Not in the mark, so deleted. */
+  removed: z.array(z.string()),
+  /** Not in the mark but left alone: too large to have been in a snapshot, so not known to be the turn's. */
+  kept: z.array(z.string()),
+});
+export type RestoreResult = z.infer<typeof RestoreResultSchema>;
+
 const InProject = z.object({
   projectId: z.string().min(1),
   /**
@@ -192,6 +203,19 @@ export const gitIpc = {
       InProject.extend({ title: z.string().min(1), body: z.string().optional() }),
       z.object({ url: z.string() }),
     ),
+
+    /**
+     * "Also restore files to before this prompt", for an edit of a chat's latest prompt: what
+     * putting the session's files back to its `turnHead` mark would change, and nothing written.
+     * Main resolves the mark; the renderer names only the session.
+     */
+    restorePreview: invoke(z.object({ projectId: z.string().min(1), sessionId: z.string().min(1) }), RestoreResultSchema),
+    /**
+     * The same, done: the session's files back the way they were when its latest prompt was sent,
+     * the present state pinned first (`refs/elastic/<session id>/restore`). Refused while a turn
+     * runs, a question waits or the session connects.
+     */
+    restoreTurn: invoke(z.object({ projectId: z.string().min(1), sessionId: z.string().min(1) }), RestoreResultSchema),
 
     /** elastic's worktrees for a project, newest first. */
     worktrees: invoke(

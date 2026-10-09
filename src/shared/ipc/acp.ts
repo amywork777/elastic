@@ -67,6 +67,11 @@ export const acpContract = {
         provider: SessionProviderSchema.nullable().optional(),
         /** The chat this one continues ("Continue with …"). */
         from: z.string().min(1).optional(),
+        /**
+         * "Edit" on a past prompt of `from`: a fork of its conversation at `forkAt` (an agent
+         * message id, `Turn.replyId`) when the agent can make one, else a fresh session.
+         */
+        edit: z.object({ forkAt: z.string().min(1).max(512).nullable() }).optional(),
       }),
       SessionSchema,
     ),

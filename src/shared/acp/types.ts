@@ -435,6 +435,12 @@ export const TurnSchema = z.object({
   stopReason: StopReasonSchema.nullable(),
   /** The ACP `messageId` a replayed user message carried, so the next message starts its own turn. */
   messageId: z.string().optional(),
+  /**
+   * An agent turn's latest message id (ACP `messageId` on its chunks): the point an edit of the
+   * prompt after this turn forks the conversation at (`session/fork`, `src/main/acp/connection.ts`).
+   * Absent for an adapter that sends none and for a transcript filed before it was recorded.
+   */
+  replyId: z.string().optional(),
 });
 export type Turn = z.infer<typeof TurnSchema>;
 
