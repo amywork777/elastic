@@ -741,14 +741,19 @@ agent. Names are optional display metadata scoped to the draft; typed or
 unresolved references keep their file/selector fallback.
 
 A file is sorted the moment it is attached (paperclip, paste or drop), not
-when the prompt is sent. Images and UTF-8 text up to 256 KB
-(`MAX_INLINE_TEXT_BYTES` in `composer/attachments.ts`) attach as before. A
-file in a format an enabled plugin opens never goes in as bytes: one
-already in the project folder — matched by name and byte size, since Electron
-gives the renderer no path for a picked file — is inserted as its path, the
-same token a typed reference chip sends; one outside the folder is refused
-with a note to copy it in and refer to it by path. Any other binary, and text
-over the cap, is refused with the reason. A prompt holding a block the agent's
+when the prompt is sent. Images up to 20 MB and UTF-8 text up to 256 KB
+(`MAX_INLINE_TEXT_BYTES` in `composer/attachments.ts`) go in as their
+contents. A file in a format an enabled plugin opens never goes in as bytes:
+one already in the project folder — matched by name, byte size and modified
+time — is inserted as its path, the same token a typed reference chip sends.
+Every other file that is a file on disk — a PDF, a spreadsheet, an archive, a
+video, a larger log, a model from outside the project — is attached as a link
+to where it is: preload's `pathForFile` (Electron's `webUtils`; a `File`
+carries no path of its own) names it, and the prompt carries a
+`resource_link` with its `file://` URL, which every agent takes and opens with
+its own tools, asking as it would for any path outside its folder. Nothing is
+copied into the project. Only data with no file behind it (a paste) that is
+not an image or small text is refused, with the reason. A prompt holding a block the agent's
 `promptCapabilities` say it cannot take — an image, a file's contents — is
 refused by main before any turn starts (`refused` on the `sessions.prompt`
 reply, `src/main/acp/sessions.ts`): the session stays idle, the composer keeps

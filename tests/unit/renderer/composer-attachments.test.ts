@@ -18,7 +18,8 @@ Range.prototype.getBoundingClientRect ??= () => new DOMRect();
 (Text.prototype as unknown as { getClientRects: () => DOMRectList }).getClientRects ??= noRects;
 
 // jsdom has no blob URLs; the app's own path reads the remembered file, as it must on `file://`.
-URL.createObjectURL = () => "blob:composer-test";
+let blobs = 0;
+URL.createObjectURL = () => `blob:composer-test-${++blobs}`;
 URL.revokeObjectURL = () => {};
 
 const project: Project = { id: "p", name: "p", path: "/p", createdAt: 0 };
@@ -57,8 +58,54 @@ const errors = () => vi.mocked(toast.error).mock.calls.map(([message]) => String
 it("a binary file that is not CAD is refused when it is picked, not when the prompt is sent", async () => {
   const view = renderComposer();
   await view.pick(binary("drawing.pdf", "application/pdf"));
-  await waitFor(() => expect(errors()).toEqual(["drawing.pdf is not text or an image, so it was not attached."]));
+  await waitFor(() => expect(errors()).toEqual(["drawing.pdf is not text or an image and is not a file on disk, so it was not attached. Save it as a file and drop that instead."]));
   expect(view.attached("drawing.pdf")).toBeNull();
+});
+
+it("any file on disk is attached and sent as a link to it, unread: a PDF, a large log, a model from elsewhere", async () => {
+  const pathFor = vi.mocked(window.workbench.pathForFile);
+  const onDisk = new Map<File, string>([
+    [binary("drawing.pdf", "application/pdf"), "/Users/me/Downloads/drawing.pdf"],
+    [new File(["x".repeat(MAX_INLINE_TEXT_BYTES + 1)], "big.log", { type: "text/plain" }), "/var/log/big.log"],
+    [binary("part.stl"), "/Users/me/Desktop/part one.stl"],
+  ]);
+  pathFor.mockImplementation((file: File) => onDisk.get(file) ?? "");
+  try {
+    const view = renderComposer();
+    await view.pick(...onDisk.keys());
+    await waitFor(() => expect(view.attached("part.stl")).not.toBeNull());
+    expect(errors()).toEqual([]);
+    expect(view.attached("drawing.pdf")).not.toBeNull();
+    expect(view.attached("big.log")).not.toBeNull();
+    await view.send();
+    await waitFor(() => expect(view.onSubmit).toHaveBeenCalled());
+    const content = (view.onSubmit.mock.calls[0] as unknown as [string, { type: string; uri?: string; name?: string }[]])[1];
+    expect(content.map((block) => block.type)).toEqual(["resource_link", "resource_link", "resource_link"]);
+    expect(content.map((block) => block.uri)).toEqual([
+      "file:///Users/me/Downloads/drawing.pdf",
+      "file:///var/log/big.log",
+      "file:///Users/me/Desktop/part%20one.stl",
+    ]);
+    expect(content.map((block) => block.name)).toEqual(["drawing.pdf", "big.log", "part.stl"]);
+  } finally {
+    pathFor.mockReset().mockReturnValue("");
+  }
+});
+
+it("a small text file on disk is still sent as its contents, not a link", async () => {
+  const pathFor = vi.mocked(window.workbench.pathForFile);
+  pathFor.mockReturnValue("/Users/me/notes.txt");
+  try {
+    const view = renderComposer();
+    await view.pick(new File(["hello"], "notes.txt", { type: "text/plain" }));
+    await waitFor(() => expect(view.attached("notes.txt")).not.toBeNull());
+    await view.send();
+    await waitFor(() => expect(view.onSubmit).toHaveBeenCalled());
+    const content = (view.onSubmit.mock.calls[0] as unknown as [string, { type: string; text?: string }[]])[1];
+    expect(content).toEqual([expect.objectContaining({ type: "resource", text: "hello" })]);
+  } finally {
+    pathFor.mockReset().mockReturnValue("");
+  }
 });
 
 it("a CAD file outside the project is not attached, and the person is told to put it in the project", async () => {
@@ -102,7 +149,7 @@ it("a text file over the inline limit is refused with the limit named; a small o
   const view = renderComposer();
   await view.pick(new File(["x".repeat(MAX_INLINE_TEXT_BYTES + 1)], "log.txt", { type: "text/plain" }));
   await waitFor(() => expect(errors()).toHaveLength(1));
-  expect(errors()[0]).toMatch(/^log\.txt is larger than 256 KB, so it was not attached\./);
+  expect(errors()[0]).toMatch(/^log\.txt is larger than 256 KB and is not a file on disk, so it was not attached\./);
   expect(view.attached("log.txt")).toBeNull();
 
   await view.pick(new File(["hello"], "notes.txt", { type: "text/plain" }));
@@ -166,6 +213,6 @@ it("a small file that is text for 8 KB and invalid UTF-8 after it is refused whe
   bytes[15_000] = 0xff;
   const view = renderComposer();
   await view.pick(new File([bytes], "mixed.txt", { type: "text/plain" }));
-  await waitFor(() => expect(errors()).toEqual(["mixed.txt is not text or an image, so it was not attached."]));
+  await waitFor(() => expect(errors()).toEqual(["mixed.txt is not text or an image and is not a file on disk, so it was not attached. Save it as a file and drop that instead."]));
   expect(view.attached("mixed.txt")).toBeNull();
 });

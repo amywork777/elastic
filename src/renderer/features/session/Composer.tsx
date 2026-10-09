@@ -40,7 +40,8 @@ import {
   AttachmentFiles,
   attachmentRefusal,
   dataUrlOf,
-  MAX_ATTACHMENT_BYTES,
+  fileUrl,
+  linkedPathOf,
   MAX_INLINE_TEXT_BYTES,
   openAttachmentFiles,
   screenAttachments,
@@ -59,6 +60,7 @@ import { ReferenceScopeContext } from "./composer/ReferenceScope";
 import { AnnotationsChip, annotationImageParts, withAnnotations } from "./composer/AnnotationsChip";
 import { AppContextChips } from "./composer/AppContextChip";
 import type { AppContext, DraftAnnotation, TakenDraft } from "@renderer/state/composer";
+import { basename } from "@renderer/lib/paths";
 import { hintWith } from "@renderer/lib/shortcuts";
 import { isMac } from "@renderer/lib/platform";
 
@@ -459,7 +461,6 @@ export function Composer({
             "[&>[data-slot=input-group]]:h-auto",
             disabled && "opacity-70",
           )}
-          maxFileSize={MAX_ATTACHMENT_BYTES}
           multiple
           onError={(error) => toast.error(error.message)}
           onSubmit={handleSubmit}
@@ -956,7 +957,8 @@ function SlashPalette({
 /**
  * The composer's files become ACP content blocks: images as `image`
  * (base64), text files embedded as `resource` so the agent has the
- * content whether or not its sandbox can reach the path. What may be attached
+ * content whether or not its sandbox can reach the path, and any other file
+ * on disk as a `resource_link` to it (`linkedPathOf`), which the agent opens. What may be attached
  * is decided when a file is added (`screenAttachments`); the checks here are
  * the backstop for a file that reached the form another way, and refuse with
  * the same words rather than send bytes the agent cannot read.
@@ -969,6 +971,13 @@ export async function toPromptBlocks(text: string, files: FileUIPart[], remember
     blocks.push({ type: "text", text });
   }
   for (const file of files) {
+    // A file the box holds by its place on disk goes as a link to it, unread (`linkedPathOf`).
+    const onDisk = remembered?.fileFor(file);
+    const path = onDisk ? linkedPathOf(onDisk) : undefined;
+    if (path) {
+      blocks.push({ type: "resource_link", uri: fileUrl(path), name: file.filename || basename(path), mimeType: file.mediaType || null, title: null });
+      continue;
+    }
     const parsed = parseDataUrl((await dataUrlOf(file, remembered)) ?? "");
     if (!parsed) {
       toast.error(`${file.filename ?? "An attachment"} could not be read, so it was not attached.`);

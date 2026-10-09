@@ -54,6 +54,7 @@ Element.prototype.scrollIntoView ??= () => {};
 Object.defineProperty(window, "workbench", {
   writable: true,
   value: {
+    pathForFile: vi.fn((_file: File) => ""),
     app: {
       info: vi.fn(async () => ({ version: "0.0.0-test", platform: "darwin", isDev: true })),
     },

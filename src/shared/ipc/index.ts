@@ -279,4 +279,12 @@ export type WorkbenchApi = IpcClient<IpcContract> & {
     channel: C,
     listener: (payload: IpcEventPayload<C>) => void,
   ): () => void;
+  /**
+   * Where on disk a file the person dropped or picked lives, or `""` for one
+   * that has no file behind it (pasted data). Electron's `webUtils`, which only
+   * preload can reach: a `File` no longer carries its path. The composer links
+   * a file it cannot embed by this path (`composer/attachments.ts`); nothing is
+   * read through it.
+   */
+  pathForFile(file: File): string;
 };

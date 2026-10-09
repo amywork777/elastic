@@ -6,7 +6,7 @@
  * from the renderer, and adding one takes no edit here. `ipcRenderer` itself is
  * never handed over.
  */
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from "electron";
 
 import {
   IPC_EVENT_PREFIX,
@@ -53,6 +53,15 @@ function on<C extends IpcEventChannel>(
 }
 
 const client = buildClient(ipcContract, []) as IpcClient<IpcContract>;
-const api: WorkbenchApi = Object.freeze({ ...client, on });
+// Not a channel: the lookup is local to this process, and answers only for a `File` the page
+// already holds — one the person dropped or picked.
+const pathForFile = (file: File): string => {
+  try {
+    return webUtils.getPathForFile(file);
+  } catch {
+    return "";
+  }
+};
+const api: WorkbenchApi = Object.freeze({ ...client, on, pathForFile });
 
 contextBridge.exposeInMainWorld("workbench", api);

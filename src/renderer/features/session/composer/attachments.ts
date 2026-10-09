@@ -138,14 +138,44 @@ const MTIME_TOLERANCE_MS = 1000;
 /** The project (and worktree) whose folder a picked CAD file is looked for in. */
 export type AttachScope = { projectId: string; root: string | null } | null;
 
-/** The largest file the composer's form takes (`PromptInput`'s `maxFileSize`). */
+/** The largest image sent inside a prompt; a larger one on disk goes as a link (`linkedPathOf`). */
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
+/**
+ * Files that go to the agent as a link to where they are on disk rather than as their bytes: any
+ * file the prompt cannot carry — a PDF, a spreadsheet, an archive, a video, a log past
+ * `MAX_INLINE_TEXT_BYTES`, a model from outside the project. Keyed by the `File` the box holds,
+ * so the same file put back into the box (a refused send, a queued prompt taken back) links
+ * again. `toPromptBlocks` sends it as a `resource_link`, which every agent takes (ACP's
+ * baseline), and the agent opens it with its own tools — asking first, as it does for any path
+ * outside its folder. Nothing is copied: a write into the person's folder is not theirs to ask.
+ */
+const linked = new WeakMap<File, string>();
+
+/** The path a file in the box is sent as, when it goes as a link. */
+export function linkedPathOf(file: File): string | undefined {
+  return linked.get(file);
+}
+
+/** Where a dropped or picked file is on disk; `""` for pasted data or outside the app. */
+function pathOf(file: File): string {
+  try {
+    return window.workbench.pathForFile?.(file) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** A `file://` URL for an absolute path, each segment escaped. */
+export function fileUrl(path: string): string {
+  return `file://${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 export const attachmentRefusal = {
-  overLimit: (name: string) => `${name} is larger than ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB, so it was not attached.`,
-  notText: (name: string) => `${name} is not text or an image, so it was not attached.`,
+  overLimit: (name: string) => `${name} is larger than ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB and is not a file on disk, so it was not attached.`,
+  notText: (name: string) => `${name} is not text or an image and is not a file on disk, so it was not attached. Save it as a file and drop that instead.`,
   tooLarge: (name: string) =>
-    `${name} is larger than ${MAX_INLINE_TEXT_BYTES / 1024} KB, so it was not attached. Put it in the project folder and mention its path instead.`,
+    `${name} is larger than ${MAX_INLINE_TEXT_BYTES / 1024} KB and is not a file on disk, so it was not attached. Save it as a file and drop that instead.`,
   /** The same limit and words for text pasted into the box: it is the same prompt either way. */
   pasteTooLarge: () =>
     `The pasted text is larger than ${MAX_INLINE_TEXT_BYTES / 1024} KB, so it was not pasted. Put it in the project folder and mention its path instead.`,
@@ -229,12 +259,15 @@ export type Screened = { attach: File[]; references: FileReference[]; refusals: 
 
 /**
  * Sort what was picked, pasted or dropped before any of it is attached:
- * images and small text files are attached; a CAD file the project already
- * holds becomes its path — the same token a typed reference chip sends — so
- * the agent opens it rather than reading its bytes in the prompt; a CAD file
- * from elsewhere, any other binary, and text past `MAX_INLINE_TEXT_BYTES` are
- * refused with the reason. Nothing is copied into the project: that would be
- * a write into the person's folder they did not ask for.
+ * images and small text files are attached as their contents; a CAD file the
+ * project already holds becomes its path — the same token a typed reference
+ * chip sends — so the agent opens it rather than reading its bytes in the
+ * prompt; anything else that is a file on disk — a CAD file from elsewhere,
+ * any other binary, text past `MAX_INLINE_TEXT_BYTES`, an image past
+ * `MAX_ATTACHMENT_BYTES` — is attached as a link to that file
+ * (`linkedPathOf`). Only what has no file behind it (pasted data) and cannot
+ * be carried is refused, with the reason. Nothing is copied into the project:
+ * that would be a write into the person's folder they did not ask for.
  */
 export async function screenAttachments(files: readonly File[], scope: AttachScope): Promise<Screened> {
   const result: Screened = { attach: [], references: [], refusals: [] };
@@ -244,16 +277,25 @@ export async function screenAttachments(files: readonly File[], scope: AttachSco
   const list = (at: NonNullable<AttachScope>) => listing ??= window.workbench.explorer
     .paths({ projectId: at.projectId, ...(at.root ? { root: at.root } : {}), path: "" })
     .catch((): ProjectListing => ({ paths: [], truncated: false, failed: true }));
+  // Attached as a link to where it is on disk; false when it has no file behind it.
+  const link = (file: File): boolean => {
+    const path = pathOf(file);
+    if (!path) return false;
+    linked.set(file, path);
+    result.attach.push(file);
+    return true;
+  };
   for (const file of files) {
     if (file.type.startsWith("image/")) {
-      // Past the form's cap the form drops it without a word; said here instead.
-      if (file.size > MAX_ATTACHMENT_BYTES) result.refusals.push(attachmentRefusal.overLimit(file.name));
-      else result.attach.push(file);
+      if (file.size <= MAX_ATTACHMENT_BYTES) result.attach.push(file);
+      else if (!link(file)) result.refusals.push(attachmentRefusal.overLimit(file.name));
       continue;
     }
     if (isReferenceFile(file.name)) {
       const found: Found = scope ? await findInProject(file, scope, await list(scope)) : { kind: "outside" };
       if (found.kind === "one") result.references.push({ file: found.path, selector: "" });
+      // Not the project's own copy (or not one it can vouch for): the file itself, by its path.
+      else if (link(file)) continue;
       else if (found.kind === "ambiguous") result.refusals.push(attachmentRefusal.cadAmbiguous(file.name, found.paths));
       else if (found.kind === "stale") result.refusals.push(attachmentRefusal.cadStale(file.name, found.paths));
       else if (found.kind === "unconfirmed") result.refusals.push(attachmentRefusal.cadUnconfirmed(file.name));
@@ -266,6 +308,8 @@ export async function screenAttachments(files: readonly File[], scope: AttachSco
     // send. A larger one is refused either way; its first bytes only pick the reason.
     const inline = file.size <= MAX_INLINE_TEXT_BYTES;
     const bytes = await readBytes(inline ? file : file.slice(0, PROBE_BYTES));
+    const embeddable = !!bytes && inline && looksLikeText(bytes, { prefix: false });
+    if (!embeddable && link(file)) continue;
     if (!bytes || !looksLikeText(bytes, { prefix: !inline })) {
       result.refusals.push(attachmentRefusal.notText(file.name));
     } else if (!inline) {
