@@ -48,7 +48,7 @@ export async function copyReply(markdown: string): Promise<void> {
  * hover or focus, so a long chat is not a column of buttons. A check says it
  * worked, for a moment, and a screen reader hears "Copied".
  */
-export function CopyReplyButton({ markdown, latest }: { markdown: string; latest: boolean }) {
+export function CopyReplyButton({ markdown, latest, children }: { markdown: string; latest: boolean; children?: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
   useEffect(() => () => {
@@ -84,6 +84,8 @@ export function CopyReplyButton({ markdown, latest }: { markdown: string; latest
       <span aria-live="polite" className="sr-only" role="status">
         {copied ? "Copied" : ""}
       </span>
+      {/* What sits beside Copy: the reply's time (`SentAt` in `Transcript.tsx`). */}
+      {children}
     </div>
   );
 }

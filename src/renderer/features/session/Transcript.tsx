@@ -10,6 +10,7 @@ import type { Part, SessionState, Turn } from "@shared/acp/types";
 
 import { CopyReplyButton, replyMarkdown } from "./CopyReply";
 import { PartsList } from "./parts/PartsList";
+import { sentAtFull, sentAtLabel } from "./sent-at";
 import { StatusLine } from "./StatusLine";
 import { statusLine } from "./view";
 
@@ -287,7 +288,11 @@ const TurnView = memo(function TurnView({
           Stopped at the agent&apos;s limit. Send &quot;continue&quot; to go on.
         </p>
       ) : null}
-      {reply ? <CopyReplyButton latest={!foldWork} markdown={reply} /> : null}
+      {reply ? (
+        <CopyReplyButton latest={!foldWork} markdown={reply}>
+          <SentAt at={turn.endedAt ?? turn.startedAt} />
+        </CopyReplyButton>
+      ) : null}
     </div>
   );
 });
@@ -371,7 +376,7 @@ function UserTurn({ turn }: { turn: Turn }) {
     return <HandoffTurn text={text} turnId={turn.id} />;
   }
   return (
-    <div className="flex w-full flex-col items-end gap-1.5" data-turn={turn.id} data-role="user">
+    <div className="group/turn flex w-full flex-col items-end gap-1.5" data-turn={turn.id} data-role="user">
       {/* The bubble carries no `select-text` of its own: the whole transcript
           selects (`styles/globals.css`), which is what a person means when
           they drag across a reply and their own prompt in one go. */}
@@ -404,7 +409,31 @@ function UserTurn({ turn }: { turn: Turn }) {
           ))}
         </div>
       ) : null}
+      <div className="-mt-1 flex h-6 items-center gap-0.5" data-prompt-actions>
+        <SentAt at={turn.startedAt} />
+      </div>
     </div>
+  );
+}
+
+/**
+ * When a message was sent, quietly: a small muted time that shows while the
+ * turn is hovered or holds keyboard focus (`sent-at.ts` says how short), the
+ * whole date in its tooltip and in what a screen reader is told.
+ */
+function SentAt({ at }: { at: number }) {
+  const full = sentAtFull(at);
+  return (
+    <TooltipHint content={full}>
+      <time
+        aria-label={`Sent ${full}`}
+        className="px-1 text-[11px] leading-6 text-muted-foreground tabular-nums opacity-0 transition-opacity group-hover/turn:opacity-100 group-focus-within/turn:opacity-100"
+        data-sent-at
+        dateTime={new Date(at).toISOString()}
+      >
+        {sentAtLabel(at)}
+      </time>
+    </TooltipHint>
   );
 }
 

@@ -879,6 +879,13 @@ over remark's tree that escapes every text and keeps only web and mail
 links), so a paste into Slack, Docs or an email keeps its formatting, and as
 the markdown, for a terminal or an editor.
 
+**When it was sent.** A hovered message, or one holding keyboard focus, shows
+its time small and muted: under a prompt's bubble (when it was sent) and
+beside a reply's Copy (when it finished). Today is a time, then "Yesterday …",
+a weekday within the week, the day this year and the day with its year before
+that; the whole date is the tooltip and what a screen reader is told
+(`src/renderer/features/session/sent-at.ts`, `SentAt` in `Transcript.tsx`).
+
 ### Two chats side by side
 
 Cmd-click a chat in the sidebar (Ctrl elsewhere), or **Open beside** in its menu, and it opens to
