@@ -135,6 +135,9 @@ describe("the contract", () => {
       "browser.takeOver",
       "browser.pick",
       "browser.clearData",
+      // A chat's system banner and the dock's count — src/shared/ipc/notifications.ts
+      "notifications.show",
+      "notifications.badge",
       // P3 — src/shared/ipc/explorer.ts
       "explorer.list",
       "explorer.paths",

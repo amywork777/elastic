@@ -182,6 +182,10 @@ Object.defineProperty(window, "workbench", {
       worktrees: vi.fn(async () => []),
       removeWorktree: vi.fn(async () => undefined),
     },
+    notifications: {
+      show: vi.fn(async () => ({ shown: true })),
+      badge: vi.fn(async () => undefined),
+    },
     cad: {
       viewerOrigin: vi.fn(async () => ({ origin: null, reason: "runtime-not-ready" })),
       warm: vi.fn(async () => undefined),

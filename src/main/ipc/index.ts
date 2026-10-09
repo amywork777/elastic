@@ -25,6 +25,7 @@ import { previewHandlers } from "./preview";
 import { dictationHandlers } from "./dictation";
 import { providersHandlers } from "./providers";
 import { browserHandlers } from "./browser";
+import { notificationsHandlers } from "./notifications";
 import { dialogsHandlers, existingPath } from "./dialogs";
 import { explorerHandlers, initExplorerServices, revealProjectDirectory } from "./explorer";
 import { gitHandlers } from "./git";
@@ -137,6 +138,7 @@ const handlers = {
   ...dictationHandlers,
   ...providersHandlers,
   ...browserHandlers,
+  ...notificationsHandlers,
 } satisfies Parameters<typeof registerIpc<IpcContract>>[1];
 
 // The words on the native chooser are the words on the control that opened

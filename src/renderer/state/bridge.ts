@@ -16,6 +16,7 @@ import { useAgents } from "./agents";
 import { persistDrafts, persistQueues, restoreDrafts, restoreQueues, useComposer } from "./composer";
 import { networkTurnEvent, watchNetwork } from "./network-resume";
 import { trackViewed } from "./viewed";
+import { trackTurnAlerts } from "./turn-alerts";
 import { previewFilesChanged } from "./preview";
 import { performIntegrationCommand } from "./integration-commands";
 import { useExplorer } from "./explorer";
@@ -306,6 +307,7 @@ let stopTracking: (() => void) | null = null;
 let stopSavingQueues: (() => void) | null = null;
 let stopSavingDrafts: (() => void) | null = null;
 let stopViewed: (() => void) | null = null;
+let stopTurnAlerts: (() => void) | null = null;
 let stopWatchingNetwork: (() => void) | null = null;
 let stopUnhiding: (() => void) | null = null;
 
@@ -327,6 +329,9 @@ export async function hydrate(): Promise<void> {
   stopTracking ??= trackWhereYouWere();
   // The open chat counts as seen while the window has focus (Recents' unread dot).
   stopViewed ??= trackViewed();
+  // Settings › General › Notifications: a finished, failed or waiting chat says so, and the dock
+  // counts the chats that need the person.
+  stopTurnAlerts ??= trackTurnAlerts();
   // The prompts queued before the last quit, paused; then every change is saved as it happens.
   await restoreQueues();
   stopSavingQueues ??= persistQueues();
