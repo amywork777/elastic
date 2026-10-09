@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sentPrompts, stepHistory, type HistoryCursor } from "@renderer/features/session/composer/prompt-history";
+import { searchPrompts, sentPrompts, stepHistory, type HistoryCursor } from "@renderer/features/session/composer/prompt-history";
 import type { Turn } from "@shared/acp/types";
 
 const user = (id: string, text: string): Turn => ({ id, role: "user", parts: [{ type: "text", text }], startedAt: 0, endedAt: 0, stopReason: null });
@@ -37,5 +37,17 @@ describe("prompt history", () => {
 
   it("has nothing to recall in a chat that sent nothing", () => {
     expect(stepHistory([], null, "", "up")).toBeNull();
+  });
+
+  it("searches newest first: the query in a row before its letters apart, each prompt once", () => {
+    const prompts = ["fix the build", "write the readme", "fix the tests", "fix the build", "find intent"];
+    expect(searchPrompts(prompts, "")).toEqual(["fix the build", "write the readme", "fix the tests", "find intent"]);
+    expect(searchPrompts(prompts, "fix")).toEqual(["fix the build", "fix the tests"]);
+    expect(searchPrompts(prompts, "FIX THE T")[0]).toBe("fix the tests");
+    expect(searchPrompts(prompts, "the")).toEqual(["fix the build", "write the readme", "fix the tests"]);
+    // "fnt" is in no prompt as typed; its letters are in order, apart, in this one.
+    expect(searchPrompts(prompts, "fnt")).toContain("find intent");
+    expect(searchPrompts(prompts, "zzz")).toEqual([]);
+    expect(searchPrompts(prompts, "", 2)).toEqual(["fix the build", "write the readme"]);
   });
 });

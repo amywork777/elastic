@@ -54,6 +54,7 @@ import { useAsides, type QuickCommandName } from "@renderer/state/asides";
 import { useDictation } from "./composer/dictation";
 import { applyMention, mentionQuery } from "./composer/mentions";
 import { sentPrompts, stepHistory, type HistoryCursor } from "./composer/prompt-history";
+import { PromptSearch } from "./composer/PromptSearch";
 import { ReferenceScopeContext } from "./composer/ReferenceScope";
 import { AnnotationsChip, annotationImageParts, withAnnotations } from "./composer/AnnotationsChip";
 import { AppContextChips } from "./composer/AppContextChip";
@@ -68,7 +69,9 @@ const NO_APP_CONTEXTS: AppContext[] = [];
  * The composer (plan §2): "Do anything", the `+` menu, the chips the caller
  * supplies, and send — which becomes stop while a turn runs. Enter sends,
  * Shift+Enter is a newline, Escape stops a running turn, a pasted image
- * becomes an attachment. Typing `/` opens the agent's slash commands.
+ * becomes an attachment. Typing `/` opens the agent's slash commands. Up
+ * recalls the prompts already sent, and Ctrl+R searches them
+ * (`composer/prompt-history.ts`, `composer/PromptSearch.tsx`).
  *
  * The box holds the sentence and send, and nothing else. Everything the
  * caller supplies — `+`, `chips` on the left, `trailing` on the right — is
@@ -178,6 +181,17 @@ export function Composer({
     // After the editor has taken the new text, so the caret lands at its end.
     window.requestAnimationFrame(() => textRef.current?.focus());
     return true;
+  };
+  // Ctrl+R's search through the same prompts, read when it opens (`composer/PromptSearch.tsx`).
+  const [search, setSearch] = useState<{ key: string; prompts: string[] } | null>(null);
+  const searching = search?.key === draftKey ? search : null;
+  // Focus goes back at once, not a frame later: the editor's own focus already waits a frame, and
+  // a second wait on top of it could land after a quick Ctrl+R had opened the search again and
+  // take the focus out of it (its blur closes it). For the same reason a pick asks for no focus
+  // when the box's text changes, which focuses the box on its own.
+  const closeSearch = (refocus: boolean) => {
+    setSearch(null);
+    if (refocus) textRef.current?.focus();
   };
   const dictation = useDictation({
     text,
@@ -392,7 +406,7 @@ export function Composer({
         </Queue>
       ) : null}
 
-      {mention.open ? (
+      {!searching && mention.open ? (
         <MentionPalette
           paths={mention.matches}
           onPick={(path) => {
@@ -404,7 +418,23 @@ export function Composer({
         />
       ) : null}
 
-      {slash.open ? (
+      {searching ? (
+        <PromptSearch
+          onClose={closeSearch}
+          onPick={(prompt) => {
+            // A pick is the person's draft now, not a step of Up's walk.
+            history.current = null;
+            // New text focuses the box by itself, its caret at the end (the editor's sync); a
+            // second focus asked for here could land a frame later than that one.
+            const unchanged = (useComposer.getState().drafts[draftKey] ?? "") === prompt;
+            setText(prompt);
+            closeSearch(unchanged);
+          }}
+          prompts={searching.prompts}
+        />
+      ) : null}
+
+      {!searching && slash.open ? (
         <SlashPalette
           commands={slash.matches}
           onPick={(command) => {
@@ -467,6 +497,14 @@ export function Composer({
                 onKeyDown={(event) => {
                   // An input method's Enter or arrow belongs to it, not to a list.
                   if ((event.nativeEvent ?? (event as unknown as KeyboardEvent))?.isComposing || event.keyCode === 229) return;
+                  // Control on every platform, as a shell's reverse search is. Off a Mac this is
+                  // also `Mod+R`, the menu's Reload Page, which only ever reloads a focused browser
+                  // page — none has focus while the box does, and the key is taken here first.
+                  if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "r") {
+                    event.preventDefault();
+                    if (!event.repeat) setSearch({ key: draftKey, prompts: promptsFor(sessionId, project?.id ?? null) });
+                    return;
+                  }
                   if (mention.open) {
                     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                       event.preventDefault();

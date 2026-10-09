@@ -76,6 +76,10 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "stop", group: "Session", label: "Stop the current turn", binding: "Escape" },
   // `composer/prompt-history.ts`: from the box's first line, or an empty box; Down walks back.
   { id: "prompt-history", group: "Session", label: "Earlier prompts in the composer", binding: "Up" },
+  // `composer/PromptSearch.tsx`: Control on every platform, as a shell's reverse search is. Not a
+  // menu accelerator: it is the composer's own key. Off a Mac it shares its keys with `Mod+R`
+  // below, which reloads only a focused browser page, never while the composer has focus.
+  { id: "prompt-search", group: "Session", label: "Search earlier prompts in the composer", binding: "Ctrl+R" },
 
   { id: "new-file-tab", group: "Explorer", label: "New file tab", binding: "Mod+T" },
   { id: "new-review-tab", group: "Explorer", label: "New review tab", binding: "Mod+Shift+R" },
