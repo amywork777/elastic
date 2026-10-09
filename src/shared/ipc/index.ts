@@ -55,6 +55,7 @@ import { previewContract } from "./preview";
 import { dictationContract, dictationEvents } from "./dictation";
 import { providersContract } from "./providers";
 import { browserEvents, browserIpc } from "./browser";
+import { notificationsContract, notificationsEvents } from "./notifications";
 
 export * from "./define";
 export * from "./agent-options";
@@ -210,6 +211,7 @@ export const ipcContract = defineIpc({
   ...dictationContract,
   ...providersContract,
   ...browserIpc,
+  ...notificationsContract,
 
   // The branches a phase owns are declared in their own file and spread in
   // here, so this map stays a map. `explorer.*` and `terminal.*` come from
@@ -252,6 +254,8 @@ export const ipcEvents = {
   ...dictationEvents,
   // `browser.activity`: an agent is driving a page.
   ...browserEvents,
+  // `notifications.clicked`: the person clicked a chat's system banner.
+  ...notificationsEvents,
 } as const;
 
 export type IpcEvents = typeof ipcEvents;
