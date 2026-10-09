@@ -279,7 +279,7 @@ agent's `limits` turn), `session-cancelled`, `session-error`,
 `session-resumed`, `session-auth`, `activity-collapsed-light`,
 `activity-expanded-light` and `transcript-links`. From
 `transcript-layout.spec.ts`: `transcript-light`, `transcript-dark` and
-`transcript-expanded`; from `browser-service.spec.ts`, `browser-use-native`
+`transcript-expanded`; from `transcript-find.spec.ts`, `transcript-find`; from `browser-service.spec.ts`, `browser-use-native`
 (the native page as Browser Use captured it). From `plugins.spec.ts`: `plugins-browse`, `plugins-detail`, `plugins-file-view` (a CSV in the Tables plugin's view), `plugins-rail-page` and `color-theme-nord` (the Appearance page with Nord chosen). The committed
 `tests/e2e/__screenshots__/` (`file-markdown-editable`,
 `file-markdown-raw-blocks`, `file-tree-deep`) is older evidence no spec
@@ -885,6 +885,29 @@ beside a reply's Copy (when it finished). Today is a time, then "Yesterday …",
 a weekday within the week, the day this year and the day with its year before
 that; the whole date is the tooltip and what a screen reader is told
 (`src/renderer/features/session/sent-at.ts`, `SentAt` in `Transcript.tsx`).
+
+### Find in the chat
+
+Mod+F opens a small bar over the top of the focused chat's transcript
+(`features/session/FindBar.tsx`). Typing paints every match and moves to the
+one nearest the bottom; Enter or ↓ is the next match, Shift+Enter or ↑ the
+previous, wrapping, with "3 of 12" beside the box; Escape or × closes it and
+focus goes back to what had it. The matches are painted with the CSS Custom
+Highlight API (`::highlight(transcript-find)` in `styles/globals.css`), so the
+transcript's DOM is never rewritten to mark a word.
+
+The whole chat is searched, not only the turns mounted (`TRANSCRIPT_WINDOW`).
+A mounted turn is counted from its DOM, which is what the person sees; a turn
+that is not mounted is counted from its data, mirroring what it would draw —
+a prompt's bubble, a reply's prose, only the answer of a reply folded under
+"Worked for …", markdown's punctuation taken out (`find.ts`). Going to a
+match in an unmounted turn mounts the window down to it first; its DOM count
+then replaces the data's, which can differ by a match (a link's URL).
+
+Mod+F is not a menu accelerator, deliberately: an accelerator would fire
+before Monaco's own find. It is the chat's only from the session pane or the
+sidebar — with focus in the explorer the key is the editor's, the terminal's
+or the page's — and only for the focused side of two chats.
 
 ### Two chats side by side
 

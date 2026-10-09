@@ -1,16 +1,23 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
 import { ArrowDown, ChevronRight, Paperclip } from "lucide-react";
 import { memo, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
-import { useStickToBottomContext } from "use-stick-to-bottom";
+import { useStickToBottomContext, type StickToBottomContext } from "use-stick-to-bottom";
 
+import { focusComposerOf } from "@renderer/app/pane-focus";
 import { isHandoff } from "@renderer/lib/handoff";
+import { isPrimaryModifier } from "@renderer/lib/platform";
 import { cn } from "@renderer/lib/utils";
+import { useSessions } from "@renderer/state/sessions";
+import { useUi } from "@renderer/state/ui";
 import { Conversation, ConversationContent } from "@renderer/components/ai-elements/conversation";
 import type { Part, SessionState, Turn } from "@shared/acp/types";
 
 import { CopyReplyButton, replyMarkdown } from "./CopyReply";
+import { drawnParts } from "./find";
+import { FindBar } from "./FindBar";
 import { PartsList } from "./parts/PartsList";
 import { sentAtFull, sentAtLabel } from "./sent-at";
+import { useSplitSide } from "./split-side";
 import { StatusLine } from "./StatusLine";
 import { statusLine } from "./view";
 
@@ -86,9 +93,32 @@ export function Transcript({
   const last = state.turns.at(-1);
   const streaming = last?.role === "agent" && last.endedAt === null && state.status !== "waiting";
 
+  const find = useFindKey(state.sessionId);
+  const frame = useRef<HTMLDivElement | null>(null);
+  const stick = useRef<StickToBottomContext | null>(null);
+
   return (
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col" ref={frame}>
+      {/* Outside the log: the bar is chrome over the transcript, not a message in it. */}
+      {find.open ? (
+        <div className="absolute top-2 right-4 z-10">
+          <FindBar
+            container={frame}
+            firstMounted={start}
+            focusToken={find.token}
+            onClose={find.close}
+            onMountFrom={(index) => setUnmounted((current) => Math.min(current, index))}
+            onReveal={(range) => revealRange(range, stick.current)}
+            owner={state.sessionId}
+            turns={state.turns}
+          />
+        </div>
+      ) : null}
     <Conversation aria-busy={streaming} className="min-h-0 min-w-0 flex-1" data-transcript initial="instant">
+      <StickBridge intoRef={stick} />
       <ConversationContent className="mx-auto min-w-0 w-full max-w-[720px] gap-4 px-6 pt-6 pb-4">
+        {/* Room above the first turn while the bar is open, so a match at the very top is not under it. */}
+        {find.open ? <div aria-hidden className="h-8 shrink-0" data-find-room /> : null}
         {/* A box of its own, with the column's gap: a `display: contents` element has been dropped
             from Chromium's accessibility tree, and the silence would go with it. Empty it is
             `hidden` (`EarlierTurns` draws nothing for a transcript that opened whole): a
@@ -102,7 +132,76 @@ export function Transcript({
       </ConversationContent>
       <JumpToLatest />
     </Conversation>
+    </div>
   );
+}
+
+/**
+ * Mod+F in a chat: open the find bar, or, open already, put the keyboard back
+ * in its box with the query selected. Only for the chat that has focus — the
+ * focused side of two — and only from the session pane or the sidebar: with
+ * focus in the explorer, Mod+F is the editor's, the terminal's or the page's
+ * own find (Monaco binds it; a browser tab's page has the key before this
+ * window does), and a dialog over the window keeps its keys. Bound here, not
+ * as a menu accelerator, for the same reason: an accelerator fires before
+ * Monaco sees the key. Closing hands focus back to what had it.
+ */
+function useFindKey(sessionId: string): { open: boolean; token: number; close: () => void } {
+  const side = useSplitSide();
+  const focused = useSessions((store) => side === null || store.split === null || store.split.focus === side);
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState(0);
+  const returnTo = useRef<HTMLElement | null>(null);
+  const onKey = useEffectEvent((event: KeyboardEvent) => {
+    if (!focused || event.defaultPrevented || !isPrimaryModifier(event) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "f") return;
+    if (useUi.getState().surface.kind !== "home") return;
+    const active = document.activeElement;
+    if (active instanceof Element && active.closest("#explorer, [role=dialog], [role=alertdialog]")) return;
+    event.preventDefault();
+    if (!open && active instanceof HTMLElement && !active.closest("[data-find-bar]")) returnTo.current = active;
+    setOpen(true);
+    setToken((value) => value + 1);
+  });
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onKey(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+  const close = () => {
+    setOpen(false);
+    const back = returnTo.current;
+    returnTo.current = null;
+    // The bar unmounts under the focus it holds: back where it came from, else this chat's box.
+    requestAnimationFrame(() => {
+      if (back?.isConnected) back.focus();
+      else focusComposerOf(sessionId, 2);
+    });
+  };
+  return { open, token, close };
+}
+
+/** Hands the transcript's stick-to-bottom context out, for the find bar's scroll. */
+function StickBridge({ intoRef }: { intoRef: React.RefObject<StickToBottomContext | null> }) {
+  const context = useStickToBottomContext();
+  useLayoutEffect(() => {
+    intoRef.current = context;
+  });
+  return null;
+}
+
+/**
+ * Scroll a match to the middle of the transcript. The pane stops sticking to
+ * the bottom first, or a reply still streaming would pull it straight back down.
+ */
+function revealRange(range: Range, stick: StickToBottomContext | null): void {
+  const scroller = stick?.scrollRef.current;
+  if (!scroller) return;
+  stick.stopScroll();
+  const box = range.getBoundingClientRect();
+  const pane = scroller.getBoundingClientRect();
+  // The top band is under the find bar.
+  if (box.top >= pane.top + 56 && box.bottom <= pane.bottom - 24) return;
+  scroller.scrollTop += box.top - pane.top - (pane.height - box.height) / 2;
 }
 
 /** How many turns a transcript mounts when it opens, and how many more each step up mounts. */
@@ -313,11 +412,9 @@ export function workedFor(ms: number): string {
  */
 function WorkFold({ turn, fold, children }: { turn: Turn; fold: boolean; children: (parts: Part[]) => React.ReactNode }) {
   const [expanded, setExpanded] = useState(false);
-  let answer = turn.parts.length;
-  while (answer > 0 && (turn.parts[answer - 1]!.type === "text" || turn.parts[answer - 1]!.type === "error")) answer -= 1;
-  const work = turn.parts.slice(0, answer);
-  const hasWork = work.some((part) => part.type === "tool_call" || part.type === "subagent" || part.type === "thought" || part.type === "plan");
-  if (!fold || !hasWork || answer === turn.parts.length || turn.endedAt === null) return <>{children(turn.parts)}</>;
+  // The rule lives in `find.ts`, which counts a turn that is not mounted by what it would draw.
+  const drawn = drawnParts(turn, fold);
+  if (!drawn.folded) return <>{children(turn.parts)}</>;
   return (
     <>
       <button
@@ -327,10 +424,10 @@ function WorkFold({ turn, fold, children }: { turn: Turn; fold: boolean; childre
         onClick={() => setExpanded((value) => !value)}
         type="button"
       >
-        Worked for {workedFor(turn.endedAt - turn.startedAt)}
+        Worked for {workedFor((turn.endedAt ?? turn.startedAt) - turn.startedAt)}
         <ChevronRight className={cn("size-3.5 transition-transform", expanded && "rotate-90")} />
       </button>
-      {children(expanded ? turn.parts : turn.parts.slice(answer))}
+      {children(expanded ? turn.parts : drawn.parts)}
     </>
   );
 }
@@ -381,7 +478,7 @@ function UserTurn({ turn }: { turn: Turn }) {
           selects (`styles/globals.css`), which is what a person means when
           they drag across a reply and their own prompt in one go. */}
       {text ? (
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-secondary px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-secondary px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]" data-find-text>
           {text}
         </div>
       ) : null}

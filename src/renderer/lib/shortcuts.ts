@@ -76,6 +76,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "stop", group: "Session", label: "Stop the current turn", binding: "Escape" },
   // `composer/prompt-history.ts`: from the box's first line, or an empty box; Down walks back.
   { id: "prompt-history", group: "Session", label: "Earlier prompts in the composer", binding: "Up" },
+  // Renderer-only, and deliberately not a menu accelerator: one would fire before Monaco's own
+  // find with focus in an editor. The focused chat's bar (`Transcript.tsx`, `useFindKey`).
+  { id: "find", group: "Session", label: "Find in the chat", binding: "Mod+F" },
 
   { id: "new-file-tab", group: "Explorer", label: "New file tab", binding: "Mod+T" },
   { id: "new-review-tab", group: "Explorer", label: "New review tab", binding: "Mod+Shift+R" },
