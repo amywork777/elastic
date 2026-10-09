@@ -17,7 +17,9 @@ import { statusLine } from "./view";
  * The transcript (plan §2, §6): a vertical list of turns in one centred
  * column, user turns as compact bubbles on the right, agent turns as prose
  * and activity rows at full width, the live status line under the turn
- * that is running. Sticks to the bottom while streaming; a "Jump to
+ * that is running. Opens on the latest turn, with no animation down from
+ * the top (a long chat's smooth scroll could stop short and leave the person
+ * at the first turn), sticks to the bottom while streaming, and a "Jump to
  * latest" pill appears once the user scrolls up.
  *
  * Only the latest `TRANSCRIPT_WINDOW` turns are mounted when it opens: a
@@ -84,7 +86,7 @@ export function Transcript({
   const streaming = last?.role === "agent" && last.endedAt === null && state.status !== "waiting";
 
   return (
-    <Conversation aria-busy={streaming} className="min-h-0 min-w-0 flex-1" data-transcript>
+    <Conversation aria-busy={streaming} className="min-h-0 min-w-0 flex-1" data-transcript initial="instant">
       <ConversationContent className="mx-auto min-w-0 w-full max-w-[720px] gap-4 px-6 pt-6 pb-4">
         {/* A box of its own, with the column's gap: a `display: contents` element has been dropped
             from Chromium's accessibility tree, and the silence would go with it. Empty it is
@@ -122,9 +124,10 @@ function awaitsAnswer(parts: Part[]): boolean {
  * The top of a transcript whose earliest turns are not mounted: a quiet
  * button naming how many there are, and the sentinel that mounts the next
  * window when the person scrolls to within a screen of it. Opening at the
- * bottom does not count — the pane starts at the top and animates down, so
- * the sentinel is in reach for a moment on every switch — only a scroll that
- * has left the bottom does, or a pane too short to scroll at all.
+ * bottom does not count — the pane lays out at the top for a frame before it
+ * lands on the bottom, so the sentinel is in reach for a moment on every
+ * switch — only a scroll that has left the bottom does, or a pane too short
+ * to scroll at all.
  *
  * Mounting above what the person is reading would push it down the screen,
  * so the distance from the bottom is kept across the mount. It stays in the
