@@ -214,8 +214,10 @@ type ComposerState = {
   /**
    * Sessions whose last turn failed: the queue holds until the next turn starts, and what is sent
    * meanwhile — the Retry or a new prompt — goes out first, even after the agent was evicted.
+   * A queue put back after a quit is held the same way (`restoreQueues`); the value says which,
+   * for the queue row's words.
    */
-  paused: Record<string, true>;
+  paused: Record<string, "error" | "restart">;
   /** The bridge's hand-off of a turn's lifecycle events: the queue's one driver. */
   turnEvent: (sessionId: string, type: "prompt/start" | "prompt/end" | "prompt/error") => void;
   /** Clear a draft for sending, returning what it held. */
@@ -491,7 +493,7 @@ export const useComposer = create<ComposerState>((set, get) => ({
   paused: {},
   turnEvent: (sessionId, type) => {
     clearSending(sessionId);
-    if (type === "prompt/error") set((state) => ({ paused: { ...state.paused, [sessionId]: true } }));
+    if (type === "prompt/error") set((state) => ({ paused: { ...state.paused, [sessionId]: "error" } }));
     if (type === "prompt/start" && sessionId in get().paused) {
       set((state) => ({ paused: withoutKey(state.paused, sessionId) }));
     }
@@ -646,7 +648,7 @@ async function send(sessionId: string, content: PromptBlock[], item?: QueuedProm
     if (item) {
       useComposer.setState((state) => ({
         queues: { ...state.queues, [sessionId]: [item, ...(state.queues[sessionId] ?? [])] },
-        paused: { ...state.paused, [sessionId]: true },
+        paused: { ...state.paused, [sessionId]: "error" },
       }));
     }
     useAcp.setState((state) => ({ loadErrors: { ...state.loadErrors, [sessionId]: errorMessage(error) } }));
@@ -714,9 +716,6 @@ export function appContextSummary(contexts: readonly AppContext[]): string {
   return contexts.flatMap((entry) => entry.blocks.flatMap((block) => block.type === "text" ? [block.text] : [])).join("\n\n");
 }
 
-/** How long a queue is quiet before it is saved: a reorder or an edit is several changes at once. */
-const QUEUE_SAVE_MS = 300;
-
 /**
  * Put back the queues saved before the last quit (`queues.list`), each paused: what was queued
  * behind a turn that the quit ended should not fire at a chat the moment the app opens. The
@@ -737,41 +736,32 @@ export async function restoreQueues(): Promise<void> {
     for (const [sessionId, queue] of Object.entries(saved)) {
       if (!listed.has(sessionId) || (queues[sessionId]?.length ?? 0) > 0 || queue.length === 0) continue;
       queues[sessionId] = queue.map((item) => ({ id: item.id, text: item.text, content: item.content }));
-      paused[sessionId] = true;
+      paused[sessionId] = "restart";
     }
     return { queues, paused };
   });
 }
 
 /**
- * Save each chat's queue when it changes, so quitting does not spend it. What is saved is what
- * can be sent: the row's text and the prompt's blocks (the draft's files are renderer-only).
- * Returns the unsubscribe.
+ * Save each chat's queue the moment it changes, so quitting does not spend it. Not after a quiet
+ * spell: a quit closes the database in main's `before-quit`, before the window could flush
+ * anything, so a prompt queued just before Quit (or before an update's Restart) was lost with
+ * the timer. One IPC per change is cheap (a queue is a handful of prompts), and the channel is
+ * ordered, so the last write is the queue as it stands. What is saved is what can be sent: the
+ * row's text and the prompt's blocks (the draft's files are renderer-only). Returns the
+ * unsubscribe.
  */
 export function persistQueues(): () => void {
-  const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const save = (sessionId: string) => {
-    timers.delete(sessionId);
     const queue = (useComposer.getState().queues[sessionId] ?? []).map(({ id, text, content }) => ({ id, text, content }));
     void window.workbench.queues.set({ sessionId, queue }).catch((error: unknown) => {
       console.warn(`[composer] the queue of ${sessionId.slice(0, 8)} was not saved: ${String(error)}`);
     });
   };
-  const unsubscribe = useComposer.subscribe((state, previous) => {
+  return useComposer.subscribe((state, previous) => {
     if (state.queues === previous.queues) return;
     for (const sessionId of new Set([...Object.keys(state.queues), ...Object.keys(previous.queues)])) {
-      if (state.queues[sessionId] === previous.queues[sessionId]) continue;
-      const pending = timers.get(sessionId);
-      if (pending) clearTimeout(pending);
-      timers.set(sessionId, setTimeout(() => save(sessionId), QUEUE_SAVE_MS));
+      if (state.queues[sessionId] !== previous.queues[sessionId]) save(sessionId);
     }
   });
-  return () => {
-    unsubscribe();
-    // On the way out: whatever is pending is written now rather than lost with the window.
-    for (const [sessionId, timer] of timers) {
-      clearTimeout(timer);
-      save(sessionId);
-    }
-  };
 }

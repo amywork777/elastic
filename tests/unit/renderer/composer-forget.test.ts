@@ -27,7 +27,7 @@ it("lets go of everything held for a deleted session, and keeps an archived one'
     composer.insertReference(id, { file: "a.step", selector: "", label: "A" });
     composer.acceptContext(id, `op-${id}`, [{ id: `n-${id}`, kind: "annotation", references: [], text: "here" }], { root: "/p1", focus: false });
     composer.attachFile(id, sketch);
-    useComposer.setState(state => ({ paused: { ...state.paused, [id]: true }, sending: { ...state.sending, [id]: 1 } }));
+    useComposer.setState(state => ({ paused: { ...state.paused, [id]: "error" }, sending: { ...state.sending, [id]: 1 } }));
   }
 
   useSessions.getState().receive([row("s2", true)]);

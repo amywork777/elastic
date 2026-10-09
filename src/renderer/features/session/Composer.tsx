@@ -212,7 +212,7 @@ export function Composer({
   const queue = useQueue(sessionId);
   const dequeue = useComposer((state) => state.dequeue);
   // A failed turn holds the queue until the next turn starts; said here, with a way to go on.
-  const queuePaused = useComposer((state) => (sessionId ? sessionId in state.paused : false));
+  const queuePaused = useComposer((state) => (sessionId ? state.paused[sessionId] : undefined));
 
   useEffect(() => {
     if (autoFocus) {
@@ -340,7 +340,7 @@ export function Composer({
             </QueueSectionTrigger>
             {/* Always mounted, so the text arriving in it is announced; the button stays outside. */}
             <div className="flex items-center justify-between gap-2 px-2 text-[12px] text-muted-foreground">
-              <span aria-live="polite" role="status">{queuePaused ? "Paused after an error" : ""}</span>
+              <span aria-live="polite" role="status">{queuePaused === "restart" ? "Paused after a restart" : queuePaused ? "Paused after an error" : ""}</span>
               {queuePaused ? (
                 <button
                   className="my-1 rounded-md px-2 py-0.5 font-medium text-foreground hover:bg-muted"

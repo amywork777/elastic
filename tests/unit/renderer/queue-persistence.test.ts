@@ -28,7 +28,7 @@ describe("queued prompts across a quit", () => {
     await restoreQueues();
     const state = useComposer.getState();
     expect(state.queues.s1?.map((item) => item.text)).toEqual(["first", "second"]);
-    expect(state.paused.s1).toBe(true);
+    expect(state.paused.s1).toBe("restart");
     expect(state.queues.gone).toBeUndefined();
   });
 
@@ -40,19 +40,17 @@ describe("queued prompts across a quit", () => {
     expect(useComposer.getState().paused.s1).toBeUndefined();
   });
 
-  it("saves a changed queue once it settles, without the draft, and an emptied one as empty", async () => {
-    vi.useFakeTimers();
+  it("saves a changed queue at once, without the draft, and an emptied one as empty", () => {
     const stop = persistQueues();
     const file = new File(["x"], "x.png");
     useComposer.setState({ queues: { s1: [{ ...prompt("q1", "one"), draft: { text: "one", annotations: [], files: [file] } }] } });
+    // Saved before any timer could run: a quit right after queueing closes the database first.
+    expect(window.workbench.queues.set).toHaveBeenLastCalledWith({ sessionId: "s1", queue: [prompt("q1", "one")] });
     useComposer.setState({ queues: { s1: [prompt("q1", "one"), prompt("q2", "two")] } });
-    expect(window.workbench.queues.set).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(400);
-    expect(window.workbench.queues.set).toHaveBeenCalledTimes(1);
     expect(window.workbench.queues.set).toHaveBeenLastCalledWith({ sessionId: "s1", queue: [prompt("q1", "one"), prompt("q2", "two")] });
 
     useComposer.setState({ queues: { s1: [] } });
-    stop(); // pending saves are written on the way out
     expect(window.workbench.queues.set).toHaveBeenLastCalledWith({ sessionId: "s1", queue: [] });
+    stop();
   });
 });

@@ -236,14 +236,14 @@ it("a paused queue is unpaused when it is cleared or emptied, and Resume sends i
   };
   pause();
   await settle();
-  expect(useComposer.getState().paused[SESSION]).toBe(true);
+  expect(useComposer.getState().paused[SESSION]).toBe("error");
   composer.clearQueue(SESSION);
   expect(useComposer.getState().paused[SESSION], "cleared").toBeUndefined();
 
   useAcp.setState({ sessions: { [SESSION]: initialSessionState(SESSION, "claude") } });
   pause();
   await settle();
-  expect(useComposer.getState().paused[SESSION]).toBe(true);
+  expect(useComposer.getState().paused[SESSION]).toBe("error");
   const [only] = useComposer.getState().queues[SESSION]!;
   composer.dequeue(SESSION, only!.id);
   expect(useComposer.getState().paused[SESSION], "emptied").toBeUndefined();
@@ -255,7 +255,7 @@ it("a paused queue is unpaused when it is cleared or emptied, and Resume sends i
   void composer.submit(SESSION, "failed", block("failed"));
   replies[0]!.reject(new Error("refused"));
   await settle();
-  expect(useComposer.getState().paused[SESSION]).toBe(true);
+  expect(useComposer.getState().paused[SESSION]).toBe("error");
   useAcp.setState({ sessions: { [SESSION]: { ...initialSessionState(SESSION, "claude"), status: "idle" } } });
   void composer.resume(SESSION);
   await settle();
@@ -348,7 +348,7 @@ it("Resume whose prompt main refuses before any turn begins keeps the queue whol
     const composer = useComposer.getState();
     composer.enqueue(SESSION, "A", block("A"));
     composer.enqueue(SESSION, "B", block("B"));
-    useComposer.setState({ paused: { [SESSION]: true } });
+    useComposer.setState({ paused: { [SESSION]: "error" } });
     useAcp.setState({ sessions: { [SESSION]: { ...initialSessionState(SESSION, "claude"), status: "error" } } });
 
     void composer.resume(SESSION);
@@ -360,7 +360,7 @@ it("Resume whose prompt main refuses before any turn begins keeps the queue whol
 
     const state = useComposer.getState();
     expect(state.queues[SESSION]?.map(item => item.text), "A is back at the head").toEqual(["A", "B"]);
-    expect(state.paused[SESSION]).toBe(true);
+    expect(state.paused[SESSION]).toBe("error");
     expect(state.sending[SESSION]).toBeUndefined();
     expect(useAcp.getState().loadErrors[SESSION], "shown where a failed reconnect is").toMatch(/not installed/);
 
