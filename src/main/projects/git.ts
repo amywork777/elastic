@@ -28,7 +28,7 @@ import { execa, type Options } from "execa";
 
 import { diffScopeFor, ReviewScopeSchema } from "../../shared/types";
 import { trackChild, type ChildKind, type Trackable } from "../children";
-import { climbsOut, looksBinary, MAX_TEXT_BYTES, resolveInRoot } from "../explorer/fs";
+import { climbsOut, isInside, looksBinary, MAX_TEXT_BYTES, resolveInRoot } from "../explorer/fs";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */
@@ -1443,6 +1443,149 @@ export async function dropMarks(cwd: string, sessionId: string): Promise<void> {
   for (const ref of refs) {
     await tryGit(root, ["update-ref", "-d", ref]);
   }
+}
+
+/** What `restoreTree` did, repository-relative. */
+export type RestoreResult = {
+  /** Put back to their contents in the tree. */
+  restored: string[];
+  /** Not in the tree, so deleted. */
+  removed: string[];
+  /** Not in the tree but left alone: over `SNAPSHOT_MAX_BYTES`, so maybe never in a snapshot at all. */
+  kept: string[];
+};
+
+/** The tree a mark of `snapshotTree` pinned, or null when there is none. */
+export async function readMark(cwd: string, mark: string): Promise<string | null> {
+  if (!MARK_REF.test(mark)) {
+    return null;
+  }
+  const root = await repositoryRoot(cwd);
+  if (!root) {
+    return null;
+  }
+  const tree = (await tryGit(root, ["rev-parse", "--verify", "--quiet", "--end-of-options", `refs/elastic/${mark}^{tree}`]))?.trim();
+  return tree && OBJECT_ID.test(tree) ? tree : null;
+}
+
+/** The files that differ from `tree`: the ones to write back from it, and the ones it lacks. */
+async function restoreSets(cwd: string, tree: string): Promise<{ root: string; putBack: Set<string>; remove: Set<string> }> {
+  const root = await repositoryRoot(cwd);
+  if (!root) {
+    throw new GitError("not a git repository");
+  }
+  const { files } = await status(root, { kind: "range", from: tree });
+  const putBack = new Set<string>();
+  const remove = new Set<string>();
+  for (const file of files) {
+    if (file.status === "added" || file.status === "untracked") {
+      remove.add(file.path);
+    } else if (file.status === "renamed") {
+      remove.add(file.path);
+      if (file.oldPath) putBack.add(file.oldPath);
+    } else {
+      putBack.add(file.path);
+    }
+  }
+  return { root, putBack, remove };
+}
+
+/**
+ * What `restoreTree` would do to the working tree, without doing it: the list
+ * an edit's "Also restore files" shows before the person confirms. A file the
+ * tree lacks that is over `SNAPSHOT_MAX_BYTES` (or not a file) is `kept`, as
+ * the restore would keep it. Writes nothing, pins nothing.
+ */
+export async function restorePreview(cwd: string, tree: string): Promise<RestoreResult> {
+  if (!OBJECT_ID.test(tree)) {
+    throw new GitError("nothing recorded to restore to");
+  }
+  const { root, putBack, remove } = await restoreSets(cwd, tree);
+  const removed: string[] = [];
+  const kept: string[] = [];
+  for (const filePath of remove) {
+    const stat = await fsp.lstat(await pathInRepository(root, filePath)).catch(() => null);
+    if (!stat) continue;
+    if (!stat.isSymbolicLink() && (!stat.isFile() || stat.size > SNAPSHOT_MAX_BYTES)) kept.push(filePath);
+    else removed.push(filePath);
+  }
+  return { restored: [...putBack].sort(), removed: removed.sort(), kept: kept.sort() };
+}
+
+/**
+ * Put the working tree back the way it is in `tree` — a session's turn mark,
+ * for an edit of its latest prompt with "Also restore files" — for every file
+ * that differs from it, and nothing else.
+ *
+ * The files are the ones a review against the tree lists (`status` with an
+ * open-ended range), so ignored files, which no snapshot holds, are never
+ * touched. Before anything is written the present state is pinned as `before`
+ * (`snapshotTree` under `mark`): a restore can itself be undone from that
+ * mark (`refs/elastic/<session id>/restore`), and when that
+ * snapshot cannot be taken nothing is changed. Files come back through git's
+ * own checkout from a throwaway index, so modes, symlinks and line-ending
+ * filters are git's, and the real index — what the person staged — is left as
+ * it was. A file the tree lacks is deleted, unless it is over
+ * `SNAPSHOT_MAX_BYTES`: a snapshot leaves those out, so its absence says
+ * nothing about whether it was there before.
+ */
+export async function restoreTree(cwd: string, tree: string, mark: string): Promise<RestoreResult & { before: string | null }> {
+  if (!OBJECT_ID.test(tree) || !MARK_REF.test(mark)) {
+    throw new GitError("nothing recorded to restore to");
+  }
+  const { root, putBack, remove } = await restoreSets(cwd, tree);
+  if (putBack.size === 0 && remove.size === 0) {
+    return { restored: [], removed: [], kept: [], before: null };
+  }
+
+  const before = await snapshotTree(root, mark);
+  if (!before) {
+    throw new GitError("could not save the present state first, so nothing was changed");
+  }
+
+  // Every path is checked before any is written: one that leads out of the repository refuses the whole restore.
+  const targets = await Promise.all([...remove].map(async (filePath) => ({ filePath, absolute: await pathInRepository(root, filePath) })));
+  for (const filePath of putBack) {
+    await pathInRepository(root, filePath);
+  }
+
+  if (putBack.size > 0) {
+    const { scratch, index } = await seedIndex(undefined);
+    try {
+      const options = { ...GIT_OPTIONS, timeout: WRITE_TIMEOUT, cwd: root, env: { ...GIT_OPTIONS.env, GIT_INDEX_FILE: index } };
+      const read = await tracked(execa("git", ["read-tree", "--end-of-options", tree], options), "write");
+      if (read.failed || read.exitCode !== 0) {
+        throw new GitError("could not read the recorded state");
+      }
+      const written = await tracked(
+        execa("git", ["checkout-index", "-f", "-z", "--stdin"], { ...options, input: [...putBack].join("\0") }),
+        "write",
+      );
+      if (written.failed || written.exitCode !== 0) {
+        throw new GitError(typeof written.stderr === "string" && written.stderr.trim() ? tail(written.stderr) : "could not write the files back");
+      }
+    } finally {
+      await fsp.rm(scratch, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+
+  const removed: string[] = [];
+  const kept: string[] = [];
+  for (const { filePath, absolute } of targets) {
+    const stat = await fsp.lstat(absolute).catch(() => null);
+    if (!stat) continue;
+    if (!stat.isSymbolicLink() && (!stat.isFile() || stat.size > SNAPSHOT_MAX_BYTES)) {
+      kept.push(filePath);
+      continue;
+    }
+    await fsp.rm(absolute, { force: true });
+    removed.push(filePath);
+    // The folders the turn made for it go too, as far up as they are empty (`rmdir` refuses one that is not).
+    for (let directory = path.dirname(absolute); isInside(root, directory) && directory !== root; directory = path.dirname(directory)) {
+      if (!(await fsp.rmdir(directory).then(() => true, () => false))) break;
+    }
+  }
+  return { restored: [...putBack].sort(), removed: removed.sort(), kept: kept.sort(), before };
 }
 
 /** How a git run ended: the exit code is undefined when git was killed or never started. */

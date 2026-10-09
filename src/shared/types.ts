@@ -126,8 +126,14 @@ export const SessionSchema = z.object({
    * model (`src/shared/providers.ts`). Null: the agent's own login.
    */
   provider: z.object({ id: z.string().min(1).max(64), model: z.string().max(200).nullable() }).nullable().optional(),
-  /** "Continue with …": the chat this one continued, and the chat it continued in. */
-  links: z.object({ from: z.string().optional(), to: z.string().optional() }).optional(),
+  /**
+   * "Continue with …" and "Edit" on a past prompt: the chat this one came from, and the chat it
+   * continued in. `kind: "edit"` on the new chat makes the link read "Edited from …"; `forked`
+   * says whether it started as a fork of that chat's conversation (else a fresh session).
+   */
+  links: z
+    .object({ from: z.string().optional(), to: z.string().optional(), kind: z.enum(["continue", "edit"]).optional(), forked: z.boolean().optional() })
+    .optional(),
   /**
    * Lifted out of its project into the sidebar's `Pinned` section.
    *

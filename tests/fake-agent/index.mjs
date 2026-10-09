@@ -55,6 +55,8 @@
  *                 the way a background task's report lands after `prompt/end`
  *   "slow"        wait until cancelled
  *   "crash"       exit(3) mid-turn
+ *   "nofork"      stamp the reply's message id `nofork-<n>`, which `session/fork` then
+ *                 answers as not found (every other reply is `msg-<n>`, and forks)
  *   "showcase"    a Codex-shaped turn for the session UI's e2e: thoughts,
  *                 reads, edits with diffs, a streamed command, a plan, a
  *                 permission request that waits for the answer, a subagent,
@@ -360,6 +362,8 @@ function sendClaudeCommandsSoon(conn, sessionId) {
 }
 
 let cancelled = false;
+/** Replies the built-in script has finished, for their message ids. */
+let replies = 0;
 let cancelWaiter = null;
 /** The MCP servers `session/new` named, so a prompt can call one (below). */
 let mcpServers = [];
@@ -399,6 +403,8 @@ new AgentSideConnection((conn) => ({
         loadSession: true,
         // As claude-agent-acp and codex-acp do: the slot Models & keys sets.
         providers: {},
+        // `session/fork`, with the fork point an edit of a past prompt sends (below).
+        sessionCapabilities: { fork: {} },
         promptCapabilities: process.env.FAKE_AGENT_PROMPT_CAPABILITIES
           ? JSON.parse(process.env.FAKE_AGENT_PROMPT_CAPABILITIES)
           : { image: true, embeddedContext: true },
@@ -464,8 +470,15 @@ new AgentSideConnection((conn) => ({
 
   // Quick commands beside the chat (`SessionManager.aside`): a fork made from the conversation,
   // then opened without a replay, on a process of its own.
+  // An edit of a past prompt forks at an agent message (`_meta.jetbrains.air.fork`): a message id
+  // the built-in script stamped `nofork-…` is "not found", as an adapter answers for a message
+  // that is not in its store, so the app's fallback (a handoff) can be tested too.
   async unstable_forkSession(params) {
     record("session/fork", params);
+    const at = params?._meta?.jetbrains?.air?.fork?.messageId;
+    if (typeof at === "string" && at.startsWith("nofork")) {
+      throw RequestError.invalidParams({ messageId: at }, `Fork point message ${at} was not found`);
+    }
     return { sessionId: `${params.sessionId}-fork` };
   },
 
@@ -914,8 +927,11 @@ async function script(conn, params) {
     await send({ sessionUpdate: "tool_call_update", toolCallId: "task-1", status: "completed" });
   }
 
-  await send({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "o" } });
-  await send({ sessionUpdate: "agent_message_chunk", content: { type: "text", text: "k" } });
+  // Stamped with a message id, as both adapters stamp theirs: where an edit of the next prompt forks.
+  replies += 1;
+  const messageId = `${text.includes("nofork") ? "nofork" : "msg"}-${replies}`;
+  await send({ sessionUpdate: "agent_message_chunk", messageId, content: { type: "text", text: "o" } });
+  await send({ sessionUpdate: "agent_message_chunk", messageId, content: { type: "text", text: "k" } });
   return {
     stopReason: cancelled ? "cancelled" : "end_turn",
     // Both cache fields, the way Claude's adapter reports a turn: the

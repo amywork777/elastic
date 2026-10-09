@@ -46,7 +46,7 @@ import type { GitMode, Session, SessionStatus, SessionTag } from "../../shared/t
 import { startTimer } from "../timer";
 import { PROBE_WAIT_MS, type AgentDetector } from "../agents/detect";
 import { agentProvider } from "../agents/registry";
-import { adapterOptionsKey, SessionConnection, type SessionConnectionOptions } from "./connection";
+import { adapterOptionsKey, ForkRefused, SessionConnection, type SessionConnectionOptions } from "./connection";
 import { IDLE_CLOSE_MS, KEEP_ALIVE_LIMIT, LiveConnections } from "./live";
 import { readProcessTable, treeBytes } from "./process-memory";
 import { SessionSnapshotWriter, type SnapshotStore } from "./snapshots";
@@ -501,6 +501,13 @@ export class SessionManager {
     provider?: { id: string; model: string | null } | null;
     /** The chat this one continues ("Continue with …"). */
     from?: string;
+    /**
+     * "Edit" on a past prompt of `from`: the link says edited, and with `forkAt` (the agent
+     * message before that prompt, `Turn.replyId`) the session starts as a fork of `from`'s
+     * conversation at it (`SessionConnection.forkAt`) rather than empty. A fork the agent refuses
+     * falls back to a fresh session; the row's `links.forked` says which it got.
+     */
+    edit?: { forkAt: string | null };
   }): Promise<Session> {
     this.boot();
     if (!agentProvider(input.agentId)) {
@@ -560,7 +567,7 @@ export class SessionManager {
       sessionHead: null,
       turnHead: null,
       ...(input.provider ? { provider: input.provider } : {}),
-      ...(input.from ? { links: { from: input.from } } : {}),
+      ...(input.from ? { links: { from: input.from, ...(input.edit ? { kind: "edit" as const } : {}) } } : {}),
     };
     if (input.provider?.model) this.deps.rememberProviderModel?.(input.provider.id, input.provider.model);
     try {
@@ -598,13 +605,19 @@ export class SessionManager {
         setup = connection;
         await connection.initialize();
         timer.mark("initialize");
-        await connection.newSession();
+        // An edit's fork stands in for `session/new` and is timed as that phase.
+        const forked = await this.forkForEdit(connection, input);
+        if (!forked) await connection.newSession();
         timer.mark("session/new");
         // On its own, before the preferences and the marks: the row is what
         // `boot` purges when it has no agent session id, and a crash while
         // the marks are pending must not take a connected session with it.
         // Setup, not activity: the person who just created it has seen it (`lastViewedAt`).
-        this.update(session.id, { acpSessionId: connection.acpSessionId }, { touch: false });
+        this.update(
+          session.id,
+          { acpSessionId: connection.acpSessionId, ...(input.edit && session.links ? { links: { ...session.links, forked } } : {}) },
+          { touch: false },
+        );
         console.info(
           `[acp] create ${session.id.slice(0, 8)} ${session.agentId} warm=${warmed ? "yes" : "no"} ${timer.format()}`,
         );
@@ -669,6 +682,26 @@ export class SessionManager {
       if (setup) this.held.delete(setup);
       this.creating.delete(id);
       created();
+    }
+  }
+
+  /**
+   * An edit's session as a fork of the chat it was edited from, at the agent message before the
+   * edited prompt (`input.edit.forkAt`). Only the same agent's conversation can be forked, and only
+   * one that has started. True when the fork was made and loaded; false when there was nothing to
+   * fork or the agent refused (`ForkRefused`, logged), and the caller makes a fresh session.
+   */
+  private async forkForEdit(connection: SessionConnection, input: { agentId: string; from?: string; edit?: { forkAt: string | null } }): Promise<boolean> {
+    const forkAt = input.edit?.forkAt;
+    const source = forkAt && input.from ? this.deps.repo.get(input.from) : null;
+    if (!forkAt || !source?.acpSessionId || source.agentId !== input.agentId) return false;
+    try {
+      await connection.forkAt(source.acpSessionId, forkAt);
+      return true;
+    } catch (error) {
+      if (!(error instanceof ForkRefused)) throw error;
+      console.warn(`[acp] edit of ${source.id.slice(0, 8)} could not fork, starting fresh: ${error.message}`);
+      return false;
     }
   }
 

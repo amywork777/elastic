@@ -332,7 +332,7 @@ function applyUpdate(
       // Behind `prompt/end` the first chunk is a part of its own, not the tail of the answer the
       // turn ended with ("First answer.Background task finished."); the chunks that follow it join.
       const join = state.lateChunk === true;
-      return withUpdateOrLate(
+      const next = withUpdateOrLate(
         state,
         acpSessionId,
         u,
@@ -340,6 +340,7 @@ function applyUpdate(
         (parts) => appendChunk(parts, part),
         (parts) => (join ? appendChunk(parts, part) : [...parts, part]),
       );
+      return withReplyId(next, isRoot && claudeParentToolUseId(u) === null ? asString(u.messageId) : null);
     }
 
     case "tool_call":
@@ -760,6 +761,22 @@ function withUpdateOrLate(
   // `late` is how content that lands on a closed turn is added, where that differs from `fn`.
   const closed = withClosedParts(state, at, late ?? fn);
   return late ? { ...closed, lateChunk: true } : closed;
+}
+
+/**
+ * The ACP `messageId` of the agent's latest message, onto the last agent turn (`Turn.replyId`):
+ * where an edit of the next prompt forks the conversation (`session/fork` at that message). Only
+ * the root's own messages — a subagent's text is not a point in the conversation — and only one
+ * that names an id; both pinned adapters stamp theirs, live and replayed.
+ */
+function withReplyId(state: SessionState, messageId: string | null): SessionState {
+  if (!messageId) return state;
+  const index = state.turns.findLastIndex((turn) => turn.role === "agent");
+  const turn = index === -1 ? undefined : state.turns[index];
+  if (!turn || turn.replyId === messageId) return state;
+  const turns = state.turns.slice();
+  turns[index] = { ...turn, replyId: messageId };
+  return { ...state, turns };
 }
 
 function claudeParentToolUseId(update: Record<string, unknown>): string | null {

@@ -544,6 +544,41 @@ export class SessionConnection {
   }
 
   /**
+   * A session of this connection's own that starts as a copy of another's conversation up to and
+   * including one of its agent messages: `session/fork` with the fork point both pinned adapters
+   * read (`_meta.jetbrains.air.fork`, version 1 — claude-agent-acp cuts the Claude session at that
+   * message, codex-acp the Codex thread after the turn holding it), then `session/load`, so the
+   * new chat's transcript replays the history it starts from. "Edit" on a past prompt runs on one
+   * (`SessionManager.create`). The source is read from the agent's store on disk and not touched.
+   *
+   * Rejects with `ForkRefused` — before anything is dispatched — when the agent does not offer
+   * `session/fork` or does not find the message; the caller starts a fresh session instead. A
+   * fork that was made and then would not load rejects with the load's own error.
+   */
+  async forkAt(sourceAcpSessionId: string, messageId: string): Promise<string> {
+    const init = await this.initialize();
+    if (!init.agentCapabilities?.sessionCapabilities?.fork) {
+      throw new ForkRefused(`${this.options.agentId} cannot fork a conversation`);
+    }
+    let forkId: string;
+    try {
+      forkId = (
+        await this.agent.unstable_forkSession({
+          sessionId: sourceAcpSessionId,
+          cwd: this.options.cwd,
+          mcpServers: this.options.mcpServers ?? [],
+          _meta: { jetbrains: { air: { fork: { version: 1, messageId } } } },
+        })
+      ).sessionId;
+    } catch (error) {
+      throw new ForkRefused(this.describe(error, "session/fork").message);
+    }
+    // The fork's history already carries the preamble its first prompt was sent with.
+    await this.loadSession(forkId, null, true);
+    return forkId;
+  }
+
+  /**
    * `title` is the one the app already knew for this session: the replay
    * sends no `session_info_update`, so the reloaded state starts from it.
    *
@@ -960,4 +995,9 @@ function toContentBlock(block: PromptBlock) {
         resource: { uri: block.uri, text: block.text, mimeType: block.mimeType ?? undefined },
       };
   }
+}
+
+/** `forkAt` could not make the fork: nothing was dispatched, and a fresh session is the fallback. */
+export class ForkRefused extends Error {
+  override name = "ForkRefused";
 }
