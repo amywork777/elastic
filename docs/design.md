@@ -175,6 +175,33 @@ store's value; comments and malformed lines the person typed stay in the box
 after the blur that saved them. A line with no `KEY=` is not saved, and the
 field says which lines ("Line 3 has no KEY=value and will not be saved").
 
+### Notifications
+
+General's **Notifications** card is read by `src/renderer/state/turn-alerts.ts`,
+which watches the session index (`sessions.changed`) for every chat, open or
+not. A chat alerts when its status moves from `running` or `waiting` to `idle`
+(finished) or `error` (failed), or from anything to `waiting` (a permission
+request, or an agent's question, which travels the permission path). A create
+or reconnect settling, an eviction or disconnect (`closed`), an archived chat
+and the first list after launch say nothing. With Notifications on:
+
+- the **toast**, with Open, shows unless the chat is on screen (the chat pane
+  shows it, Settings or a plugin's page does not cover it) in a focused window;
+- the **sound** plays when the window is not focused, or always by the Play
+  sound setting, once per index change however many chats ended in it;
+- the **system banner** shows when the window is not focused and System
+  banners is on. It is main's (`src/main/ipc/notifications.ts`), silent, since
+  the app page is refused the web Notification permission
+  (`src/main/app-permissions.ts`); clicking it brings the window forward and
+  comes back as `notifications.clicked`, which opens the chat as the menu's chat
+  digits do.
+
+The **dock badge** (`notifications.badge`, `app.setBadgeCount`) counts the
+chats that need the person: waiting, or finished and unread by Recents' own
+`isUnread` (`src/renderer/lib/sidebar.ts`) and not working again, archived chats
+left out. It clears as they are answered or viewed, and is zero while
+Notifications is off.
+
 ## Checks
 
 Interaction motion is scoped to activity/thought reveals, composer reference
