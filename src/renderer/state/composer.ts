@@ -67,6 +67,13 @@ import type { PromptReference } from "@workbench/core/prompt";
  * reference labels, annotations, pending files and flags with it (`forget`,
  * called from the index subscription at the foot of this file); an archived
  * row keeps them, because archiving does not spend what was typed.
+ *
+ * Queues and drafts also outlive a quit. Each is written to disk the moment it changes
+ * (`persistQueues`, `persistDrafts`) and put back at launch (`restoreQueues`, `restoreDrafts`,
+ * from the bridge's `hydrate`). A draft keeps its text, its chips' labels, its workspace and its
+ * notes; its files and sketches are renderer-only and are not kept. A draft `forget` takes out is
+ * deleted from the disk by the same save, and one whose chat went while the app was shut is
+ * dropped by the restore.
  */
 export type QueuedPrompt = {
   id: string;
@@ -763,5 +770,153 @@ export function persistQueues(): () => void {
     for (const sessionId of new Set([...Object.keys(state.queues), ...Object.keys(previous.queues)])) {
       if (state.queues[sessionId] !== previous.queues[sessionId]) save(sessionId);
     }
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Drafts across a quit                                                        */
+/* -------------------------------------------------------------------------- */
+
+/** A draft as it is kept on disk (`src/shared/ipc/drafts.ts`): no files, no sketches. */
+type PersistedDraft = {
+  text: string;
+  labels?: Record<string, string>;
+  root?: string;
+  annotations?: { id: string; references: PromptReference[]; text: string }[];
+};
+
+/**
+ * What was last written for each draft key, as JSON: the restore fills it with what it read, and
+ * the save skips a write that would store the same thing again (a keystroke that only replaced the
+ * store's outer objects, the put-back the restore itself makes).
+ */
+const savedDrafts = new Map<string, string>();
+
+/** One key's draft as it is kept, or null when there is nothing worth keeping. */
+function persistedDraft(state: ComposerState, key: string): PersistedDraft | null {
+  const text = state.drafts[key] ?? "";
+  const annotations = (state.annotations[key] ?? []).map(({ id, references, text: note }) => ({ id, references, text: note }));
+  if (!text.trim() && annotations.length === 0) return null;
+  const labels = state.referenceLabels[key];
+  const root = state.draftRoots[key];
+  return {
+    text,
+    ...(labels && Object.keys(labels).length ? { labels } : {}),
+    ...(root ? { root } : {}),
+    ...(annotations.length ? { annotations } : {}),
+  };
+}
+
+/**
+ * Whether a saved draft key still has somewhere to be shown: a chat still in the index (archived
+ * included, as `forget` keeps it), or the new-session box of a project the index still groups.
+ */
+function draftKeyListed(key: string, sessions: ReadonlySet<string>, projects: ReadonlySet<string>): boolean {
+  if (key === NEW_SESSION_KEY) return true;
+  if (key.startsWith(`${NEW_SESSION_KEY}:`)) return projects.has(key.slice(NEW_SESSION_KEY.length + 1));
+  return sessions.has(key);
+}
+
+/**
+ * Put back the drafts saved before the last quit (`drafts.list`), text, chips' labels, workspace
+ * and notes, each in the box it was typed in. A box that already holds something — typed, or
+ * filled by a suggestion, since launch — keeps it: what is on screen now is newer. A draft whose
+ * chat was deleted while the app was shut (or whose project no chat names any more) is dropped
+ * here and from the disk. A failure to read is no drafts, never a launch that fails. Call before
+ * `persistDrafts`, which then writes only what differs from what this read.
+ */
+export async function restoreDrafts(): Promise<void> {
+  let saved: Record<string, PersistedDraft>;
+  try {
+    // The contract checks a reference's two named parts and no more (its shape is the core
+    // package's); what comes back is what `persistDrafts` wrote.
+    saved = await window.workbench.drafts.list() as unknown as Record<string, PersistedDraft>;
+  } catch {
+    return;
+  }
+  const rows = useSessions.getState().sessions;
+  const sessions = new Set(rows.map((row) => row.id));
+  const projects = new Set(rows.map((row) => row.projectId));
+  const stale: string[] = [];
+  // The disk is what was last saved; nothing from an earlier read stands for it any more.
+  savedDrafts.clear();
+  useComposer.setState((state) => {
+    const drafts = { ...state.drafts };
+    const referenceLabels = { ...state.referenceLabels };
+    const draftRoots = { ...state.draftRoots };
+    const annotations = { ...state.annotations };
+    for (const [key, draft] of Object.entries(saved)) {
+      if (!draftKeyListed(key, sessions, projects)) {
+        stale.push(key);
+        continue;
+      }
+      savedDrafts.set(key, JSON.stringify(draft));
+      if ((drafts[key] ?? "").trim() || (annotations[key]?.length ?? 0) > 0) continue;
+      drafts[key] = draft.text;
+      if (draft.labels) referenceLabels[key] = { ...draft.labels };
+      if (draft.root) draftRoots[key] = draft.root;
+      if (draft.annotations?.length) annotations[key] = draft.annotations.map((note) => ({ ...note }));
+    }
+    return { drafts, referenceLabels, draftRoots, annotations };
+  });
+  for (const key of stale) {
+    void window.workbench.drafts.set({ key, draft: null }).catch(() => {});
+  }
+}
+
+/**
+ * Save each draft the moment it changes, so a half-typed prompt outlives a quit. Not after a quiet
+ * spell, for the queue's reason (`persistQueues`): main closes the database in `before-quit`,
+ * before the window could flush, so the last keystrokes before Quit would be lost with the timer.
+ *
+ * The one coalescing is a microtask. The store changes several times in one task for one edit —
+ * a send's `takeDraft` clears the text, then the notes, then the views' context — and a microtask
+ * runs after all of them and before the task yields, so no later event (the quit included) can
+ * come between the edit and its write. A keystroke is its own task, so typing is one write per
+ * key: one small IPC and one SQLite row (`composerDrafts`), which is cheap. Not an animation frame:
+ * a window that is hidden or occluded gets none, and a test window is never shown.
+ *
+ * A key whose draft is empty (sent, cleared, its chat forgotten) is deleted from the disk.
+ * Returns the unsubscribe.
+ */
+export function persistDrafts(): () => void {
+  // A note's references typed as the core package has them; the contract's are looser (above).
+  type Wire = Parameters<typeof window.workbench.drafts.set>[0]["draft"];
+  const dirty = new Set<string>();
+  let scheduled = false;
+  const flush = () => {
+    scheduled = false;
+    const state = useComposer.getState();
+    for (const key of dirty) {
+      const draft = persistedDraft(state, key);
+      const json = draft ? JSON.stringify(draft) : null;
+      if (json === (savedDrafts.get(key) ?? null)) continue;
+      if (json) savedDrafts.set(key, json); else savedDrafts.delete(key);
+      void window.workbench.drafts.set({ key, draft: draft as unknown as Wire }).catch((error: unknown) => {
+        console.warn(`[composer] the draft of ${key.slice(0, 12)} was not saved: ${String(error)}`);
+      });
+    }
+    dirty.clear();
+  };
+  const mark = (keys: Iterable<string>) => {
+    for (const key of keys) dirty.add(key);
+    if (scheduled || dirty.size === 0) return;
+    scheduled = true;
+    queueMicrotask(flush);
+  };
+  // What changed before this was attached (typed while the restore was reading) is saved now.
+  const state = useComposer.getState();
+  mark(new Set([...Object.keys(state.drafts), ...Object.keys(state.annotations), ...savedDrafts.keys()]));
+  return useComposer.subscribe((next, previous) => {
+    const changed = new Set<string>();
+    for (const slice of ["drafts", "annotations", "referenceLabels", "draftRoots"] as const) {
+      const now = next[slice] as Record<string, unknown>;
+      const before = previous[slice] as Record<string, unknown>;
+      if (now === before) continue;
+      for (const key of new Set([...Object.keys(now), ...Object.keys(before)])) {
+        if (now[key] !== before[key]) changed.add(key);
+      }
+    }
+    mark(changed);
   });
 }

@@ -77,6 +77,10 @@ Object.defineProperty(window, "workbench", {
       list: vi.fn(async () => ({})),
       set: vi.fn(async () => undefined),
     },
+    drafts: {
+      list: vi.fn(async () => ({})),
+      set: vi.fn(async () => undefined),
+    },
     agents: {
       list: vi.fn(async () => []),
       refresh: vi.fn(async () => []),

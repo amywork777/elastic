@@ -12,6 +12,7 @@ import path from "node:path";
 import { z } from "zod";
 
 import { PersistedQueuedPromptSchema, type PersistedQueuedPrompt } from "../../shared/ipc/queues";
+import { PersistedDraftSchema, type PersistedDraft } from "../../shared/ipc/drafts";
 
 import { effortModelKey, effortOption } from "../../shared/acp/options";
 import {
@@ -511,6 +512,12 @@ const WINDOW_STATE_KEY = "__window";
 const AGENTS_CACHE_KEY = "__agents";
 /** Each chat's queued prompts (`src/shared/ipc/queues.ts`), by session id, under the same terms. */
 const QUEUES_KEY = "__queues";
+/**
+ * Each composer's unsent draft (`src/shared/ipc/drafts.ts`), one row per draft key under this
+ * prefix, under the same terms. Not one row for all of them, as the queues are: a draft is written
+ * on every keystroke, and that write should be one small row, not a read and rewrite of every chat's.
+ */
+const DRAFT_KEY_PREFIX = "__draft:";
 /** Set once the sidebar has been moved to Recents (`settings.defaultSidebarToRecentsOnce`). */
 const RECENTS_DEFAULTED_KEY = "__recentsDefaulted";
 
@@ -674,5 +681,39 @@ export const queuedPrompts = {
     if (queue.length === 0) delete all[sessionId];
     else all[sessionId] = queue;
     writeRaw({ [QUEUES_KEY]: all });
+  },
+};
+
+/**
+ * What each composer holds unsent, so a quit or an update's restart does not spend a half-typed
+ * prompt. Written as it changes (`persistDrafts` in the renderer), one row per draft, which is why
+ * a write touches only its own row. A row that no longer parses is skipped, never the whole set.
+ */
+export const composerDrafts = {
+  list(): Record<string, PersistedDraft> {
+    // `substr`, not `LIKE`: `_` is LIKE's one-character wildcard, and the prefix starts with two.
+    const rows = db()
+      .prepare("SELECT key, value FROM settings WHERE substr(key, 1, ?) = ?")
+      .all(DRAFT_KEY_PREFIX.length, DRAFT_KEY_PREFIX) as { key: string; value: string }[];
+    const drafts: Record<string, PersistedDraft> = {};
+    for (const row of rows) {
+      let stored: unknown;
+      try {
+        stored = JSON.parse(row.value);
+      } catch {
+        continue;
+      }
+      const parsed = PersistedDraftSchema.safeParse(stored);
+      if (parsed.success) drafts[row.key.slice(DRAFT_KEY_PREFIX.length)] = parsed.data;
+    }
+    return drafts;
+  },
+
+  set(key: string, draft: PersistedDraft | null): void {
+    if (draft === null) {
+      db().prepare("DELETE FROM settings WHERE key = ?").run(DRAFT_KEY_PREFIX + key);
+      return;
+    }
+    writeRaw({ [DRAFT_KEY_PREFIX + key]: draft });
   },
 };

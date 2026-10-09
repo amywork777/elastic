@@ -13,7 +13,7 @@ import type { IpcEventPayload } from "@shared/ipc";
 import { useAcp } from "./acp";
 import { useAgentOptions } from "./agent-options";
 import { useAgents } from "./agents";
-import { persistQueues, restoreQueues, useComposer } from "./composer";
+import { persistDrafts, persistQueues, restoreDrafts, restoreQueues, useComposer } from "./composer";
 import { networkTurnEvent, watchNetwork } from "./network-resume";
 import { trackViewed } from "./viewed";
 import { previewFilesChanged } from "./preview";
@@ -304,6 +304,7 @@ function toggleLayout(key: "sidebarCollapsed") {
 /** First read of everything the shell needs. */
 let stopTracking: (() => void) | null = null;
 let stopSavingQueues: (() => void) | null = null;
+let stopSavingDrafts: (() => void) | null = null;
 let stopViewed: (() => void) | null = null;
 let stopWatchingNetwork: (() => void) | null = null;
 let stopUnhiding: (() => void) | null = null;
@@ -329,6 +330,9 @@ export async function hydrate(): Promise<void> {
   // The prompts queued before the last quit, paused; then every change is saved as it happens.
   await restoreQueues();
   stopSavingQueues ??= persistQueues();
+  // The drafts the boxes held at the last quit, likewise: back first, then saved as they change.
+  await restoreDrafts();
+  stopSavingDrafts ??= persistDrafts();
   stopWatchingNetwork ??= watchNetwork();
   // After the restore: reopening where the person was is not going to a hidden folder.
   stopUnhiding ??= unhideOnOpen();
