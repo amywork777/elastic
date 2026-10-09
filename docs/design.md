@@ -194,7 +194,8 @@ and the first list after launch say nothing. With Notifications on:
   the app page is refused the web Notification permission
   (`src/main/app-permissions.ts`); clicking it brings the window forward and
   comes back as `notifications.clicked`, which opens the chat as the menu's chat
-  digits do.
+  digits do. A window the e2e suite never shows (`WORKBENCH_E2E_HIDDEN=1`) is
+  never focused, so main posts it no banner at all.
 
 The **dock badge** (`notifications.badge`, `app.setBadgeCount`) counts the
 chats that need the person: waiting, or finished and unread by Recents' own

@@ -14,7 +14,10 @@ const live = new Set<Notification>();
 export const notificationsHandlers = {
   notifications: {
     show: ({ sessionId, title, body }, { sender }) => {
-      if (!Notification.isSupported()) {
+      // A window the e2e suite never shows (`WORKBENCH_E2E_HIDDEN=1`, docs/design.md, "Windows
+      // nobody sees") is never focused, so every turn it runs would put a banner on the screen of
+      // whoever is at the machine.
+      if (!Notification.isSupported() || process.env.WORKBENCH_E2E_HIDDEN === "1") {
         return { shown: false };
       }
       // The sound is the renderer's (Settings › General › Sound), so the banner is silent.

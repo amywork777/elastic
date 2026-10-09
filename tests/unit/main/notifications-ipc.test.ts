@@ -6,7 +6,7 @@
  */
 import type { EventEmitter } from "node:events";
 
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const electron = vi.hoisted(() => {
   const created: Array<{ options: unknown; shown: boolean; emitter: EventEmitter }> = [];
@@ -48,10 +48,16 @@ vi.mock("electron", async () => {
 
 import { notificationsHandlers } from "@main/ipc/notifications";
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 const sender = { isDestroyed: vi.fn(() => false), send: vi.fn() };
 const ctx = { event: {}, sender } as never;
 
 beforeEach(() => {
+  // Whatever shell runs the suite, these posts are from a window that is shown.
+  vi.stubEnv("WORKBENCH_E2E_HIDDEN", "0");
   electron.created.length = 0;
   electron.supported.value = true;
   sender.send.mockClear();
@@ -82,6 +88,12 @@ it("does nothing on a click once the page that asked is gone", () => {
 
 it("says so where the platform has no notification centre", () => {
   electron.supported.value = false;
+  expect(notificationsHandlers.notifications.show({ sessionId: "s1", title: "Finished", body: "" }, ctx)).toEqual({ shown: false });
+  expect(electron.created).toHaveLength(0);
+});
+
+it("posts nothing from a window the e2e suite never shows", () => {
+  vi.stubEnv("WORKBENCH_E2E_HIDDEN", "1");
   expect(notificationsHandlers.notifications.show({ sessionId: "s1", title: "Finished", body: "" }, ctx)).toEqual({ shown: false });
   expect(electron.created).toHaveLength(0);
 });
