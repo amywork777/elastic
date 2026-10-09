@@ -67,6 +67,8 @@ type AcpState = {
     provider?: { id: string; model: string | null } | null;
     /** The chat this one continues ("Continue with …"). */
     from?: string;
+    /** "Edit" on a past prompt of `from`: fork its conversation at `forkAt` when the agent can. */
+    edit?: { forkAt: string | null };
   }) => Promise<string>;
   load: (sessionId: string) => Promise<void>;
   /**

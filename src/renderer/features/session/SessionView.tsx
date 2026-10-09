@@ -4,6 +4,7 @@ import { AlertCircle, Loader2, RotateCcw, Unplug } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@renderer/components/ui/button";
+import { promptBlocks } from "@renderer/lib/edit-prompt";
 import { useAcp } from "@renderer/state/acp";
 import { useProviderModels } from "@renderer/state/agent-options";
 import { useAgents, useInstalledAgents } from "@renderer/state/agents";
@@ -25,6 +26,7 @@ import type { QuickCommandName } from "@renderer/state/asides";
 import { EffortChip, ModeChip, ModelChip } from "./ComposerChips";
 import { ContextMeter } from "./ContextMeter";
 import { ContinueBar, LinkedChats, continueWith, type ContinueTarget } from "./ContinueWith";
+import { editAndResend } from "./EditPrompt";
 import { TranscriptScopeContext, type TranscriptScope } from "./links/PathLink";
 import { PlanCard } from "./PlanCard";
 import { SessionHeader } from "./SessionHeader";
@@ -287,7 +289,15 @@ export function SessionView({ session }: { session: Session }) {
 
       {state ? (
         <TranscriptScopeContext.Provider value={scope}>
-          <Transcript onReconnect={reconnectFromBar} onRetry={retry} state={state} />
+          <Transcript
+            onEditPrompt={async (turn, text, restore) => {
+              await editAndResend({ session, state, turn, text, restore, agentName: agent?.name ?? session.agentId });
+            }}
+            onReconnect={reconnectFromBar}
+            onRetry={retry}
+            projectId={session.projectId}
+            state={state}
+          />
         </TranscriptScopeContext.Provider>
       ) : loadError ? (
         notInstalled(loadError) ? (
@@ -487,21 +497,7 @@ function AgentMissing({
 /** The last prompt the person sent, as blocks Retry can send again. */
 export function lastUserPrompt(state: SessionState | null): PromptBlock[] | null {
   const turn = state?.turns.findLast((candidate) => candidate.role === "user");
-  if (!turn) {
-    return null;
-  }
-  const blocks: PromptBlock[] = [];
-  for (const part of turn.parts) {
-    if (part.type === "text") {
-      blocks.push({ type: "text", text: part.text });
-    } else if (part.type === "image") {
-      blocks.push({ type: "image", data: part.data, mimeType: part.mimeType, uri: null });
-    } else if (part.type === "resource_link") {
-      blocks.push({ type: "resource_link", uri: part.uri, name: part.name, mimeType: null, title: null });
-    } else if (part.type === "resource") {
-      blocks.push({ type: "resource", uri: part.uri, text: part.text, mimeType: part.mimeType });
-    }
-  }
+  const blocks = turn ? promptBlocks(turn) : [];
   return blocks.length > 0 ? blocks : null;
 }
 

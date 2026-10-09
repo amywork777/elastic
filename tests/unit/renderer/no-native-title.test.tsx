@@ -157,6 +157,30 @@ it("text the session shows in full elsewhere carries no native title either", ()
   expect([...document.querySelectorAll("[title]")].map((element) => element.outerHTML.slice(0, 120))).toEqual([]);
 });
 
+it("nor do a turn's own controls: a prompt's Edit and its editor, a reply's Copy, the find bar", async () => {
+  const state: SessionState = {
+    ...initialSessionState("s1", "claude-code"),
+    turns: [
+      { id: "u1", role: "user", startedAt: 1, endedAt: 1, stopReason: null, parts: [{ type: "text", text: "make it blue" }] },
+      { id: "a1", role: "agent", startedAt: 1, endedAt: 2, stopReason: "end_turn", parts: [{ type: "text", text: "Blue now." }] },
+    ],
+  } as never;
+  render(
+    <TooltipProvider>
+    <TranscriptScopeContext.Provider value={scope}>
+      <Transcript onEditPrompt={vi.fn(async () => undefined)} onReconnect={vi.fn()} onRetry={vi.fn()} projectId="p1" state={state} />
+    </TranscriptScopeContext.Provider>
+    </TooltipProvider>,
+  );
+  expect(screen.getByRole("button", { name: "Copy reply" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Edit this prompt" }));
+  expect(screen.getByRole("textbox", { name: "Edit the prompt" })).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "f", metaKey: true, ctrlKey: true });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Close find" })).toBeInTheDocument());
+  expect(titled()).toEqual([]);
+  expect(unhinted()).toEqual([]);
+});
+
 it("no control in the sidebar carries a native title, a row with changes included", async () => {
   const changed = { ...SESSION, gitMode: "none", pinned: false, changedFiles: 2, insertions: 9, deletions: 1 } as Session;
   // The folder view: Recents rows show a tag where these rows show their change counts.

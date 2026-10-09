@@ -79,7 +79,10 @@ export function ContinueBar({ target, onConfirm, onCancel }: { target: ContinueT
   );
 }
 
-/** "Continued from …" / "Continued in …": the chats a Continue with linked to this one. */
+/**
+ * "Continued from …" / "Continued in …": the chats a Continue with linked to this one; "Edited
+ * from …" / "Edited in …" for a chat an edit of a past prompt started (`EditPrompt.tsx`).
+ */
 export function LinkedChats({ session }: { session: Session }) {
   const sessions = useSessions((state) => state.sessions);
   const setActive = useSessions((state) => state.setActive);
@@ -90,7 +93,7 @@ export function LinkedChats({ session }: { session: Session }) {
     <div className="flex shrink-0 flex-wrap justify-center gap-x-4 gap-y-1 px-6 pt-2 text-[12px] text-muted-foreground" data-linked-chats>
       {from ? (
         <span>
-          Continued from{" "}
+          {session.links?.kind === "edit" ? "Edited from" : "Continued from"}{" "}
           <button className="underline underline-offset-2 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none rounded-sm" onClick={() => setActive(from.id)} type="button">
             {from.title}
           </button>
@@ -98,7 +101,7 @@ export function LinkedChats({ session }: { session: Session }) {
       ) : null}
       {to ? (
         <span>
-          Continued in{" "}
+          {to.links?.kind === "edit" ? "Edited in" : "Continued in"}{" "}
           <button className="underline underline-offset-2 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none rounded-sm" onClick={() => setActive(to.id)} type="button">
             {to.title}
           </button>

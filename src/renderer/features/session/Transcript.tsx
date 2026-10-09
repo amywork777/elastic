@@ -1,7 +1,9 @@
 import { TooltipHint } from "@workbench/ui/primitives/tooltip";
-import { ArrowDown, ChevronRight, Paperclip } from "lucide-react";
-import { memo, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import { ArrowDown, ChevronRight, Paperclip, Pencil } from "lucide-react";
+import { createContext, memo, useContext, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useStickToBottomContext, type StickToBottomContext } from "use-stick-to-bottom";
+
+import { toast } from "sonner";
 
 import { focusComposerOf } from "@renderer/app/pane-focus";
 import { isHandoff } from "@renderer/lib/handoff";
@@ -11,8 +13,12 @@ import { useSessions } from "@renderer/state/sessions";
 import { useUi } from "@renderer/state/ui";
 import { Conversation, ConversationContent } from "@renderer/components/ai-elements/conversation";
 import type { Part, SessionState, Turn } from "@shared/acp/types";
+import { errorMessage } from "@shared/ipc/errors";
+
+import { Button } from "@renderer/components/ui/button";
 
 import { CopyReplyButton, replyMarkdown } from "./CopyReply";
+import { EditPromptCard } from "./EditPrompt";
 import { drawnParts } from "./find";
 import { FindBar } from "./FindBar";
 import { PartsList } from "./parts/PartsList";
@@ -41,10 +47,16 @@ export function Transcript({
   state,
   onRetry,
   onReconnect,
+  onEditPrompt,
+  projectId,
 }: {
   state: SessionState;
   onRetry: () => void;
   onReconnect: () => void;
+  /** "Edit" on a past prompt (`EditPrompt.tsx`): without it, prompts offer no pencil. */
+  onEditPrompt?: (turn: Turn, text: string, restore: boolean) => Promise<void>;
+  /** The session's project, for the edit's restore preview. */
+  projectId?: string;
 }) {
   const status = statusLine(state);
   // How many of the earliest turns are not mounted. It is set once, when the
@@ -94,10 +106,12 @@ export function Transcript({
   const streaming = last?.role === "agent" && last.endedAt === null && state.status !== "waiting";
 
   const find = useFindKey(state.sessionId);
+  const edit = useEditing(state, onEditPrompt, projectId);
   const frame = useRef<HTMLDivElement | null>(null);
   const stick = useRef<StickToBottomContext | null>(null);
 
   return (
+    <EditContext.Provider value={edit}>
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col" ref={frame}>
       {/* Outside the log: the bar is chrome over the transcript, not a message in it. */}
       {find.open ? (
@@ -133,7 +147,68 @@ export function Transcript({
       <JumpToLatest />
     </Conversation>
     </div>
+    </EditContext.Provider>
   );
+}
+
+/** What a prompt needs to offer "Edit": which prompt is open, and the doors in and out. */
+type Editing = {
+  /** The prompt open in the editor, if one is. */
+  openId: string | null;
+  /** The chat's latest prompt: only its files have a checkpoint, and only its turn can be running. */
+  latestId: string | null;
+  running: boolean;
+  projectId: string;
+  sessionId: string;
+  open: (turnId: string) => void;
+  /** Close the editor and hand focus back to the prompt's Edit button. */
+  close: (turnId: string) => void;
+  send: (turn: Turn, text: string, restore: boolean) => Promise<void>;
+};
+const EditContext = createContext<Editing | null>(null);
+
+/**
+ * One prompt open for editing at a time, per transcript. A context rather than props, so the
+ * memoised turns are not drawn again for every token of a streaming reply: the value changes only
+ * when the open prompt, the latest prompt or the running state does.
+ */
+function useEditing(state: SessionState, onEditPrompt: ((turn: Turn, text: string, restore: boolean) => Promise<void>) | undefined, projectId: string | undefined): Editing | null {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const latestId = state.turns.findLast((turn) => turn.role === "user")?.id ?? null;
+  const running = state.status === "running" || state.status === "waiting";
+  // The latest callback, read when Send is pressed, so a new closure each render is no new value.
+  const sendRef = useRef(onEditPrompt);
+  useLayoutEffect(() => {
+    sendRef.current = onEditPrompt;
+  });
+  const sessionId = state.sessionId;
+  const enabled = !!onEditPrompt && !!projectId;
+  return useMemo(() => {
+    if (!enabled || !projectId) return null;
+    const focusEdit = (turnId: string) =>
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-turn="${CSS.escape(turnId)}"] [data-edit-prompt]`)?.focus());
+    return {
+      openId,
+      latestId,
+      running,
+      projectId,
+      sessionId,
+      open: setOpenId,
+      close: (turnId) => {
+        setOpenId(null);
+        focusEdit(turnId);
+      },
+      send: async (turn, text, restore) => {
+        try {
+          await sendRef.current?.(turn, text, restore);
+          setOpenId(null);
+        } catch (error) {
+          // Refused: the editor stays, with what was typed, and focus stays on its Send.
+          toast.error(`Could not send the edited prompt: ${errorMessage(error)}`);
+        }
+      },
+    };
+  }, [enabled, projectId, sessionId, openId, latestId, running]);
 }
 
 /**
@@ -460,6 +535,7 @@ function HandoffTurn({ text, turnId }: { text: string; turnId: string }) {
 }
 
 function UserTurn({ turn }: { turn: Turn }) {
+  const edit = useContext(EditContext);
   const text = turn.parts
     .filter((part): part is Extract<Turn["parts"][number], { type: "text" }> => part.type === "text")
     .map((part) => part.text)
@@ -477,7 +553,17 @@ function UserTurn({ turn }: { turn: Turn }) {
       {/* The bubble carries no `select-text` of its own: the whole transcript
           selects (`styles/globals.css`), which is what a person means when
           they drag across a reply and their own prompt in one go. */}
-      {text ? (
+      {edit?.openId === turn.id ? (
+        <EditPromptCard
+          latest={edit.latestId === turn.id}
+          onCancel={() => edit.close(turn.id)}
+          onSend={(edited, restore) => edit.send(turn, edited, restore)}
+          projectId={edit.projectId}
+          running={edit.running}
+          sessionId={edit.sessionId}
+          turn={turn}
+        />
+      ) : text ? (
         <div className="max-w-[85%] rounded-2xl rounded-br-md bg-secondary px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]" data-find-text>
           {text}
         </div>
@@ -508,6 +594,20 @@ function UserTurn({ turn }: { turn: Turn }) {
       ) : null}
       <div className="-mt-1 flex h-6 items-center gap-0.5" data-prompt-actions>
         <SentAt at={turn.startedAt} />
+        {edit && text && edit.openId !== turn.id ? (
+          <TooltipHint content="Edit and send again">
+            <Button
+              aria-label="Edit this prompt"
+              className="size-6 text-muted-foreground opacity-0 group-hover/turn:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+              data-edit-prompt
+              onClick={() => edit.open(turn.id)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <Pencil className="size-3" />
+            </Button>
+          </TooltipHint>
+        ) : null}
       </div>
     </div>
   );
