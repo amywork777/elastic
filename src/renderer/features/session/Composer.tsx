@@ -31,6 +31,7 @@ import {
 import type { FileUIPart } from "@renderer/components/ai-elements/types";
 import { QueuedPromptRow } from "@renderer/features/session/composer/QueuedPromptRow";
 import { NEW_SESSION_KEY, appContextPromptBlocks, appContextSummary, useComposer, useQueue } from "@renderer/state/composer";
+import { useAcp } from "@renderer/state/acp";
 import { useActiveProject } from "@renderer/state/projects";
 import { useSessions } from "@renderer/state/sessions";
 import type { AvailableCommand, PromptBlock } from "@shared/acp/types";
@@ -52,6 +53,7 @@ import { parseQuickCommand, withQuickCommands } from "./composer/quick-commands"
 import { useAsides, type QuickCommandName } from "@renderer/state/asides";
 import { useDictation } from "./composer/dictation";
 import { applyMention, mentionQuery } from "./composer/mentions";
+import { sentPrompts, stepHistory, type HistoryCursor } from "./composer/prompt-history";
 import { ReferenceScopeContext } from "./composer/ReferenceScope";
 import { AnnotationsChip, annotationImageParts, withAnnotations } from "./composer/AnnotationsChip";
 import { AppContextChips } from "./composer/AppContextChip";
@@ -162,6 +164,21 @@ export function Composer({
     [draftKey, setDraft],
   );
   const textRef = useRef<ComposerEditorHandle | null>(null);
+  // Up and Down through what was sent (`composer/prompt-history.ts`). A walk belongs to one box.
+  const history = useRef<{ key: string; cursor: HistoryCursor } | null>(null);
+  const walkHistory = (direction: "up" | "down"): boolean => {
+    const walk = history.current?.key === draftKey ? history.current.cursor : null;
+    // An edited recall is the person's draft now: the arrows go back to moving the caret.
+    const walking = walk !== null && walk.shown === text;
+    if (!walking && (direction === "down" || !(text.trim() === "" || textRef.current?.atEdge("up")))) return false;
+    const step = stepHistory(promptsFor(sessionId, project?.id ?? null), walking ? walk : null, text, direction);
+    if (!step) return false;
+    history.current = step.cursor ? { key: draftKey, cursor: step.cursor } : null;
+    setText(step.text);
+    // After the editor has taken the new text, so the caret lands at its end.
+    window.requestAnimationFrame(() => textRef.current?.focus());
+    return true;
+  };
   const dictation = useDictation({
     text,
     setText,
@@ -468,6 +485,9 @@ export function Composer({
                     if (event.key === "Escape" && status === "streaming" && onStop) {
                       event.preventDefault();
                       onStop();
+                    } else if ((event.key === "ArrowUp" || event.key === "ArrowDown") && !event.shiftKey && !event.altKey
+                      && !event.metaKey && !event.ctrlKey && walkHistory(event.key === "ArrowUp" ? "up" : "down")) {
+                      event.preventDefault();
                     }
                     return;
                   }
@@ -570,6 +590,22 @@ function AttachmentFilesSync({ files }: { files: AttachmentFiles }) {
 type AttachmentsHandle = ReturnType<typeof usePromptInputAttachments>;
 /** Sort files, then hand what may be attached to the form's `add`. */
 type Admit = (files: readonly File[], add: (files: File[]) => void) => Promise<void>;
+
+/**
+ * The prompts Up walks, newest first: this chat's own; in a new chat, every
+ * open chat's in this project, the latest first. Read when the key is pressed,
+ * not subscribed to, so a streaming reply does not redraw the composer.
+ */
+function promptsFor(sessionId: string | null, projectId: string | null): string[] {
+  const loaded = useAcp.getState().sessions;
+  if (sessionId) return sentPrompts(loaded[sessionId]?.turns ?? []);
+  const inProject = new Set(useSessions.getState().sessions.filter((row) => row.projectId === projectId).map((row) => row.id));
+  const turns = Object.entries(loaded)
+    .filter(([id]) => inProject.has(id))
+    .flatMap(([, state]) => state.turns)
+    .sort((a, b) => a.startedAt - b.startedAt);
+  return sentPrompts(turns);
+}
 
 /**
  * The editor, with the three things the textarea did for the form: Enter

@@ -45,6 +45,8 @@ export type ComposerEditorHandle = {
   isEmpty: () => boolean;
   /** The `PromptInput` form the editor sits in, for Enter to submit. */
   form: () => HTMLFormElement | null;
+  /** A bare caret on the box's top (`up`) or bottom (`down`) line, where an arrow leaves the text: prompt history's cue. */
+  atEdge: (direction: "up" | "down") => boolean;
 };
 
 export function ComposerEditor({
@@ -213,6 +215,7 @@ export function ComposerEditor({
       focus: () => editor?.commands.focus("end"),
       isEmpty: () => (editor ? editor.state.doc.textContent === "" && !hasChips(editor) : true),
       form: () => editor?.view.dom.closest("form") ?? null,
+      atEdge: (direction) => !!editor && editor.state.selection.empty && editor.view.endOfTextblock(direction),
     }),
     [editor],
   );

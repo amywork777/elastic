@@ -74,6 +74,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
     binding: "Shift+Enter",
   },
   { id: "stop", group: "Session", label: "Stop the current turn", binding: "Escape" },
+  // `composer/prompt-history.ts`: from the box's first line, or an empty box; Down walks back.
+  { id: "prompt-history", group: "Session", label: "Earlier prompts in the composer", binding: "Up" },
 
   { id: "new-file-tab", group: "Explorer", label: "New file tab", binding: "Mod+T" },
   { id: "new-review-tab", group: "Explorer", label: "New review tab", binding: "Mod+Shift+R" },
@@ -141,6 +143,7 @@ const GLYPHS: Record<string, { mac: string; other: string }> = {
   // Keycaps, as Apple prints them; spelled out elsewhere.
   Left: { mac: "←", other: "Left" },
   Right: { mac: "→", other: "Right" },
+  Up: { mac: "↑", other: "Up" },
 };
 
 /**
